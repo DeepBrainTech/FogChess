@@ -1,0 +1,59 @@
+export interface Player {
+  id: string;
+  name: string;
+  color: 'white' | 'black';
+  socketId: string;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  players: Player[];
+  gameState: GameState;
+  createdAt: Date;
+  isFull: boolean;
+}
+
+export interface GameState {
+  board: string; // FEN notation
+  currentPlayer: 'white' | 'black';
+  gameStatus: 'waiting' | 'playing' | 'finished';
+  winner?: 'white' | 'black' | 'draw';
+  moveHistory: Move[];
+  fogOfWar: FogOfWarState;
+}
+
+export interface Move {
+  from: string;
+  to: string;
+  piece: string;
+  captured?: string;
+  timestamp: Date;
+  player: 'white' | 'black';
+}
+
+export interface FogOfWarState {
+  whiteVisible: string[]; // 白方可见的格子
+  blackVisible: string[]; // 黑方可见的格子
+  lastKnownPositions: {
+    white: { [key: string]: string }; // 白方最后已知的棋子位置
+    black: { [key: string]: string }; // 黑方最后已知的棋子位置
+  };
+}
+
+export interface SocketEvents {
+  // 客户端发送的事件
+  'join-room': { roomId: string; playerName: string };
+  'create-room': { roomName: string; playerName: string };
+  'make-move': { roomId: string; move: Move };
+  'leave-room': { roomId: string };
+  
+  // 服务端发送的事件
+  'room-created': { room: Room };
+  'room-joined': { room: Room; player: Player };
+  'player-joined': { player: Player };
+  'player-left': { playerId: string };
+  'game-updated': { gameState: GameState };
+  'move-made': { move: Move; gameState: GameState };
+  'error': { message: string };
+}
