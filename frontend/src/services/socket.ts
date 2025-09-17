@@ -56,19 +56,25 @@ class SocketService {
     this.socket?.emit('make-move', { roomId, move });
   }
 
+  // 获取某格子的合法走法
+  getLegalMoves(roomId: string, square: string): void {
+    this.socket?.emit('get-legal-moves', { roomId, square });
+  }
+
   // 离开房间
   leaveRoom(roomId: string): void {
     this.socket?.emit('leave-room', { roomId });
   }
 
   // 监听事件
-  on<K extends keyof SocketEvents>(event: K, callback: (data: SocketEvents[K]) => void): void {
-    this.socket?.on(event, callback);
+  on<K extends keyof SocketEvents | string>(event: K, callback: any): void {
+    // 这里放宽类型以便前后端扩展自定义事件（如临时的legal-moves）
+    (this.socket as any)?.on(event as any, callback);
   }
 
   // 移除监听器
-  off<K extends keyof SocketEvents>(event: K, callback?: (data: SocketEvents[K]) => void): void {
-    this.socket?.off(event, callback);
+  off<K extends keyof SocketEvents | string>(event: K, callback?: any): void {
+    (this.socket as any)?.off(event as any, callback);
   }
 
   // 获取连接状态

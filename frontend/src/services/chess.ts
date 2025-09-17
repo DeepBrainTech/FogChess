@@ -2,6 +2,7 @@ import type { ChessPiece, BoardSquare, MoveValidation } from '../types/chess';
 
 export class ChessService {
   private board: BoardSquare[][] = [];
+  private lastAppliedFog: { whiteVisible: Set<string>; blackVisible: Set<string> } | null = null;
 
   constructor() {
     this.initializeBoard();
@@ -30,11 +31,13 @@ export class ChessService {
    * 从FEN字符串设置棋盘
    */
   setBoardFromFen(fen: string): void {
+    console.log('[ChessService] setBoardFromFen - FEN:', fen);
     this.initializeBoard();
     const [boardPart] = fen.split(' ');
     
     let row = 0;
     let col = 0;
+    let pieceCount = 0;
     
     for (const char of boardPart) {
       if (char === '/') {
@@ -46,10 +49,61 @@ export class ChessService {
         const piece = this.charToPiece(char, row, col);
         if (piece) {
           this.board[row][col].piece = piece;
+          pieceCount++;
         }
         col++;
       }
     }
+    
+    console.log('[ChessService] setBoardFromFen - Pieces placed:', pieceCount);
+  }
+
+  applyFogFor(playerColor: 'white' | 'black', fog: { whiteVisible: string[]; blackVisible: string[] }): void {
+    const list = playerColor === 'white' ? fog.whiteVisible : fog.blackVisible;
+    const visible = new Set(list);
+    
+    console.log('[ChessService] applyFogFor - Player:', playerColor, 'Visible squares:', list.length);
+    console.log('[ChessService] applyFogFor - Visible squares list:', list.sort());
+    
+    if (visible.size === 0) {
+      console.log('[ChessService] applyFogFor - No visible squares, keeping all visible');
+      // 防御：如果服务端未计算出可见格，保持当前棋盘可见，不做隐藏
+      return;
+    }
+    this.lastAppliedFog = {
+      whiteVisible: new Set(fog.whiteVisible),
+      blackVisible: new Set(fog.blackVisible)
+    };
+
+    let visibleCount = 0;
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const notation = this.getSquareNotation(row, col);
+        const square = this.board[row][col];
+        const isSquareVisible = visible.has(notation);
+        
+        // 迷雾棋规则：
+        // 1. 如果格子可见，显示所有棋子
+        // 2. 如果格子不可见，只显示自己的棋子，隐藏对手的棋子
+        if (!isSquareVisible && square.piece) {
+          // 只隐藏对手的棋子，自己的棋子始终可见
+          if (square.piece.color !== playerColor) {
+            square.piece = null;
+          }
+        }
+        
+        square.isVisible = isSquareVisible;
+        if (square.isVisible) visibleCount++;
+        
+        if (!square.isVisible) {
+          // 清除高亮状态
+          square.isHighlighted = false;
+          square.isPossibleMove = false;
+        }
+      }
+    }
+    
+    console.log('[ChessService] applyFogFor - Applied fog, visible squares:', visibleCount);
   }
 
   /**

@@ -40,6 +40,8 @@ io.on('connection', (socket) => {
       const room = roomService.createRoom(data.roomName, data.playerName, socket.id);
       socket.join(room.id);
       socket.emit('room-created', { room });
+      // 房间创建时处于等待状态
+      io.to(room.id).emit('game-updated', { gameState: room.gameState });
       console.log(`房间创建: ${room.id} by ${data.playerName}`);
     } catch (error) {
       socket.emit('error', { message: 'Failed to create room' });
@@ -57,6 +59,8 @@ io.on('connection', (socket) => {
         
         // 通知房间内其他玩家
         socket.to(data.roomId).emit('player-joined', { player: result.player });
+        // 广播当前游戏状态（可能仍为waiting或已变为playing）
+        io.to(data.roomId).emit('game-updated', { gameState: result.room.gameState });
         
         console.log(`${data.playerName} 加入房间: ${data.roomId}`);
       } else {
@@ -84,6 +88,23 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       socket.emit('error', { message: 'Failed to make move' });
+    }
+  });
+
+  // 获取某格子的合法走法（用于前端高亮）
+  socket.on('get-legal-moves', (data: SocketEvents['get-legal-moves']) => {
+    try {
+      const room = roomService.getRoom(data.roomId);
+      if (!room) {
+        socket.emit('error', { message: 'Room not found' });
+        return;
+      }
+      const chess = (roomService as any).getChessInstance?.(data.roomId) as any;
+      const service = chess || (room as any).chessService;
+      const moves = roomService.getLegalMoves(data.roomId, data.square);
+      socket.emit('legal-moves', { square: data.square, moves });
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to get legal moves' });
     }
   });
 

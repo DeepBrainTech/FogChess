@@ -1,6 +1,6 @@
 <template>
   <div class="chess-board">
-    <div class="board-container">
+    <div class="board-container" :key="boardRenderKey">
       <div 
         v-for="row in 8" 
         :key="`row-${row}`"
@@ -24,12 +24,23 @@
 </template>
 
 <script setup lang="ts">
-// import { computed } from 'vue'; // 暂时未使用
+import { computed } from 'vue';
 import { useGameStore } from '../../stores/game';
 import { chessService } from '../../services/chess';
 import ChessPiece from './ChessPiece.vue';
 
 const gameStore = useGameStore();
+
+// 当gameState或fog变化时，触发重新渲染
+const boardRenderKey = computed(() => {
+  const gs = gameStore.gameState as any;
+  if (!gs) return 'empty';
+  const fog = gs.fogOfWar || {};
+  // 加入选中格与可走列表，确保点击后高亮强制更新
+  const sel = gameStore.selectedSquare || '';
+  const movesSig = (gameStore.possibleMoves || []).join(',');
+  return `${gs.board}|${fog.whiteVisible?.length || 0}|${fog.blackVisible?.length || 0}|${sel}|${movesSig}`;
+});
 
 const getSquareClass = (row: number, col: number) => {
   const isLight = (row + col) % 2 === 0;
@@ -65,8 +76,9 @@ const onSquareClick = (row: number, col: number) => {
       gameStore.makeMove(gameStore.selectedSquare, notation);
     }
   } else {
-    // 选择棋子
+    // 选择棋子并请求合法走法高亮
     gameStore.selectSquare(notation);
+    gameStore.requestLegalMoves(notation);
   }
 };
 </script>
@@ -93,8 +105,8 @@ const onSquareClick = (row: number, col: number) => {
 }
 
 .square {
-  width: 60px;
-  height: 60px;
+  width: 72px; /* 放大棋盘格尺寸 */
+  height: 72px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -104,11 +116,11 @@ const onSquareClick = (row: number, col: number) => {
 }
 
 .square-light {
-  background-color: #F0D9B5;
+  background-color: #F0D9B5; /* chess.com 浅格近似 */
 }
 
 .square-dark {
-  background-color: #B58863;
+  background-color: #B58863; /* chess.com 深格近似 */
 }
 
 .square-highlighted {
@@ -116,16 +128,12 @@ const onSquareClick = (row: number, col: number) => {
   box-shadow: inset 0 0 0 3px #FFA500;
 }
 
-.square-possible {
-  background-color: #90EE90 !important;
-}
-
 .square-possible::after {
   content: '';
   position: absolute;
-  width: 20px;
-  height: 20px;
-  background-color: #4CAF50;
+  width: 18px;
+  height: 18px;
+  background-color: rgba(30, 136, 229, 0.9); /* 蓝色圆点，接近 chess.com */
   border-radius: 50%;
   opacity: 0.7;
 }
@@ -145,8 +153,8 @@ const onSquareClick = (row: number, col: number) => {
 
 @media (max-width: 768px) {
   .square {
-    width: 40px;
-    height: 40px;
+    width: 52px;
+    height: 52px;
   }
 }
 </style>

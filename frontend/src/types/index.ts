@@ -28,6 +28,7 @@ export interface Move {
   to: string;
   piece: string;
   captured?: string;
+  promotion?: 'q' | 'r' | 'b' | 'n';
   timestamp: Date;
   player: 'white' | 'black';
 }

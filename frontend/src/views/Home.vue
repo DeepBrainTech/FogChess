@@ -51,6 +51,13 @@ const showJoinRoom = ref(false);
 
 onMounted(() => {
   roomStore.connect();
+  // 如果地址栏包含 ?room= 则自动弹出“加入房间”
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('room')) {
+      showJoinRoom.value = true;
+    }
+  } catch {}
 });
 </script>
 

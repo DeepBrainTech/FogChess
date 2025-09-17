@@ -115,7 +115,14 @@ const joinRoomById = (id: string) => {
 };
 
 onMounted(() => {
-  // 这里可以添加获取可用房间列表的逻辑
+  // 自动从邀请链接读取 ?room=xxx 预填房间ID
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const idFromUrl = params.get('room');
+    if (idFromUrl) {
+      roomId.value = idFromUrl;
+    }
+  } catch (e) {}
 });
 </script>
 

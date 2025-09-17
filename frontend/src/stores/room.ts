@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { Room, Player } from '../types';
+import type { Room, Player, SocketEvents } from '../types';
 import { socketService } from '../services/socket';
 
 export const useRoomStore = defineStore('room', () => {
@@ -45,17 +45,28 @@ export const useRoomStore = defineStore('room', () => {
 
   // 监听Socket事件
   const setupSocketListeners = () => {
-    socketService.on('room-created', (data) => {
+    socketService.on('room-created', (data: SocketEvents['room-created']) => {
       setCurrentRoom(data.room);
       setCurrentPlayer(data.room.players[0]);
+      try {
+        const shareUrl = `${window.location.origin}?room=${data.room.id}`;
+        window.history.replaceState(null, '', `?room=${data.room.id}`);
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(shareUrl).catch(() => {});
+        }
+        console.log('Room created. Share link copied:', shareUrl);
+      } catch {}
     });
 
-    socketService.on('room-joined', (data) => {
+    socketService.on('room-joined', (data: SocketEvents['room-joined']) => {
       setCurrentRoom(data.room);
       setCurrentPlayer(data.player);
+      try {
+        window.history.replaceState(null, '', `?room=${data.room.id}`);
+      } catch {}
     });
 
-    socketService.on('player-joined', (data) => {
+    socketService.on('player-joined', (data: SocketEvents['player-joined']) => {
       if (currentRoom.value) {
         const updatedRoom = { ...currentRoom.value };
         updatedRoom.players.push(data.player);
@@ -64,7 +75,7 @@ export const useRoomStore = defineStore('room', () => {
       }
     });
 
-    socketService.on('player-left', (data) => {
+    socketService.on('player-left', (data: SocketEvents['player-left']) => {
       if (currentRoom.value) {
         const updatedRoom = { ...currentRoom.value };
         updatedRoom.players = updatedRoom.players.filter(p => p.id !== data.playerId);
@@ -73,7 +84,7 @@ export const useRoomStore = defineStore('room', () => {
       }
     });
 
-    socketService.on('error', (data) => {
+    socketService.on('error', (data: SocketEvents['error']) => {
       console.error('Room error:', data.message);
     });
   };

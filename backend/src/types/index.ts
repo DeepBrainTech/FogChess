@@ -28,6 +28,7 @@ export interface Move {
   to: string;
   piece: string;
   captured?: string;
+  promotion?: 'q' | 'r' | 'b' | 'n';
   timestamp: Date;
   player: 'white' | 'black';
 }
@@ -46,6 +47,7 @@ export interface SocketEvents {
   'join-room': { roomId: string; playerName: string };
   'create-room': { roomName: string; playerName: string };
   'make-move': { roomId: string; move: Move };
+  'get-legal-moves': { roomId: string; square: string };
   'leave-room': { roomId: string };
   
   // 服务端发送的事件
@@ -55,5 +57,6 @@ export interface SocketEvents {
   'player-left': { playerId: string };
   'game-updated': { gameState: GameState };
   'move-made': { move: Move; gameState: GameState };
+  'legal-moves': { square: string; moves: string[] };
   'error': { message: string };
 }

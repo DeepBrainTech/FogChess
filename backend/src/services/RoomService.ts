@@ -4,10 +4,9 @@ import { ChessService } from './ChessService';
 
 export class RoomService {
   private rooms: Map<string, Room> = new Map();
-  private chessService: ChessService;
+  private roomIdToChess: Map<string, ChessService> = new Map();
 
   constructor() {
-    this.chessService = new ChessService();
   }
 
   /**
@@ -22,14 +21,19 @@ export class RoomService {
       socketId
     };
 
+    const chess = new ChessService();
+    this.roomIdToChess.set(roomId, chess);
+
     const room: Room = {
       id: roomId,
       name: roomName,
       players: [player],
-      gameState: this.chessService.createNewGame(),
+      gameState: chess.createNewGame(),
       createdAt: new Date(),
       isFull: false
     };
+
+    // 等待第二名玩家加入后再开始
 
     this.rooms.set(roomId, room);
     return room;
@@ -53,6 +57,11 @@ export class RoomService {
       return { success: false, error: 'Room already has 2 players' };
     }
 
+    // 同一socket重复加入保护
+    if (room.players.some(p => p.socketId === socketId)) {
+      return { success: false, error: 'Player already in room' };
+    }
+
     const player: Player = {
       id: uuidv4(),
       name: playerName,
@@ -62,7 +71,17 @@ export class RoomService {
 
     room.players.push(player);
     room.isFull = true;
+    // 重置为标准初始局并开始（使用该房间现有实例）
+    const chess = this.roomIdToChess.get(roomId) || new ChessService();
+    this.roomIdToChess.set(roomId, chess);
+    room.gameState = chess.createNewGame();
     room.gameState.gameStatus = 'playing';
+    console.log('[RoomService] joinRoom - Game started:', {
+      roomId,
+      gameStatus: room.gameState.gameStatus,
+      fen: room.gameState.board,
+      players: room.players.length
+    });
 
     return { success: true, room, player };
   }
@@ -109,6 +128,23 @@ export class RoomService {
     return Array.from(this.rooms.values());
   }
 
+  /** 对外暴露：获取房间的ChessService实例 */
+  getChessInstance(roomId: string): ChessService | undefined {
+    return this.roomIdToChess.get(roomId);
+  }
+
+  /** 返回某格子的合法走法（坐标数组，如 ['e4','e5']） */
+  getLegalMoves(roomId: string, square: string): string[] {
+    const chess = this.roomIdToChess.get(roomId);
+    if (!chess) return [];
+    try {
+      const moves = chess.getPossibleMoves(square as any) as any[];
+      return (moves || []).map((m: any) => m.to);
+    } catch {
+      return [];
+    }
+  }
+
   /**
    * 在房间中执行移动
    */
@@ -123,9 +159,17 @@ export class RoomService {
       return { success: false, error: 'Game is not in playing state' };
     }
 
-    // 这里应该验证移动是否来自正确的玩家
-    // 简化版本，直接执行移动
-    const result = this.chessService.makeMove(move);
+    // 验证是否轮到该玩家
+    if (move.player && move.player !== room.gameState.currentPlayer) {
+      return { success: false, error: 'Not your turn' };
+    }
+
+    // 执行移动
+    const chess = this.roomIdToChess.get(roomId);
+    if (!chess) {
+      return { success: false, error: 'Game not initialized' };
+    }
+    const result = chess.makeMove(move);
     
     if (result.success && result.gameState) {
       room.gameState = result.gameState;
@@ -152,6 +196,7 @@ export class RoomService {
     for (const [roomId, room] of this.rooms.entries()) {
       if (room.players.length === 0) {
         this.rooms.delete(roomId);
+        this.roomIdToChess.delete(roomId);
       }
     }
   }

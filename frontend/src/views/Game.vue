@@ -3,6 +3,10 @@
     <div class="game-header">
       <div class="room-info">
         <h2>{{ room?.name || '游戏房间' }}</h2>
+        <div v-if="room" class="room-id">
+          房间ID: <code>{{ room.id }}</code>
+          <button class="copy-btn" @click="copyRoomId">复制</button>
+        </div>
         <div class="players">
           <div 
             v-for="player in room?.players" 
@@ -100,20 +104,37 @@ const leaveGame = () => {
   router.push('/');
 };
 
+const copyRoomId = async () => {
+  if (!room.value) return;
+  const text = `${window.location.origin}?room=${room.value.id}`;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+  } catch {}
+};
+
 onMounted(() => {
   if (!room.value) {
     router.push('/');
     return;
   }
   
-  // 设置游戏状态
-  if (room.value.gameState) {
-    gameStore.setGameState(room.value.gameState);
-  }
-  
   // 设置当前玩家
   if (roomStore.currentPlayer) {
     gameStore.setCurrentPlayer(roomStore.currentPlayer);
+  }
+  
+  // 设置游戏状态（放在设置当前玩家之后，便于应用迷雾）
+  if (room.value.gameState) {
+    gameStore.setGameState(room.value.gameState);
   }
   
   // 设置Socket监听器

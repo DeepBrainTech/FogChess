@@ -20,12 +20,32 @@ export const useGameStore = defineStore('game', () => {
 
   // 动作
   const setGameState = (newGameState: GameState) => {
+    console.log('[setGameState] Received game state:', {
+      fen: newGameState.board,
+      current: newGameState.currentPlayer,
+      status: newGameState.gameStatus,
+      wVisible: newGameState.fogOfWar?.whiteVisible?.length,
+      bVisible: newGameState.fogOfWar?.blackVisible?.length
+    });
+    
     gameState.value = newGameState;
     chessService.setBoardFromFen(newGameState.board);
+    
+    // 迷雾棋规则：每个玩家始终看到自己的棋子和自己棋子可以移动到的格子
+    // 视野应该基于当前连接的玩家身份，而不是当前回合
+    const playerColor = currentPlayer.value?.color || roomStore.currentPlayer?.color;
+    console.log('[setGameState] Applying fog for player:', playerColor);
+    
+    if (playerColor && newGameState.fogOfWar) {
+      chessService.applyFogFor(playerColor, newGameState.fogOfWar);
+    }
   };
 
   const setCurrentPlayer = (player: Player) => {
     currentPlayer.value = player;
+    if (gameState.value) {
+      chessService.applyFogFor(player.color, gameState.value.fogOfWar as any);
+    }
   };
 
   const selectSquare = (square: string) => {
@@ -44,7 +64,7 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
-  const makeMove = (from: string, to: string) => {
+  const makeMove = async (from: string, to: string) => {
     if (!gameState.value || !currentPlayer.value) return;
     
     const move: Omit<Move, 'timestamp'> = {
@@ -53,6 +73,21 @@ export const useGameStore = defineStore('game', () => {
       piece: getPieceAtSquare(from) || '',
       player: currentPlayer.value.color
     };
+
+    // 兵升变：若兵走到末行，弹窗选择升变子
+    const pieceSymbol = move.piece.toLowerCase();
+    if (pieceSymbol === 'p') {
+      const destRank = parseInt(to[1], 10);
+      const isWhite = move.piece === 'P';
+      const promote = (isWhite && destRank === 8) || (!isWhite && destRank === 1);
+      if (promote) {
+        const choice = window.prompt('选择升变(Q/R/B/N)，默认Q：', 'Q');
+        const map: Record<string, 'q'|'r'|'b'|'n'> = { Q: 'q', R: 'r', B: 'b', N: 'n', q: 'q', r: 'r', b: 'b', n: 'n' };
+        const picked = choice ? map[choice.trim()] : 'q';
+        if (!picked) return; // 用户取消或输入无效则不走
+        (move as any).promotion = picked;
+      }
+    }
 
     // 发送移动到服务器
     if (roomStore.currentRoom) {
@@ -115,6 +150,17 @@ export const useGameStore = defineStore('game', () => {
     });
   };
 
+  // 请求后端合法走法并高亮
+  const requestLegalMoves = (square: string) => {
+    if (!roomStore.currentRoom) return;
+    socketService.getLegalMoves(roomStore.currentRoom.id, square);
+    (socketService as any).on('legal-moves', (data: any) => {
+      if (data.square !== square) return;
+      possibleMoves.value = data.moves || [];
+      highlightMoves();
+    });
+  };
+
   const resetGame = () => {
     gameState.value = null;
     currentPlayer.value = null;
@@ -125,11 +171,13 @@ export const useGameStore = defineStore('game', () => {
 
   // 监听Socket事件
   const setupSocketListeners = () => {
-    socketService.on('move-made', (data) => {
+    socketService.on('move-made', (data: any) => {
+      console.log('[socket] move-made', data);
       setGameState(data.gameState);
     });
 
-    socketService.on('game-updated', (data) => {
+    socketService.on('game-updated', (data: any) => {
+      console.log('[socket] game-updated', data);
       setGameState(data.gameState);
     });
   };
@@ -148,6 +196,7 @@ export const useGameStore = defineStore('game', () => {
     selectSquare,
     makeMove,
     resetGame,
-    setupSocketListeners
+    setupSocketListeners,
+    requestLegalMoves
   };
 });

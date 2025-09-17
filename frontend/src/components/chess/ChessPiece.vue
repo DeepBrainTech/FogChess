@@ -53,7 +53,7 @@ const pieceClass = computed(() => ({
 const pieceStyle = computed(() => ({
   fontSize: '2rem',
   lineHeight: '1',
-  userSelect: 'none',
+  userSelect: 'none' as const,
   cursor: 'pointer',
   transition: 'all 0.2s ease'
 }));
