@@ -3,6 +3,8 @@ import type { GameState, Move, FogOfWarState } from '../types';
 
 export class ChessService {
   private chess: Chess;
+  private moveHistory: Move[] = []; // 手动管理移动历史
+  private undoAttempts: Map<number, number> = new Map(); // 记录每步的悔棋尝试次数
 
   constructor() {
     this.chess = new Chess();
@@ -13,6 +15,8 @@ export class ChessService {
    */
   createNewGame(): GameState {
     this.chess.reset();
+    this.moveHistory = []; // 重置移动历史
+    this.undoAttempts.clear(); // 重置悔棋尝试次数
     const fen = this.chess.fen();
     console.log('[ChessService] createNewGame - FEN:', fen);
     
@@ -20,7 +24,7 @@ export class ChessService {
       board: fen,
       currentPlayer: 'white',
       gameStatus: 'waiting',
-      moveHistory: [],
+      moveHistory: this.moveHistory,
       fogOfWar: this.computeFog()
     };
   }
@@ -48,7 +52,36 @@ export class ChessService {
         }
       }
 
+      // Fog of War: 允许吃王。若目标格是对方国王，先移除国王再执行移动。
+      const targetPiece = this.chess.get(move.to as any) as any;
+      let capturedKingColor: 'white' | 'black' | undefined;
+      if (targetPiece && targetPiece.type === 'k') {
+        capturedKingColor = targetPiece.color === 'w' ? 'white' : 'black';
+        // 移除被吃的国王，使后续移动在标准规则下可执行
+        this.chess.remove(move.to as any);
+      }
+
       // 执行移动
+      // 为了忽略“己方被将军”的限制：若本次不是“王移动”，先临时移除己方国王，再执行 move，随后放回。
+      const isKingMove = move.piece.toLowerCase() === 'k';
+      let ownKingSquare: string | null = null;
+      if (!isKingMove) {
+        const board = this.chess.board();
+        const myColor = /[A-Z]/.test(move.piece) ? 'w' : 'b';
+        for (let r = 0; r < 8; r++) {
+          for (let f = 0; f < 8; f++) {
+            const p = board[r][f];
+            if (p && p.type === 'k' && p.color === myColor) {
+              ownKingSquare = `${String.fromCharCode(97 + f)}${8 - r}`;
+              break;
+            }
+          }
+          if (ownKingSquare) break;
+        }
+        if (ownKingSquare) this.chess.remove(ownKingSquare as any);
+      }
+
+      // 标准引擎 move（此时若移除了己方王，将不再因将军而拒绝此步）
       const moveObj = this.chess.move({
         from: move.from,
         to: move.to,
@@ -59,16 +92,26 @@ export class ChessService {
         return { success: false, error: 'Invalid move' };
       }
 
+      // 若先前移除了己方王，此时放回原位
+      if (!isKingMove && ownKingSquare) {
+        const color = /[A-Z]/.test(move.piece) ? 'w' : 'b';
+        this.chess.put({ type: 'k', color }, ownKingSquare as any);
+      }
+
+      // 添加到移动历史
+      const moveRecord: Move = {
+        ...move,
+        timestamp: new Date(),
+        player: this.chess.turn() === 'w' ? 'black' : 'white' // 刚移动完的玩家
+      };
+      this.moveHistory.push(moveRecord);
+
       const gameState: GameState = {
         board: this.chess.fen(),
         currentPlayer: this.chess.turn() === 'w' ? 'white' : 'black',
-        gameStatus: this.chess.isGameOver() ? 'finished' : 'playing',
-        winner: this.getWinner(moveObj.captured),
-        moveHistory: [...this.getMoveHistory(), {
-          ...move,
-          timestamp: new Date(),
-          player: this.chess.turn() === 'w' ? 'black' : 'white' // 刚移动完的玩家
-        }],
+        gameStatus: 'playing',
+        winner: capturedKingColor ? (capturedKingColor === 'white' ? 'black' : 'white') : this.getWinner(moveObj.captured),
+        moveHistory: [...this.moveHistory], // 使用手动管理的移动历史
         fogOfWar: this.computeFog()
       };
 
@@ -87,8 +130,34 @@ export class ChessService {
    */
   private isValidMoveForFogOfWar(from: string, to: string, piece: string): boolean {
     try {
-      // 获取所有可能的移动
-      const moves = this.chess.moves({ square: from as any, verbose: true }) as any[];
+      // 生成伪合法走法：切换行棋方并移除己方王
+      const currentFen = this.chess.fen();
+      const isWhitePiece = piece === piece.toUpperCase();
+      const parts = currentFen.split(' ');
+      if (parts.length >= 2) parts[1] = isWhitePiece ? 'w' : 'b';
+      this.chess.load(parts.join(' '));
+
+      // 移除己方王
+      const b = this.chess.board();
+      for (let r = 0; r < 8; r++) {
+        for (let f = 0; f < 8; f++) {
+          const p = b[r][f];
+          if (p && p.type === 'k' && p.color === (isWhitePiece ? 'w' : 'b')) {
+            const sq = `${String.fromCharCode(97 + f)}${8 - r}`;
+            this.chess.remove(sq as any);
+            r = 8; // break outer
+            break;
+          }
+        }
+      }
+
+      const moves = this.chess.moves({ square: from as any, verbose: true } as any) as any[];
+      this.chess.load(currentFen);
+      // 若目标是对方国王，额外放行（某些版本 moves 可能不返回吃王步）
+      const target = this.chess.get(to as any) as any;
+      if (target && target.type === 'k') {
+        return moves.some((m: any) => m.to === to) || true;
+      }
       
       // 检查是否包含目标移动
       return moves.some((move: any) => move.to === to);
@@ -104,7 +173,7 @@ export class ChessService {
     return {
       board: this.chess.fen(),
       currentPlayer: this.chess.turn() === 'w' ? 'white' : 'black',
-      gameStatus: this.chess.isGameOver() ? 'finished' : 'playing',
+      gameStatus: 'playing',
       winner: this.getWinner(),
       moveHistory: this.getMoveHistory(),
       fogOfWar: this.computeFog()
@@ -187,11 +256,23 @@ export class ChessService {
         parts[1] = color === 'w' ? 'w' : 'b';
       }
       const modifiedFen = parts.join(' ');
-      // 临时设置为该棋子的回合，以获取其移动
+      // 临时设置为该棋子的回合
       this.chess.load(modifiedFen);
-      
-      // 获取移动
-      const moves = this.chess.moves({ square: square as any, verbose: true }) as any[];
+      // 移除己方王，生成伪合法移动
+      const bd = this.chess.board();
+      for (let r = 0; r < 8; r++) {
+        for (let f = 0; f < 8; f++) {
+          const p = bd[r][f];
+          if (p && p.type === 'k' && p.color === color) {
+            const sq = `${String.fromCharCode(97 + f)}${8 - r}`;
+            this.chess.remove(sq as any);
+            r = 8; // break outer
+            break;
+          }
+        }
+      }
+
+      const moves = this.chess.moves({ square: square as any, verbose: true } as any) as any[];
       const moveTargets = moves.map((m: any) => m.to);
       
       // 恢复原始状态
@@ -208,20 +289,10 @@ export class ChessService {
    * 获取获胜者
    */
   private getWinner(capturedPiece?: string): 'white' | 'black' | 'draw' | undefined {
-    // Fog of War 特有：吃王即胜
+    // Fog of War：仅当国王被吃掉才结束
     if (capturedPiece === 'k') {
       return this.chess.turn() === 'w' ? 'black' : 'white';
     }
-    if (!this.chess.isGameOver()) return undefined;
-    
-    if (this.chess.isCheckmate()) {
-      return this.chess.turn() === 'w' ? 'black' : 'white';
-    }
-    
-    if (this.chess.isDraw()) {
-      return 'draw';
-    }
-    
     return undefined;
   }
 
@@ -229,14 +300,7 @@ export class ChessService {
    * 获取移动历史
    */
   private getMoveHistory(): Move[] {
-    return this.chess.history({ verbose: true }).map((move, index) => ({
-      from: move.from,
-      to: move.to,
-      piece: move.piece,
-      captured: move.captured,
-      timestamp: new Date(),
-      player: index % 2 === 0 ? 'white' : 'black'
-    }));
+    return [...this.moveHistory];
   }
 
   /**
@@ -244,7 +308,7 @@ export class ChessService {
    */
   isValidMove(from: string, to: string): boolean {
     try {
-      const moves = this.chess.moves({ square: from as any, verbose: true }) as any[];
+      const moves = this.chess.moves({ square: from as any, verbose: true, legal: false } as any) as any[];
       return moves.some((move: any) => move.to === to);
     } catch {
       return false;
@@ -256,9 +320,9 @@ export class ChessService {
    */
   getPossibleMoves(square?: string): any[] {
     if (square) {
-      return this.chess.moves({ square: square as any, verbose: true }) as any[];
+      return this.chess.moves({ square: square as any, verbose: true, legal: false } as any) as any[];
     }
-    return this.chess.moves({ verbose: true }) as any[];
+    return this.chess.moves({ verbose: true, legal: false } as any) as any[];
   }
 
   /**
@@ -273,12 +337,114 @@ export class ChessService {
       const parts = currentFen.split(' ');
       if (parts.length >= 2) parts[1] = piece.color; // 'w' | 'b'
       this.chess.load(parts.join(' '));
-      const moves = this.chess.moves({ square: square as any, verbose: true }) as any[];
+      // 移除己方王
+      const brd = this.chess.board();
+      for (let r = 0; r < 8; r++) {
+        for (let f = 0; f < 8; f++) {
+          const p = brd[r][f];
+          if (p && p.type === 'k' && p.color === piece.color) {
+            const sq = `${String.fromCharCode(97 + f)}${8 - r}`;
+            this.chess.remove(sq as any);
+            r = 8; break;
+          }
+        }
+      }
+      const moves = this.chess.moves({ square: square as any, verbose: true } as any) as any[];
       const result = (moves || []).map((m: any) => m.to);
       this.chess.load(currentFen);
       return result;
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * 检查是否可以悔棋
+   */
+  canUndo(playerColor: 'white' | 'black'): { canUndo: boolean; reason?: string; attemptsLeft?: number } {
+    // 1. 检查是否有移动历史
+    if (this.moveHistory.length === 0) {
+      return { canUndo: false, reason: 'No moves to undo' };
+    }
+
+    // 2. 检查悔棋逻辑：只有刚移动完的玩家才能悔棋
+    // 即：当前轮到对手时，自己可以悔棋
+    const currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
+    if (currentTurn === playerColor) {
+      return { canUndo: false, reason: 'Cannot undo on your own turn' };
+    }
+
+    // 3. 检查悔棋尝试次数
+    const moveIndex = this.moveHistory.length - 1;
+    const attempts = this.undoAttempts.get(moveIndex) || 0;
+    const maxAttempts = 2; // 改为2次
+    
+    if (attempts >= maxAttempts) {
+      return { canUndo: false, reason: 'Maximum undo attempts reached for this move' };
+    }
+
+    return { canUndo: true, attemptsLeft: maxAttempts - attempts };
+  }
+
+  /**
+   * 记录悔棋尝试
+   */
+  recordUndoAttempt(): void {
+    const moveIndex = this.moveHistory.length - 1;
+    const currentAttempts = this.undoAttempts.get(moveIndex) || 0;
+    this.undoAttempts.set(moveIndex, currentAttempts + 1);
+    console.log(`[ChessService] Recorded undo attempt for move ${moveIndex}, total attempts: ${currentAttempts + 1}`);
+  }
+
+  /**
+   * 悔棋：撤销上一步移动
+   */
+  undoMove(): { success: boolean; gameState?: GameState; error?: string } {
+    try {
+      console.log(`[ChessService] undoMove - Move history length before undo: ${this.moveHistory.length}`);
+      
+      if (this.moveHistory.length === 0) {
+        return { success: false, error: 'No moves to undo' };
+      }
+
+      // 撤销上一步移动历史
+      const lastMove = this.moveHistory.pop();
+      console.log(`[ChessService] undoMove - Removed move:`, lastMove);
+
+      // 清除被撤销移动的悔棋尝试记录
+      const removedMoveIndex = this.moveHistory.length; // 被撤销的移动的索引
+      this.undoAttempts.delete(removedMoveIndex);
+      console.log(`[ChessService] undoMove - Cleared undo attempts for move ${removedMoveIndex}`);
+
+      // 重新构建棋盘状态到上一步
+      this.chess.reset();
+      for (const move of this.moveHistory) {
+        this.chess.move({
+          from: move.from,
+          to: move.to,
+          promotion: move.promotion
+        });
+      }
+      
+      const fen = this.chess.fen();
+      const currentPlayer = this.chess.turn() === 'w' ? 'white' : 'black';
+      
+      console.log(`[ChessService] undoMove - New FEN: ${fen}`);
+      console.log(`[ChessService] undoMove - Current player: ${currentPlayer}`);
+      console.log(`[ChessService] undoMove - Move history length after undo: ${this.moveHistory.length}`);
+      
+      const gameState: GameState = {
+        board: fen,
+        currentPlayer,
+        gameStatus: 'playing',
+        moveHistory: this.getMoveHistory(),
+        fogOfWar: this.computeFog()
+      };
+
+      return { success: true, gameState };
+    } catch (error) {
+      console.error('[ChessService] undoMove error:', error);
+      return { success: false, error: 'Failed to undo move' };
     }
   }
 }

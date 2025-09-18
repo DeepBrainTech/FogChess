@@ -190,6 +190,78 @@ export class RoomService {
   }
 
   /**
+   * 请求悔棋
+   */
+  requestUndo(roomId: string, fromPlayerId: string): { success: boolean; error?: string; attemptsLeft?: number } {
+    const room = this.rooms.get(roomId);
+    
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    if (room.gameState.gameStatus !== 'playing') {
+      return { success: false, error: 'Game is not in playing state' };
+    }
+
+    // 找到请求悔棋的玩家
+    const player = room.players.find(p => p.id === fromPlayerId);
+    if (!player) {
+      return { success: false, error: 'Player not found' };
+    }
+
+    const chess = this.roomIdToChess.get(roomId);
+    if (!chess) {
+      return { success: false, error: 'Game not initialized' };
+    }
+
+    // 检查是否可以悔棋
+    const canUndoResult = chess.canUndo(player.color);
+    if (!canUndoResult.canUndo) {
+      return { success: false, error: canUndoResult.reason };
+    }
+
+    // 记录悔棋尝试
+    chess.recordUndoAttempt();
+
+    return { success: true, attemptsLeft: canUndoResult.attemptsLeft };
+  }
+
+  /**
+   * 执行悔棋
+   */
+  executeUndo(roomId: string): { success: boolean; gameState?: GameState; error?: string } {
+    const room = this.rooms.get(roomId);
+    
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    if (room.gameState.gameStatus !== 'playing') {
+      return { success: false, error: 'Game is not in playing state' };
+    }
+
+    console.log(`[RoomService] executeUndo - Before undo, move history length: ${room.gameState.moveHistory.length}`);
+    console.log(`[RoomService] executeUndo - Before undo, FEN: ${room.gameState.board}`);
+
+    const chess = this.roomIdToChess.get(roomId);
+    if (!chess) {
+      return { success: false, error: 'Game not initialized' };
+    }
+
+    const result = chess.undoMove();
+    
+    if (result.success && result.gameState) {
+      console.log(`[RoomService] executeUndo - After undo, move history length: ${result.gameState.moveHistory.length}`);
+      console.log(`[RoomService] executeUndo - After undo, FEN: ${result.gameState.board}`);
+      
+      room.gameState = result.gameState;
+      return { success: true, gameState: result.gameState };
+    }
+
+    return { success: false, error: result.error || 'Failed to undo move' };
+  }
+
+  /**
    * 清理空房间
    */
   cleanupEmptyRooms(): void {

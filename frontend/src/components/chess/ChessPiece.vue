@@ -3,7 +3,11 @@
     :class="pieceClass"
     :style="pieceStyle"
   >
-    {{ pieceSymbol }}
+    <img 
+      :src="pieceImage" 
+      :alt="`${piece.color} ${piece.type}`"
+      class="piece-image"
+    />
   </div>
 </template>
 
@@ -20,27 +24,8 @@ const props = withDefaults(defineProps<Props>(), {
   isVisible: true
 });
 
-const pieceSymbol = computed(() => {
-  const symbols: { [key: string]: { [key: string]: string } } = {
-    white: {
-      king: '♔',
-      queen: '♕',
-      rook: '♖',
-      bishop: '♗',
-      knight: '♘',
-      pawn: '♙'
-    },
-    black: {
-      king: '♚',
-      queen: '♛',
-      rook: '♜',
-      bishop: '♝',
-      knight: '♞',
-      pawn: '♟'
-    }
-  };
-  
-  return symbols[props.piece.color][props.piece.type];
+const pieceImage = computed(() => {
+  return new URL(`../../assets/pieces/${props.piece.type}-${props.piece.color}.svg`, import.meta.url).href;
 });
 
 const pieceClass = computed(() => ({
@@ -51,8 +36,6 @@ const pieceClass = computed(() => ({
 }));
 
 const pieceStyle = computed(() => ({
-  fontSize: '2rem',
-  lineHeight: '1',
   userSelect: 'none' as const,
   cursor: 'pointer',
   transition: 'all 0.2s ease'
@@ -66,21 +49,24 @@ const pieceStyle = computed(() => ({
   align-items: center;
   width: 100%;
   height: 100%;
-  font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-.piece-white {
-  color: #FFFFFF;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+.piece-image {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
 }
 
-.piece-black {
-  color: #000000;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.3);
+.piece-white .piece-image {
+  filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));
 }
 
-.piece-hidden {
+.piece-black .piece-image {
+  filter: drop-shadow(1px 1px 2px rgba(255, 255, 255, 0.3));
+}
+
+.piece-hidden .piece-image {
   opacity: 0.3;
   filter: grayscale(100%);
 }
@@ -90,8 +76,9 @@ const pieceStyle = computed(() => ({
 }
 
 @media (max-width: 768px) {
-  .chess-piece {
-    font-size: 1.5rem;
+  .piece-image {
+    width: 85%;
+    height: 85%;
   }
 }
 </style>

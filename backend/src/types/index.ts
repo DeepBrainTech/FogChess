@@ -49,6 +49,8 @@ export interface SocketEvents {
   'make-move': { roomId: string; move: Move };
   'get-legal-moves': { roomId: string; square: string };
   'leave-room': { roomId: string };
+  'request-undo': { roomId: string };
+  'respond-undo': { roomId: string; accepted: boolean };
   
   // 服务端发送的事件
   'room-created': { room: Room };
@@ -58,5 +60,8 @@ export interface SocketEvents {
   'game-updated': { gameState: GameState };
   'move-made': { move: Move; gameState: GameState };
   'legal-moves': { square: string; moves: string[] };
+  'undo-requested': { fromPlayer: string; attemptsLeft?: number };
+  'undo-response': { accepted: boolean };
+  'undo-executed': { gameState: GameState };
   'error': { message: string };
 }

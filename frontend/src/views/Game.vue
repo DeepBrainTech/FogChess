@@ -22,6 +22,14 @@
       </div>
       
       <div class="game-controls">
+        <button 
+          v-if="canRequestUndo" 
+          @click="requestUndo" 
+          class="undo-button"
+          :disabled="undoRequestPending"
+        >
+          {{ undoRequestPending ? '等待对手同意...' : '悔棋' }}
+        </button>
         <button @click="leaveGame" class="leave-button">
           离开游戏
         </button>
@@ -66,11 +74,44 @@
         </div>
       </div>
     </div>
+    
+    <!-- 悔棋弹窗 -->
+    <div v-if="showUndoDialog" class="undo-dialog-overlay" @click="closeUndoDialog">
+      <div class="undo-dialog" @click.stop>
+        <h3>{{ undoDialogTitle }}</h3>
+        <p>{{ undoDialogMessage }}</p>
+        <div v-if="undoDialogType === 'request'" class="dialog-buttons">
+          <button @click="confirmUndoRequest" class="confirm-btn">确定</button>
+          <button @click="closeUndoDialog" class="cancel-btn">取消</button>
+        </div>
+        <div v-else-if="undoDialogType === 'response'" class="dialog-buttons">
+          <button @click="respondToUndo(true)" class="accept-btn">同意</button>
+          <button @click="respondToUndo(false)" class="reject-btn">不同意</button>
+        </div>
+        <div v-else-if="undoDialogType === 'result'" class="dialog-buttons">
+          <button @click="closeUndoDialog" class="ok-btn">确定</button>
+        </div>
+        <div v-else-if="undoDialogType === 'error'" class="dialog-buttons">
+          <button @click="closeUndoDialog" class="ok-btn">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 游戏结束弹窗 -->
+  <div v-if="showGameOver" class="undo-dialog-overlay" @click="closeGameOver">
+    <div class="undo-dialog" @click.stop>
+      <h3>{{ gameOverTitle }}</h3>
+      <p>{{ gameOverMessage }}</p>
+      <div class="dialog-buttons">
+        <button @click="closeGameOver" class="ok-btn">确定</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
 import { useGameStore } from '../stores/game';
@@ -82,6 +123,26 @@ const gameStore = useGameStore();
 
 const room = computed(() => roomStore.currentRoom);
 const gameState = computed(() => gameStore.gameState);
+
+// 悔棋相关状态
+const showUndoDialog = ref(false);
+const undoDialogType = ref<'request' | 'response' | 'result' | 'error'>('request');
+const undoDialogTitle = ref('');
+const undoDialogMessage = ref('');
+const undoRequestPending = ref(false);
+
+// 游戏结束弹窗
+const showGameOver = ref(false);
+const gameOverTitle = ref('Game Over');
+const gameOverMessage = ref('');
+
+// 计算属性
+const canRequestUndo = computed(() => {
+  if (!gameState.value || !roomStore.currentPlayer) return false;
+  return gameState.value.gameStatus === 'playing' && 
+         gameState.value.moveHistory && 
+         gameState.value.moveHistory.length > 0;
+});
 
 const getGameStatusText = () => {
   if (!gameState.value) return '等待中';
@@ -121,6 +182,61 @@ const copyRoomId = async () => {
   } catch {}
 };
 
+// 悔棋相关方法
+const requestUndo = () => {
+  if (!room.value || !roomStore.currentPlayer) return;
+  
+  undoDialogType.value = 'request';
+  undoDialogTitle.value = '请求悔棋';
+  undoDialogMessage.value = '确定要请求悔棋吗？';
+  showUndoDialog.value = true;
+};
+
+const confirmUndoRequest = () => {
+  if (!room.value) return;
+  
+  undoRequestPending.value = true;
+  gameStore.requestUndo(room.value.id);
+  closeUndoDialog();
+};
+
+const respondToUndo = (accepted: boolean) => {
+  if (!room.value) return;
+  
+  gameStore.respondToUndo(room.value.id, accepted);
+  closeUndoDialog();
+};
+
+const closeUndoDialog = () => {
+  showUndoDialog.value = false;
+  undoRequestPending.value = false;
+};
+
+// 显示悔棋弹窗的方法（供外部调用）
+const showUndoRequestDialog = (fromPlayer: string, attemptsLeft?: number) => {
+  undoDialogType.value = 'response';
+  undoDialogTitle.value = '对手请求悔棋';
+  const attemptsText = attemptsLeft ? ` (剩余尝试次数: ${attemptsLeft})` : '';
+  undoDialogMessage.value = `${fromPlayer} 请求悔棋，是否同意？${attemptsText}`;
+  showUndoDialog.value = true;
+};
+
+const showUndoResultDialog = (accepted: boolean) => {
+  undoDialogType.value = 'result';
+  undoDialogTitle.value = '悔棋结果';
+  undoDialogMessage.value = accepted ? '对手同意了悔棋请求' : '对手拒绝了悔棋请求';
+  showUndoDialog.value = true;
+  undoRequestPending.value = false;
+};
+
+const showUndoErrorDialog = (message: string) => {
+  undoDialogType.value = 'error';
+  undoDialogTitle.value = '无法悔棋';
+  undoDialogMessage.value = message;
+  showUndoDialog.value = true;
+  undoRequestPending.value = false;
+};
+
 onMounted(() => {
   if (!room.value) {
     router.push('/');
@@ -139,7 +255,39 @@ onMounted(() => {
   
   // 设置Socket监听器
   gameStore.setupSocketListeners();
+  
+  // 监听悔棋事件
+  window.addEventListener('show-undo-request', (event: any) => {
+    showUndoRequestDialog(event.detail.fromPlayer, event.detail.attemptsLeft);
+  });
+  
+  window.addEventListener('show-undo-result', (event: any) => {
+    showUndoResultDialog(event.detail.accepted);
+  });
+  
+  window.addEventListener('show-undo-error', (event: any) => {
+    showUndoErrorDialog(event.detail.message);
+  });
 });
+
+// 监听游戏结束
+watch(gameState, (gs) => {
+  if (!gs) return;
+  if (gs.gameStatus === 'finished' && !showGameOver.value && gs.winner) {
+    const myColor = roomStore.currentPlayer?.color;
+    const isWin = myColor ? gs.winner === myColor : false;
+    gameOverTitle.value = isWin ? 'Victory' : 'Defeat';
+    const loser = gs.winner === 'white' ? 'black' : 'white';
+    const winnerText = gs.winner === 'white' ? 'White' : 'Black';
+    const loserText = loser === 'white' ? 'White' : 'Black';
+    gameOverMessage.value = `${winnerText} captured ${loserText} king.`;
+    showGameOver.value = true;
+  }
+});
+
+const closeGameOver = () => {
+  showGameOver.value = false;
+};
 </script>
 
 <style scoped>
@@ -222,6 +370,26 @@ onMounted(() => {
 
 .leave-button:hover {
   background: #d32f2f;
+}
+
+.undo-button {
+  padding: 8px 16px;
+  background: #ff9800;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-right: 10px;
+}
+
+.undo-button:hover:not(:disabled) {
+  background: #f57c00;
+}
+
+.undo-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 
 .game-content {
@@ -336,5 +504,101 @@ onMounted(() => {
   .players {
     justify-content: center;
   }
+}
+
+/* 悔棋弹窗样式 */
+.undo-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.undo-dialog {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.undo-dialog h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.undo-dialog p {
+  margin: 0 0 25px 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+.dialog-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.dialog-buttons button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.confirm-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background: #45a049;
+}
+
+.cancel-btn {
+  background: #f44336;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #da190b;
+}
+
+.accept-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+.accept-btn:hover {
+  background: #45a049;
+}
+
+.reject-btn {
+  background: #f44336;
+  color: white;
+}
+
+.reject-btn:hover {
+  background: #da190b;
+}
+
+.ok-btn {
+  background: #2196F3;
+  color: white;
+}
+
+.ok-btn:hover {
+  background: #1976D2;
 }
 </style>

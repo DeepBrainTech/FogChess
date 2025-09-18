@@ -69,16 +69,40 @@ const isSquareVisible = (row: number, col: number) => {
 
 const onSquareClick = (row: number, col: number) => {
   const notation = chessService.getSquareNotation(row, col);
+  const square = chessService.getSquare(row, col);
   
   if (gameStore.selectedSquare) {
-    // 如果已经选择了棋子，尝试移动
-    if (gameStore.selectedSquare !== notation) {
-      gameStore.makeMove(gameStore.selectedSquare, notation);
+    // 如果已经选择了棋子
+    if (gameStore.selectedSquare === notation) {
+      // 点击同一个棋子，取消选择
+      gameStore.selectedSquare = null;
+      gameStore.possibleMoves = [];
+      chessService.clearHighlights();
+    } else {
+      // 检查是否是合法的移动目标
+      if (gameStore.possibleMoves.includes(notation)) {
+        gameStore.makeMove(gameStore.selectedSquare, notation);
+      } else {
+        // 不合法的移动
+        if (square?.piece && square.piece.color === gameStore.currentPlayer?.color) {
+          // 如果是自己的其他棋子，直接选中新棋子
+          gameStore.selectSquare(notation);
+          gameStore.requestLegalMoves(notation);
+        } else {
+          // 如果是空白格或对手棋子，取消选择
+          gameStore.selectedSquare = null;
+          gameStore.possibleMoves = [];
+          chessService.clearHighlights();
+        }
+      }
     }
   } else {
-    // 选择棋子并请求合法走法高亮
-    gameStore.selectSquare(notation);
-    gameStore.requestLegalMoves(notation);
+    // 没有选择棋子时，只选择自己的棋子
+    if (square?.piece && square.piece.color === gameStore.currentPlayer?.color) {
+      gameStore.selectSquare(notation);
+      gameStore.requestLegalMoves(notation);
+    }
+    // 如果是空白格或对手棋子，不执行任何操作
   }
 };
 </script>

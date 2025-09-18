@@ -61,6 +61,16 @@ class SocketService {
     this.socket?.emit('get-legal-moves', { roomId, square });
   }
 
+  // 请求悔棋
+  requestUndo(roomId: string): void {
+    this.socket?.emit('request-undo', { roomId });
+  }
+
+  // 响应悔棋请求
+  respondToUndo(roomId: string, accepted: boolean): void {
+    this.socket?.emit('respond-undo', { roomId, accepted });
+  }
+
   // 离开房间
   leaveRoom(roomId: string): void {
     this.socket?.emit('leave-room', { roomId });

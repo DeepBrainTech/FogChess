@@ -169,6 +169,15 @@ export const useGameStore = defineStore('game', () => {
     chessService.clearHighlights();
   };
 
+  // 悔棋相关方法
+  const requestUndo = (roomId: string) => {
+    socketService.requestUndo(roomId);
+  };
+
+  const respondToUndo = (roomId: string, accepted: boolean) => {
+    socketService.respondToUndo(roomId, accepted);
+  };
+
   // 监听Socket事件
   const setupSocketListeners = () => {
     socketService.on('move-made', (data: any) => {
@@ -179,6 +188,40 @@ export const useGameStore = defineStore('game', () => {
     socketService.on('game-updated', (data: any) => {
       console.log('[socket] game-updated', data);
       setGameState(data.gameState);
+    });
+
+    socketService.on('undo-requested', (data: any) => {
+      console.log('[socket] undo-requested', data);
+      // 这里需要通知Game.vue显示弹窗
+      // 可以通过事件总线或者直接调用方法
+      window.dispatchEvent(new CustomEvent('show-undo-request', { 
+        detail: { 
+          fromPlayer: data.fromPlayer,
+          attemptsLeft: data.attemptsLeft 
+        } 
+      }));
+    });
+
+    socketService.on('undo-response', (data: any) => {
+      console.log('[socket] undo-response', data);
+      // 这里需要通知Game.vue显示结果弹窗
+      window.dispatchEvent(new CustomEvent('show-undo-result', { 
+        detail: { accepted: data.accepted } 
+      }));
+    });
+
+    socketService.on('undo-executed', (data: any) => {
+      console.log('[socket] undo-executed', data);
+      setGameState(data.gameState);
+    });
+
+    // 监听错误事件
+    socketService.on('error', (data: any) => {
+      console.log('[socket] error', data);
+      // 通知Game.vue显示错误弹窗
+      window.dispatchEvent(new CustomEvent('show-undo-error', { 
+        detail: { message: data.message } 
+      }));
     });
   };
 
@@ -197,6 +240,8 @@ export const useGameStore = defineStore('game', () => {
     makeMove,
     resetGame,
     setupSocketListeners,
-    requestLegalMoves
+    requestLegalMoves,
+    requestUndo,
+    respondToUndo
   };
 });

@@ -32,7 +32,7 @@ app.get('/rooms', (req, res) => {
 
 // Socket.io 连接处理
 io.on('connection', (socket) => {
-  console.log(`用户连接: ${socket.id}`);
+  console.log(`User connected: ${socket.id}`);
 
   // 创建房间
   socket.on('create-room', (data: SocketEvents['create-room']) => {
@@ -42,7 +42,7 @@ io.on('connection', (socket) => {
       socket.emit('room-created', { room });
       // 房间创建时处于等待状态
       io.to(room.id).emit('game-updated', { gameState: room.gameState });
-      console.log(`房间创建: ${room.id} by ${data.playerName}`);
+      console.log(`Room created: ${room.id} by ${data.playerName}`);
     } catch (error) {
       socket.emit('error', { message: 'Failed to create room' });
     }
@@ -62,7 +62,7 @@ io.on('connection', (socket) => {
         // 广播当前游戏状态（可能仍为waiting或已变为playing）
         io.to(data.roomId).emit('game-updated', { gameState: result.room.gameState });
         
-        console.log(`${data.playerName} 加入房间: ${data.roomId}`);
+        console.log(`${data.playerName} joined room: ${data.roomId}`);
       } else {
         socket.emit('error', { message: result.error || 'Failed to join room' });
       }
@@ -82,7 +82,7 @@ io.on('connection', (socket) => {
           move: data.move, 
           gameState: result.gameState 
         });
-        console.log(`移动执行: ${data.roomId}`);
+        console.log(`Move executed: ${data.roomId}`);
       } else {
         socket.emit('error', { message: result.error || 'Invalid move' });
       }
@@ -108,6 +108,73 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 请求悔棋
+  socket.on('request-undo', (data: SocketEvents['request-undo']) => {
+    try {
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Player not found in room' });
+        return;
+      }
+
+      const result = roomService.requestUndo(data.roomId, player.id);
+      if (result.success) {
+        // 通知对手
+        socket.to(data.roomId).emit('undo-requested', { 
+          fromPlayer: player.name,
+          attemptsLeft: result.attemptsLeft 
+        });
+        console.log(`${player.name} requested undo: ${data.roomId} (attempts left: ${result.attemptsLeft})`);
+      } else {
+        // 根据错误类型发送不同的消息
+        let errorMessage = result.error || 'Failed to request undo';
+        if (result.error === 'Cannot undo on your own turn') {
+          errorMessage = '不能悔棋，请先下棋';
+        } else if (result.error === 'Maximum undo attempts reached for this move') {
+          errorMessage = '当前移动对手不同意悔棋';
+        } else if (result.error === 'No moves to undo') {
+          errorMessage = '没有可悔棋的移动';
+        }
+        
+        socket.emit('error', { message: errorMessage });
+      }
+    } catch (error) {
+      console.error('Error requesting undo:', error);
+      socket.emit('error', { message: 'Failed to request undo' });
+    }
+  });
+
+  // 响应悔棋请求
+  socket.on('respond-undo', (data: SocketEvents['respond-undo']) => {
+    try {
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Player not found in room' });
+        return;
+      }
+
+      // 通知请求方结果
+      socket.to(data.roomId).emit('undo-response', { accepted: data.accepted });
+      
+      if (data.accepted) {
+        // 执行悔棋
+        const result = roomService.executeUndo(data.roomId);
+        if (result.success && result.gameState) {
+          // 通知所有玩家游戏状态更新
+          io.to(data.roomId).emit('undo-executed', { gameState: result.gameState });
+          console.log(`${player.name} accepted undo: ${data.roomId}`);
+        } else {
+          socket.emit('error', { message: result.error || 'Failed to execute undo' });
+        }
+      } else {
+        console.log(`${player.name} rejected undo: ${data.roomId}`);
+      }
+    } catch (error) {
+      console.error('Error responding to undo:', error);
+      socket.emit('error', { message: 'Failed to respond to undo' });
+    }
+  });
+
   // 离开房间
   socket.on('leave-room', (data: SocketEvents['leave-room']) => {
     try {
@@ -121,7 +188,7 @@ io.on('connection', (socket) => {
           socket.to(data.roomId).emit('player-left', { playerId: player.id });
         }
         
-        console.log(`${player.name} 离开房间: ${data.roomId}`);
+        console.log(`${player.name} left room: ${data.roomId}`);
       }
     } catch (error) {
       console.error('Error leaving room:', error);
@@ -130,7 +197,7 @@ io.on('connection', (socket) => {
 
   // 断开连接
   socket.on('disconnect', () => {
-    console.log(`用户断开连接: ${socket.id}`);
+    console.log(`User disconnected: ${socket.id}`);
     
     // 清理用户所在的房间
     const rooms = roomService.getAllRooms();
@@ -155,6 +222,6 @@ setInterval(() => {
 const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
-  console.log(`服务器运行在端口 ${PORT}`);
-  console.log(`健康检查: http://localhost:${PORT}/health`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
 });
