@@ -76,12 +76,7 @@ export class RoomService {
     this.roomIdToChess.set(roomId, chess);
     room.gameState = chess.createNewGame();
     room.gameState.gameStatus = 'playing';
-    console.log('[RoomService] joinRoom - Game started:', {
-      roomId,
-      gameStatus: room.gameState.gameStatus,
-      fen: room.gameState.board,
-      players: room.players.length
-    });
+    // Game started with two players
 
     return { success: true, room, player };
   }
@@ -138,8 +133,8 @@ export class RoomService {
     const chess = this.roomIdToChess.get(roomId);
     if (!chess) return [];
     try {
-      const moves = chess.getPossibleMoves(square as any) as any[];
-      return (moves || []).map((m: any) => m.to);
+      // 使用忽略“将军”限制的版本，保证前端高亮与迷雾规则一致
+      return chess.getLegalMovesForSquare(square);
     } catch {
       return [];
     }
@@ -251,9 +246,6 @@ export class RoomService {
     const result = chess.undoMove();
     
     if (result.success && result.gameState) {
-      console.log(`[RoomService] executeUndo - After undo, move history length: ${result.gameState.moveHistory.length}`);
-      console.log(`[RoomService] executeUndo - After undo, FEN: ${result.gameState.board}`);
-      
       room.gameState = result.gameState;
       return { success: true, gameState: result.gameState };
     }

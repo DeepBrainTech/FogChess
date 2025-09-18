@@ -218,9 +218,13 @@ export const useGameStore = defineStore('game', () => {
     // 监听错误事件
     socketService.on('error', (data: any) => {
       console.log('[socket] error', data);
-      // 通知Game.vue显示错误弹窗
-      window.dispatchEvent(new CustomEvent('show-undo-error', { 
-        detail: { message: data.message } 
+      // 走子不合法（例如点击非蓝点）静默处理：不弹“无法悔棋”
+      if (data && (data.message === 'Invalid move' || data.message === 'Failed to make move')) {
+        return;
+      }
+      // 仅在悔棋等流程的错误时，通知Game.vue显示弹窗
+      window.dispatchEvent(new CustomEvent('show-undo-error', {
+        detail: { message: data.message }
       }));
     });
   };

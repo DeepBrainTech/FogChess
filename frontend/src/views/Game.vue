@@ -1,5 +1,5 @@
 <template>
-  <div class="game-container">
+  <div class="game-container" :class="{ 'victory-flash': isVictoryFlash, 'defeat-flash': isDefeatFlash }">
     <div class="game-header">
       <div class="room-info">
         <h2>{{ room?.name || '游戏房间' }}</h2>
@@ -101,7 +101,7 @@
   <!-- 游戏结束弹窗 -->
   <div v-if="showGameOver" class="undo-dialog-overlay" @click="closeGameOver">
     <div class="undo-dialog" @click.stop>
-      <h3>{{ gameOverTitle }}</h3>
+      <h3 :class="{ 'victory-title': isWinner, 'defeat-title': !isWinner }">{{ gameOverTitle }}</h3>
       <p>{{ gameOverMessage }}</p>
       <div class="dialog-buttons">
         <button @click="closeGameOver" class="ok-btn">确定</button>
@@ -135,6 +135,10 @@ const undoRequestPending = ref(false);
 const showGameOver = ref(false);
 const gameOverTitle = ref('Game Over');
 const gameOverMessage = ref('');
+
+// 背景闪烁效果
+const isVictoryFlash = ref(false);
+const isDefeatFlash = ref(false);
 
 // 计算属性
 const canRequestUndo = computed(() => {
@@ -270,18 +274,37 @@ onMounted(() => {
   });
 });
 
+// 游戏结束时的胜负状态
+const isWinner = ref(false);
+
 // 监听游戏结束
 watch(gameState, (gs) => {
   if (!gs) return;
   if (gs.gameStatus === 'finished' && !showGameOver.value && gs.winner) {
     const myColor = roomStore.currentPlayer?.color;
     const isWin = myColor ? gs.winner === myColor : false;
+    isWinner.value = isWin;
+    
+    // 设置标题和消息
     gameOverTitle.value = isWin ? 'Victory' : 'Defeat';
     const loser = gs.winner === 'white' ? 'black' : 'white';
     const winnerText = gs.winner === 'white' ? 'White' : 'Black';
     const loserText = loser === 'white' ? 'White' : 'Black';
     gameOverMessage.value = `${winnerText} captured ${loserText} king.`;
+    
+    // 同时触发背景闪烁效果和显示弹窗
+    if (isWin) {
+      isVictoryFlash.value = true;
+    } else {
+      isDefeatFlash.value = true;
+    }
     showGameOver.value = true;
+    
+    // 2秒后停止背景闪烁，还原背景
+    setTimeout(() => {
+      isVictoryFlash.value = false;
+      isDefeatFlash.value = false;
+    }, 2000);
   }
 });
 
@@ -536,6 +559,17 @@ const closeGameOver = () => {
   font-size: 20px;
 }
 
+/* 游戏结束弹窗标题颜色 */
+.victory-title {
+  color: #4CAF50 !important;
+  text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+.defeat-title {
+  color: #f44336 !important;
+  text-shadow: 0 0 10px rgba(244, 67, 54, 0.3);
+}
+
 .undo-dialog p {
   margin: 0 0 25px 0;
   color: #666;
@@ -600,5 +634,54 @@ const closeGameOver = () => {
 
 .ok-btn:hover {
   background: #1976D2;
+}
+
+/* 背景闪烁效果 */
+.game-container {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.game-container::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 500;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.game-container.victory-flash::before {
+  background: rgba(76, 175, 80, 0.6);
+  backdrop-filter: blur(2px);
+  opacity: 1;
+  animation: victoryPulse 2s ease-in-out;
+}
+
+.game-container.defeat-flash::before {
+  background: rgba(244, 67, 54, 0.6);
+  backdrop-filter: blur(2px);
+  opacity: 1;
+  animation: defeatPulse 2s ease-in-out;
+}
+
+@keyframes victoryPulse {
+  0% { opacity: 0; background: rgba(76, 175, 80, 0); }
+  25% { opacity: 1; background: rgba(76, 175, 80, 0.7); }
+  50% { opacity: 1; background: rgba(76, 175, 80, 0.6); }
+  75% { opacity: 1; background: rgba(76, 175, 80, 0.5); }
+  100% { opacity: 0; background: rgba(76, 175, 80, 0); }
+}
+
+@keyframes defeatPulse {
+  0% { opacity: 0; background: rgba(244, 67, 54, 0); }
+  25% { opacity: 1; background: rgba(244, 67, 54, 0.7); }
+  50% { opacity: 1; background: rgba(244, 67, 54, 0.6); }
+  75% { opacity: 1; background: rgba(244, 67, 54, 0.5); }
+  100% { opacity: 0; background: rgba(244, 67, 54, 0); }
 }
 </style>
