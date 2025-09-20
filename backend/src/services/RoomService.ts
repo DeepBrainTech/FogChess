@@ -254,6 +254,32 @@ export class RoomService {
   }
 
   /**
+   * 处理认输
+   */
+  surrender(roomId: string, playerId: string): { success: boolean; gameState?: GameState; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+      return { success: false, error: 'Player not found' };
+    }
+
+    if (room.gameState.gameStatus !== 'playing') {
+      return { success: false, error: 'Game is not in progress' };
+    }
+
+    // 认输：对手获胜
+    const winner = player.color === 'white' ? 'black' : 'white';
+    room.gameState.gameStatus = 'finished';
+    room.gameState.winner = winner;
+
+    return { success: true, gameState: room.gameState };
+  }
+
+  /**
    * 清理空房间
    */
   cleanupEmptyRooms(): void {

@@ -71,6 +71,11 @@ class SocketService {
     this.socket?.emit('respond-undo', { roomId, accepted });
   }
 
+  // 认输
+  surrender(roomId: string): void {
+    this.socket?.emit('surrender', { roomId });
+  }
+
   // 离开房间
   leaveRoom(roomId: string): void {
     this.socket?.emit('leave-room', { roomId });

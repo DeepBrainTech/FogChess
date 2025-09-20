@@ -52,8 +52,8 @@ const pieceStyle = computed(() => ({
 }
 
 .piece-image {
-  width: 80%;
-  height: 80%;
+  width: 87%;
+  height: 87%;
   object-fit: contain;
   filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
 }
@@ -67,8 +67,9 @@ const pieceStyle = computed(() => ({
 }
 
 .piece-hidden .piece-image {
-  opacity: 0.3;
+  opacity: 0;
   filter: grayscale(100%);
+  z-index: 0;
 }
 
 .chess-piece:hover:not(.piece-hidden) {
@@ -77,8 +78,8 @@ const pieceStyle = computed(() => ({
 
 @media (max-width: 768px) {
   .piece-image {
-    width: 85%;
-    height: 85%;
+    width: 88%;
+    height: 88%;
   }
 }
 </style>

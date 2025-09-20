@@ -178,6 +178,10 @@ export const useGameStore = defineStore('game', () => {
     socketService.respondToUndo(roomId, accepted);
   };
 
+  const surrender = (roomId: string) => {
+    socketService.surrender(roomId);
+  };
+
   // 监听Socket事件
   const setupSocketListeners = () => {
     socketService.on('move-made', (data: any) => {
@@ -246,6 +250,7 @@ export const useGameStore = defineStore('game', () => {
     setupSocketListeners,
     requestLegalMoves,
     requestUndo,
-    respondToUndo
+    respondToUndo,
+    surrender
   };
 });

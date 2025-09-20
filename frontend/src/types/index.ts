@@ -51,6 +51,7 @@ export interface SocketEvents {
   'get-legal-moves': { roomId: string; square: string };
   'request-undo': { roomId: string };
   'respond-undo': { roomId: string; accepted: boolean };
+  'surrender': { roomId: string };
   
   // 服务端发送的事件
   'room-created': { room: Room };

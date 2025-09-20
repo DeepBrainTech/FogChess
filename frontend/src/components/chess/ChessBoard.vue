@@ -71,6 +71,15 @@ const onSquareClick = (row: number, col: number) => {
   const notation = chessService.getSquareNotation(row, col);
   const square = chessService.getSquare(row, col);
   
+  // 检查游戏状态：如果游戏结束，显示相应提示
+  if (gameStore.gameState?.gameStatus === 'finished') {
+    // 游戏结束时点击棋子，显示"游戏结束"弹窗
+    window.dispatchEvent(new CustomEvent('show-undo-error', {
+      detail: { message: '对局已结束，请开始新游戏' }
+    }));
+    return;
+  }
+  
   if (gameStore.selectedSquare) {
     // 如果已经选择了棋子
     if (gameStore.selectedSquare === notation) {
@@ -120,8 +129,8 @@ const onSquareClick = (row: number, col: number) => {
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
   gap: 0;
-  border: 2px solid #8B4513;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border: 2px solid #7a8a9a;
+  box-shadow: 0 4px 8px rgba(156, 168, 184, 0.3);
 }
 
 .board-row {
@@ -129,8 +138,8 @@ const onSquareClick = (row: number, col: number) => {
 }
 
 .square {
-  width: 72px; /* 放大棋盘格尺寸 */
-  height: 72px;
+  width: 78px; /* 适度增大棋盘格尺寸，平衡显示效果 */
+  height: 78px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -155,8 +164,8 @@ const onSquareClick = (row: number, col: number) => {
 .square-possible::after {
   content: '';
   position: absolute;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   background-color: rgba(30, 136, 229, 0.9); /* 蓝色圆点，接近 chess.com */
   border-radius: 50%;
   opacity: 0.7;
@@ -167,8 +176,34 @@ const onSquareClick = (row: number, col: number) => {
 }
 
 .square-hidden {
-  background-color: #2C2C2C !important;
-  opacity: 0.3;
+  background-color: rgba(80, 80, 80, 0.8) !important;
+  position: relative;
+}
+
+.square-hidden::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(120, 120, 120, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(100, 100, 100, 0.3) 0%, transparent 40%),
+    radial-gradient(circle at 20% 60%, rgba(90, 90, 90, 0.25) 0%, transparent 35%);
+  animation: fogFloat 4s ease-in-out infinite;
+  z-index: 1;
+}
+
+@keyframes fogFloat {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.6;
+  }
+  50% { 
+    transform: translateY(-2px) rotate(0.5deg);
+    opacity: 0.8;
+  }
 }
 
 .square:hover:not(.square-hidden) {
@@ -177,8 +212,8 @@ const onSquareClick = (row: number, col: number) => {
 
 @media (max-width: 768px) {
   .square {
-    width: 52px;
-    height: 52px;
+    width: 60px;
+    height: 60px;
   }
 }
 </style>

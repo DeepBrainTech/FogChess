@@ -3,9 +3,21 @@
     <div class="game-header">
       <div class="room-info">
         <h2>{{ room?.name || '游戏房间' }}</h2>
-        <div v-if="room" class="room-id">
-          房间ID: <code>{{ room.id }}</code>
-          <button class="copy-btn" @click="copyRoomId">复制</button>
+        <div v-if="room" class="room-info-container">
+          <div class="invite-link">
+            邀请链接: 
+            <div class="tooltip-container">
+              <button class="copy-btn invite-btn" @click="copyInviteLink">点击复制</button>
+              <div class="tooltip">从浏览器直接加入！</div>
+            </div>
+          </div>
+          <div class="room-id">
+            房间ID: <code>{{ room.id }}</code>
+            <div class="tooltip-container">
+              <button class="copy-btn" @click="copyRoomIdOnly">点击复制</button>
+              <div class="tooltip">从主菜单加入房间！</div>
+            </div>
+          </div>
         </div>
         <div class="players">
           <div 
@@ -30,7 +42,14 @@
         >
           {{ undoRequestPending ? '等待对手同意...' : '悔棋' }}
         </button>
-        <button @click="leaveGame" class="leave-button">
+        <button 
+          v-if="gameState?.gameStatus === 'playing'"
+          @click="showSurrenderDialog" 
+          class="surrender-button"
+        >
+          认输
+        </button>
+        <button @click="showLeaveDialog" class="leave-button">
           离开游戏
         </button>
       </div>
@@ -46,7 +65,13 @@
           <h3>游戏状态</h3>
           <div class="status-item">
             <span class="label">当前玩家:</span>
-            <span class="value">{{ gameState?.currentPlayer === 'white' ? '白方' : '黑方' }}</span>
+            <span class="value current-player-indicator">
+              <span 
+                class="turn-dot" 
+                :class="{ 'my-turn': isMyTurn, 'opponent-turn': !isMyTurn }"
+              ></span>
+              {{ gameState?.currentPlayer === 'white' ? '白方' : '黑方' }}
+            </span>
           </div>
           <div class="status-item">
             <span class="label">游戏状态:</span>
@@ -75,32 +100,37 @@
       </div>
     </div>
     
-    <!-- 悔棋弹窗 -->
-    <div v-if="showUndoDialog" class="undo-dialog-overlay" @click="closeUndoDialog">
-      <div class="undo-dialog" @click.stop>
-        <h3>{{ undoDialogTitle }}</h3>
-        <p>{{ undoDialogMessage }}</p>
-        <div v-if="undoDialogType === 'request'" class="dialog-buttons">
+    <!-- 通用弹窗 -->
+    <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
+      <div class="dialog-content" @click.stop>
+        <h3>{{ dialogTitle }}</h3>
+        <p>{{ dialogMessage }}</p>
+        <div v-if="dialogType === 'undo-request'" class="dialog-buttons">
           <button @click="confirmUndoRequest" class="confirm-btn">确定</button>
-          <button @click="closeUndoDialog" class="cancel-btn">取消</button>
+          <button @click="closeDialog" class="cancel-btn">取消</button>
         </div>
-        <div v-else-if="undoDialogType === 'response'" class="dialog-buttons">
+        <div v-else-if="dialogType === 'undo-response'" class="dialog-buttons">
           <button @click="respondToUndo(true)" class="accept-btn">同意</button>
           <button @click="respondToUndo(false)" class="reject-btn">不同意</button>
         </div>
-        <div v-else-if="undoDialogType === 'result'" class="dialog-buttons">
-          <button @click="closeUndoDialog" class="ok-btn">确定</button>
+        <div v-else-if="dialogType === 'surrender-confirm'" class="dialog-buttons">
+          <button @click="confirmSurrender" class="confirm-btn">确认</button>
+          <button @click="closeDialog" class="cancel-btn">我再想想</button>
         </div>
-        <div v-else-if="undoDialogType === 'error'" class="dialog-buttons">
-          <button @click="closeUndoDialog" class="ok-btn">确定</button>
+        <div v-else-if="dialogType === 'leave-confirm'" class="dialog-buttons">
+          <button @click="confirmLeave" class="confirm-btn">确定</button>
+          <button @click="closeDialog" class="cancel-btn">取消</button>
+        </div>
+        <div v-else class="dialog-buttons">
+          <button @click="closeDialog" class="ok-btn">确定</button>
         </div>
       </div>
     </div>
   </div>
 
   <!-- 游戏结束弹窗 -->
-  <div v-if="showGameOver" class="undo-dialog-overlay" @click="closeGameOver">
-    <div class="undo-dialog" @click.stop>
+  <div v-if="showGameOver" class="dialog-overlay" @click="closeGameOver">
+    <div class="dialog-content" @click.stop>
       <h3 :class="{ 'victory-title': isWinner, 'defeat-title': !isWinner }">{{ gameOverTitle }}</h3>
       <p>{{ gameOverMessage }}</p>
       <div class="dialog-buttons">
@@ -124,11 +154,11 @@ const gameStore = useGameStore();
 const room = computed(() => roomStore.currentRoom);
 const gameState = computed(() => gameStore.gameState);
 
-// 悔棋相关状态
-const showUndoDialog = ref(false);
-const undoDialogType = ref<'request' | 'response' | 'result' | 'error'>('request');
-const undoDialogTitle = ref('');
-const undoDialogMessage = ref('');
+// 弹窗相关状态
+const showDialog = ref(false);
+const dialogType = ref<'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm'>('undo-request');
+const dialogTitle = ref('');
+const dialogMessage = ref('');
 const undoRequestPending = ref(false);
 
 // 游戏结束弹窗
@@ -148,6 +178,11 @@ const canRequestUndo = computed(() => {
          gameState.value.moveHistory.length > 0;
 });
 
+const isMyTurn = computed(() => {
+  if (!gameState.value || !roomStore.currentPlayer) return false;
+  return gameState.value.currentPlayer === roomStore.currentPlayer.color;
+});
+
 const getGameStatusText = () => {
   if (!gameState.value) return '等待中';
   
@@ -163,15 +198,66 @@ const getGameStatusText = () => {
   }
 };
 
-const leaveGame = () => {
+const showLeaveDialog = () => {
+  // 检查游戏状态：只有在游戏进行中才需要确认
+  if (gameState.value?.gameStatus === 'playing') {
+    dialogType.value = 'leave-confirm';
+    dialogTitle.value = '离开游戏';
+    dialogMessage.value = '确定要离开游戏吗？';
+    showDialog.value = true;
+  } else {
+    // 游戏未开始或已结束，直接离开
+    directLeave();
+  }
+};
+
+const confirmLeave = () => {
+  directLeave();
+  closeDialog();
+};
+
+const directLeave = () => {
   roomStore.leaveRoom();
   gameStore.resetGame();
   router.push('/');
 };
 
-const copyRoomId = async () => {
+const showSurrenderDialog = () => {
+  dialogType.value = 'surrender-confirm';
+  dialogTitle.value = '认输';
+  dialogMessage.value = '确定认输吗？';
+  showDialog.value = true;
+};
+
+const confirmSurrender = () => {
+  if (!room.value) return;
+  
+  gameStore.surrender(room.value.id);
+  closeDialog();
+};
+
+// 复制完整的邀请链接
+const copyInviteLink = async () => {
   if (!room.value) return;
   const text = `${window.location.origin}?room=${room.value.id}`;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+  } catch {}
+};
+
+// 只复制房间ID
+const copyRoomIdOnly = async () => {
+  if (!room.value) return;
+  const text = room.value.id;
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
@@ -190,10 +276,10 @@ const copyRoomId = async () => {
 const requestUndo = () => {
   if (!room.value || !roomStore.currentPlayer) return;
   
-  undoDialogType.value = 'request';
-  undoDialogTitle.value = '请求悔棋';
-  undoDialogMessage.value = '确定要请求悔棋吗？';
-  showUndoDialog.value = true;
+  dialogType.value = 'undo-request';
+  dialogTitle.value = '请求悔棋';
+  dialogMessage.value = '确定要请求悔棋吗？';
+  showDialog.value = true;
 };
 
 const confirmUndoRequest = () => {
@@ -201,43 +287,48 @@ const confirmUndoRequest = () => {
   
   undoRequestPending.value = true;
   gameStore.requestUndo(room.value.id);
-  closeUndoDialog();
+  closeDialog();
 };
 
 const respondToUndo = (accepted: boolean) => {
   if (!room.value) return;
   
   gameStore.respondToUndo(room.value.id, accepted);
-  closeUndoDialog();
+  closeDialog();
 };
 
-const closeUndoDialog = () => {
-  showUndoDialog.value = false;
+const closeDialog = () => {
+  showDialog.value = false;
   undoRequestPending.value = false;
 };
 
-// 显示悔棋弹窗的方法（供外部调用）
+// 显示弹窗的方法（供外部调用）
 const showUndoRequestDialog = (fromPlayer: string, attemptsLeft?: number) => {
-  undoDialogType.value = 'response';
-  undoDialogTitle.value = '对手请求悔棋';
+  dialogType.value = 'undo-response';
+  dialogTitle.value = '对手请求悔棋';
   const attemptsText = attemptsLeft ? ` (剩余尝试次数: ${attemptsLeft})` : '';
-  undoDialogMessage.value = `${fromPlayer} 请求悔棋，是否同意？${attemptsText}`;
-  showUndoDialog.value = true;
+  dialogMessage.value = `${fromPlayer} 请求悔棋，是否同意？${attemptsText}`;
+  showDialog.value = true;
 };
 
 const showUndoResultDialog = (accepted: boolean) => {
-  undoDialogType.value = 'result';
-  undoDialogTitle.value = '悔棋结果';
-  undoDialogMessage.value = accepted ? '对手同意了悔棋请求' : '对手拒绝了悔棋请求';
-  showUndoDialog.value = true;
+  dialogType.value = 'undo-result';
+  dialogTitle.value = '悔棋结果';
+  dialogMessage.value = accepted ? '对手同意了悔棋请求' : '对手拒绝了悔棋请求';
+  showDialog.value = true;
   undoRequestPending.value = false;
 };
 
 const showUndoErrorDialog = (message: string) => {
-  undoDialogType.value = 'error';
-  undoDialogTitle.value = '无法悔棋';
-  undoDialogMessage.value = message;
-  showUndoDialog.value = true;
+  dialogType.value = 'undo-error';
+  // 根据消息内容设置不同的标题
+  if (message.includes('对局已结束') || message.includes('请开始新游戏')) {
+    dialogTitle.value = '对局结束';
+  } else {
+    dialogTitle.value = '无法悔棋';
+  }
+  dialogMessage.value = message;
+  showDialog.value = true;
   undoRequestPending.value = false;
 };
 
@@ -272,10 +363,13 @@ onMounted(() => {
   window.addEventListener('show-undo-error', (event: any) => {
     showUndoErrorDialog(event.detail.message);
   });
+  
+  // 不再需要这个事件监听器，改为直接检查棋盘状态
 });
 
 // 游戏结束时的胜负状态
 const isWinner = ref(false);
+const gameEndReason = ref<'king-captured' | 'surrender'>('king-captured');
 
 // 监听游戏结束
 watch(gameState, (gs) => {
@@ -287,10 +381,27 @@ watch(gameState, (gs) => {
     
     // 设置标题和消息
     gameOverTitle.value = isWin ? 'Victory' : 'Defeat';
-    const loser = gs.winner === 'white' ? 'black' : 'white';
-    const winnerText = gs.winner === 'white' ? 'White' : 'Black';
-    const loserText = loser === 'white' ? 'White' : 'Black';
-    gameOverMessage.value = `${winnerText} captured ${loserText} king.`;
+    
+    // 通过检查FEN判断游戏结束原因
+    const kingWasCaptured = isKingCaptured(gs.board);
+    gameEndReason.value = kingWasCaptured ? 'king-captured' : 'surrender';
+    
+    // 根据结束原因和胜负设置中文消息
+    if (gameEndReason.value === 'king-captured') {
+      // 王被吃掉的情况
+      if (isWin) {
+        gameOverMessage.value = '恭喜你，吃掉了对面国王！';
+      } else {
+        gameOverMessage.value = '很抱歉，你被吃掉了国王！';
+      }
+    } else {
+      // 认输的情况
+      if (isWin) {
+        gameOverMessage.value = '恭喜你，你赢了！';
+      } else {
+        gameOverMessage.value = '很抱歉，你输了！';
+      }
+    }
     
     // 同时触发背景闪烁效果和显示弹窗
     if (isWin) {
@@ -311,14 +422,25 @@ watch(gameState, (gs) => {
 const closeGameOver = () => {
   showGameOver.value = false;
 };
+
+// 检查FEN中是否缺少某种颜色的王（判断是否被吃掉）
+const isKingCaptured = (fen: string): boolean => {
+  const boardPart = fen.split(' ')[0]; // 取FEN的棋盘部分
+  const hasWhiteKing = boardPart.includes('K');
+  const hasBlackKing = boardPart.includes('k');
+  
+  // 如果任何一方的王不在棋盘上，说明被吃掉了
+  return !hasWhiteKing || !hasBlackKing;
+};
 </script>
 
 <style scoped>
 .game-container {
-  min-height: 100vh;
-  background: #f5f5f5;
+  height: 100vh;
+  background: #9ca8b8;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .game-header {
@@ -331,8 +453,94 @@ const closeGameOver = () => {
 }
 
 .room-info h2 {
-  margin: 0 0 10px 0;
+  margin: 0 0 15px 0;
   color: #333;
+  font-size: 26px;
+}
+
+.room-info-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.room-id, .invite-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+}
+
+.room-id code {
+  background: #f0f2f5;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+  border: 1px solid #d1d8e0;
+}
+
+.copy-btn {
+  padding: 8px 14px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background-color 0.3s ease;
+}
+
+.copy-btn:hover {
+  background: #1976D2;
+}
+
+.invite-btn {
+  background: #4CAF50;
+}
+
+.invite-btn:hover {
+  background: #45a049;
+}
+
+/* 自定义悬浮提示框 */
+.tooltip-container {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  margin-bottom: 5px;
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+.tooltip-container:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .players {
@@ -343,11 +551,12 @@ const closeGameOver = () => {
 .player {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 10px;
+  padding: 10px 16px;
   border-radius: 20px;
-  background: #f0f0f0;
+  background: #f0f2f5;
   transition: all 0.3s ease;
+  font-size: 15px;
 }
 
 .player.current-player {
@@ -356,8 +565,8 @@ const closeGameOver = () => {
 }
 
 .player-color {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid #333;
 }
@@ -371,7 +580,7 @@ const closeGameOver = () => {
 }
 
 .turn-indicator {
-  font-size: 12px;
+  font-size: 15px;
   color: #2196F3;
   font-weight: bold;
 }
@@ -382,13 +591,14 @@ const closeGameOver = () => {
 }
 
 .leave-button {
-  padding: 8px 16px;
+  padding: 12px 20px;
   background: #f44336;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  font-size: 16px;
 }
 
 .leave-button:hover {
@@ -396,7 +606,7 @@ const closeGameOver = () => {
 }
 
 .undo-button {
-  padding: 8px 16px;
+  padding: 12px 20px;
   background: #ff9800;
   color: white;
   border: none;
@@ -404,6 +614,7 @@ const closeGameOver = () => {
   cursor: pointer;
   transition: background-color 0.3s ease;
   margin-right: 10px;
+  font-size: 16px;
 }
 
 .undo-button:hover:not(:disabled) {
@@ -413,6 +624,22 @@ const closeGameOver = () => {
 .undo-button:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+.surrender-button {
+  padding: 12px 20px;
+  background: #ff5722;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-right: 10px;
+  font-size: 16px;
+}
+
+.surrender-button:hover {
+  background: #e64a19;
 }
 
 .game-content {
@@ -449,14 +676,16 @@ const closeGameOver = () => {
 .game-status h3, .move-history h3 {
   margin: 0 0 15px 0;
   color: #333;
+  font-size: 20px;
 }
 
 .status-item {
   display: flex;
   justify-content: space-between;
   margin-bottom: 10px;
-  padding: 8px 0;
+  padding: 10px 0;
   border-bottom: 1px solid #eee;
+  font-size: 15px;
 }
 
 .status-item:last-child {
@@ -473,6 +702,28 @@ const closeGameOver = () => {
   color: #333;
 }
 
+.current-player-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.turn-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.turn-dot.my-turn {
+  background-color: #478058;
+  box-shadow: 0 0 8px rgba(71, 128, 88, 0.4);
+}
+
+.turn-dot.opponent-turn {
+  background-color: #999;
+}
+
 .moves-list {
   max-height: 300px;
   overflow-y: auto;
@@ -482,8 +733,9 @@ const closeGameOver = () => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 0;
+  padding: 7px 0;
   border-bottom: 1px solid #eee;
+  font-size: 14px;
 }
 
 .move-item:last-child {
@@ -493,18 +745,20 @@ const closeGameOver = () => {
 .move-number {
   font-weight: bold;
   color: #666;
-  min-width: 30px;
+  min-width: 35px;
+  font-size: 14px;
 }
 
 .move-notation {
   flex: 1;
   font-family: monospace;
+  font-size: 14px;
 }
 
 .move-player {
-  font-size: 12px;
+  font-size: 14px;
   color: #666;
-  padding: 2px 6px;
+  padding: 4px 10px;
   background: #f0f0f0;
   border-radius: 10px;
 }
@@ -529,8 +783,8 @@ const closeGameOver = () => {
   }
 }
 
-/* 悔棋弹窗样式 */
-.undo-dialog-overlay {
+/* 统一弹窗样式 */
+.dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -543,20 +797,21 @@ const closeGameOver = () => {
   z-index: 1000;
 }
 
-.undo-dialog {
+.dialog-content {
   background: white;
-  padding: 30px;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  max-width: 400px;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
   width: 90%;
   text-align: center;
 }
 
-.undo-dialog h3 {
-  margin: 0 0 15px 0;
+.dialog-content h3 {
+  margin: 0 0 20px 0;
   color: #333;
-  font-size: 20px;
+  font-size: 26px;
+  font-weight: 600;
 }
 
 /* 游戏结束弹窗标题颜色 */
@@ -570,25 +825,28 @@ const closeGameOver = () => {
   text-shadow: 0 0 10px rgba(244, 67, 54, 0.3);
 }
 
-.undo-dialog p {
-  margin: 0 0 25px 0;
+.dialog-content p {
+  margin: 0 0 30px 0;
   color: #666;
-  line-height: 1.5;
+  line-height: 1.6;
+  font-size: 18px;
 }
 
 .dialog-buttons {
   display: flex;
-  gap: 10px;
+  gap: 15px;
   justify-content: center;
 }
 
 .dialog-buttons button {
-  padding: 10px 20px;
+  padding: 14px 28px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s ease;
+  font-size: 17px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 110px;
 }
 
 .confirm-btn {

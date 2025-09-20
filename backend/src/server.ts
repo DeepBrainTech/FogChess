@@ -167,6 +167,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 认输
+  socket.on('surrender', (data: SocketEvents['surrender']) => {
+    try {
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Player not found in room' });
+        return;
+      }
+
+      const result = roomService.surrender(data.roomId, player.id);
+      
+      if (result.success && result.gameState) {
+        // 通知所有玩家游戏结束
+        io.to(data.roomId).emit('game-updated', { gameState: result.gameState });
+      } else {
+        socket.emit('error', { message: result.error || 'Failed to surrender' });
+      }
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to surrender' });
+    }
+  });
+
   // 离开房间
   socket.on('leave-room', (data: SocketEvents['leave-room']) => {
     try {
