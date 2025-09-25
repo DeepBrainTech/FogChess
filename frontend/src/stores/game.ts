@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import type { GameState, Move, Player } from '../types';
 import { socketService } from '../services/socket';
 import { chessService } from '../services/chess';
+import { audioService } from '../services/audio';
 import { useRoomStore } from './room';
 
 export const useGameStore = defineStore('game', () => {
@@ -89,6 +90,14 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
+    // 播放音效：检查是否吃子
+    const isCapture = checkIfCapture(from, to);
+    if (isCapture) {
+      audioService.playCaptureSound();
+    } else {
+      audioService.playMoveSound();
+    }
+
     // 发送移动到服务器
     if (roomStore.currentRoom) {
       socketService.makeMove(roomStore.currentRoom.id, move);
@@ -119,6 +128,23 @@ export const useGameStore = defineStore('game', () => {
     const piece = boardSquare.piece;
     const symbol = pieceMap[piece.type];
     return piece.color === 'white' ? symbol : symbol.toLowerCase();
+  };
+
+  const checkIfCapture = (from: string, to: string): boolean => {
+    // 检查目标格是否有对方棋子
+    const targetPiece = getPieceAtSquare(to);
+    if (!targetPiece) return false;
+    
+    // 检查是否是对方棋子
+    const currentColor = currentPlayer.value?.color;
+    if (!currentColor) return false;
+    
+    const isWhitePiece = targetPiece === targetPiece.toUpperCase();
+    const isBlackPiece = targetPiece === targetPiece.toLowerCase();
+    const isOpponentPiece = (currentColor === 'white' && isBlackPiece) || 
+                           (currentColor === 'black' && isWhitePiece);
+    
+    return isOpponentPiece;
   };
 
   const getPossibleMoves = (square: string): string[] => {
@@ -157,9 +183,82 @@ export const useGameStore = defineStore('game', () => {
     (socketService as any).on('legal-moves', (data: any) => {
       if (data.square !== square) return;
       possibleMoves.value = data.moves || [];
+
+      // 追加：迷雾棋王车易位（不检查将军穿越/落点是否受控）
+      try {
+        appendCastlingMovesIfEligible(square);
+      } catch (e) {
+        // 保守处理：忽略前端易位计算错误
+      }
+
       highlightMoves();
     });
   };
+
+  function appendCastlingMovesIfEligible(square: string) {
+    // 仅当选择的是己方国王，且在起始位置，且与起始车之间无子且双方均未动
+    if (!gameState.value || !currentPlayer.value) return;
+    const color = currentPlayer.value.color;
+
+    const kingStart = color === 'white' ? 'e1' : 'e8';
+    if (square !== kingStart) return;
+
+    const kingCoords = chessService.getSquareCoordinates(kingStart);
+    if (!kingCoords) return;
+    const kingSquare = chessService.getSquare(kingCoords.row, kingCoords.col);
+    if (!kingSquare?.piece || kingSquare.piece.type !== 'king' || kingSquare.piece.color !== color) return;
+
+    // 工具函数
+    const isEmpty = (notation: string) => {
+      const c = chessService.getSquareCoordinates(notation);
+      if (!c) return false;
+      const sq = chessService.getSquare(c.row, c.col);
+      return !!sq && !sq.piece;
+    };
+    const pieceAt = (notation: string) => {
+      const c = chessService.getSquareCoordinates(notation);
+      if (!c) return null;
+      const sq = chessService.getSquare(c.row, c.col);
+      return sq?.piece || null;
+    };
+
+    const hasMoved = (startSquare: string): boolean => {
+      const history = gameState.value?.moveHistory || [];
+      return history.some(m => m.from === startSquare);
+    };
+
+    // 短易位：王 e1/e8 -> g1/g8，车 h1/h8 -> f1/f8
+    const rookShortStart = color === 'white' ? 'h1' : 'h8';
+    const kingShortTarget = color === 'white' ? 'g1' : 'g8';
+    const pathShort = color === 'white' ? ['f1', 'g1'] : ['f8', 'g8'];
+
+    const rookShortPiece = pieceAt(rookShortStart);
+    if (
+      rookShortPiece && rookShortPiece.type === 'rook' && rookShortPiece.color === color &&
+      !hasMoved(kingStart) && !hasMoved(rookShortStart) &&
+      pathShort.every(p => isEmpty(p))
+    ) {
+      if (!possibleMoves.value.includes(kingShortTarget)) {
+        possibleMoves.value.push(kingShortTarget);
+      }
+    }
+
+    // 长易位：王 e1/e8 -> c1/c8，车 a1/a8 -> d1/d8
+    const rookLongStart = color === 'white' ? 'a1' : 'a8';
+    const kingLongTarget = color === 'white' ? 'c1' : 'c8';
+    const pathLong = color === 'white' ? ['b1', 'c1', 'd1'] : ['b8', 'c8', 'd8'];
+
+    const rookLongPiece = pieceAt(rookLongStart);
+    if (
+      rookLongPiece && rookLongPiece.type === 'rook' && rookLongPiece.color === color &&
+      !hasMoved(kingStart) && !hasMoved(rookLongStart) &&
+      pathLong.every(p => isEmpty(p))
+    ) {
+      if (!possibleMoves.value.includes(kingLongTarget)) {
+        possibleMoves.value.push(kingLongTarget);
+      }
+    }
+  }
 
   const resetGame = () => {
     gameState.value = null;
@@ -167,6 +266,29 @@ export const useGameStore = defineStore('game', () => {
     selectedSquare.value = null;
     possibleMoves.value = [];
     chessService.clearHighlights();
+  };
+
+  // 回放状态管理
+  const replayState = ref<any>(null);
+  
+  const setReplayState = (state: any) => {
+    replayState.value = state;
+    if (state) {
+      // 进入回放模式，设置棋盘状态
+      chessService.setBoardFromFen(state.board);
+      // 应用迷雾规则
+      if (currentPlayer.value && gameState.value?.fogOfWar) {
+        chessService.applyFogFor(currentPlayer.value.color, gameState.value.fogOfWar);
+      }
+    } else {
+      // 退出回放模式，恢复当前游戏状态
+      if (gameState.value) {
+        chessService.setBoardFromFen(gameState.value.board);
+        if (currentPlayer.value && gameState.value.fogOfWar) {
+          chessService.applyFogFor(currentPlayer.value.color, gameState.value.fogOfWar);
+        }
+      }
+    }
   };
 
   // 悔棋相关方法
@@ -240,6 +362,7 @@ export const useGameStore = defineStore('game', () => {
     selectedSquare,
     possibleMoves,
     isMyTurn,
+    replayState,
     
     // 动作
     setGameState,
@@ -251,6 +374,7 @@ export const useGameStore = defineStore('game', () => {
     requestLegalMoves,
     requestUndo,
     respondToUndo,
-    surrender
+    surrender,
+    setReplayState
   };
 });

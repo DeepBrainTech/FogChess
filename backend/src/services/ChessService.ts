@@ -339,10 +339,30 @@ export class ChessService {
 
   /**
    * 获取棋子的所有可能移动（不依赖当前回合）
+   * 包括目标格和被吃子的位置（用于迷雾棋视野计算）
    */
   private getPieceMoves(square: string, pieceType: string, color: 'w' | 'b', boardState: any[][]): string[] {
     try {
-      return this.generatePseudoLegalMoves(square);
+      const moves = this.generatePseudoLegalMoves(square);
+      const visibleSquares = new Set(moves);
+      
+      // 特殊处理：过路兵 - 如果目标格是过路兵目标，也要显示被吃兵的位置
+      if (pieceType === 'p') {
+        const fenParts = this.chess.fen().split(' ');
+        const epTarget = fenParts[3] && fenParts[3] !== '-' ? fenParts[3] : undefined;
+        
+        if (epTarget && moves.includes(epTarget)) {
+          // 过路兵目标格可见，被吃兵的位置也应该可见
+          // 被过路兵吃的兵在过路兵目标格的相邻行
+          const [epX, epY] = [epTarget.charCodeAt(0) - 97, parseInt(epTarget[1], 10) - 1];
+          const dir = color === 'w' ? -1 : 1; // 白方吃过路兵，被吃兵在下方；黑方吃过路兵，被吃兵在上方
+          const capturedRank = epY + dir;
+          const capturedSq = `${epTarget[0]}${capturedRank + 1}`;
+          visibleSquares.add(capturedSq);
+        }
+      }
+      
+      return Array.from(visibleSquares);
     } catch (error) {
       return [];
     }

@@ -45,7 +45,12 @@ const boardRenderKey = computed(() => {
 const getSquareClass = (row: number, col: number) => {
   const isLight = (row + col) % 2 === 0;
   const square = chessService.getSquare(row, col);
-  
+  const notation = chessService.getSquareNotation(row, col);
+  const isSelected = gameStore.selectedSquare === notation;
+  const hasPiece = !!square?.piece;
+  const isMyPiece = hasPiece && square?.piece?.color === gameStore.currentPlayer?.color;
+  const isPossibleMove = gameStore.possibleMoves.includes(notation);
+
   return {
     'square': true,
     'square-light': isLight,
@@ -53,7 +58,10 @@ const getSquareClass = (row: number, col: number) => {
     'square-highlighted': square?.isHighlighted,
     'square-possible': square?.isPossibleMove,
     'square-last-move': square?.isLastMove,
-    'square-hidden': !square?.isVisible
+    'square-hidden': !square?.isVisible,
+    'square-selected': isSelected,
+    'square-clickable': hasPiece && isMyPiece || isPossibleMove || isSelected,
+    'square-non-clickable': !hasPiece && !isPossibleMove && !isSelected
   };
 };
 
@@ -111,7 +119,8 @@ const onSquareClick = (row: number, col: number) => {
       gameStore.selectSquare(notation);
       gameStore.requestLegalMoves(notation);
     }
-    // 如果是空白格或对手棋子，不执行任何操作
+    // 如果是空白格或对手棋子，直接返回，不执行任何操作
+    return;
   }
 };
 </script>
@@ -148,12 +157,20 @@ const onSquareClick = (row: number, col: number) => {
   transition: all 0.2s ease;
 }
 
+.square-non-clickable {
+  cursor: default;
+}
+
 .square-light {
   background-color: #F0D9B5; /* chess.com 浅格近似 */
 }
 
 .square-dark {
   background-color: #B58863; /* chess.com 深格近似 */
+}
+
+.square-selected {
+  background-color: #a9bd70 !important; /* 浅绿色高亮选中棋子 */
 }
 
 .square-highlighted {
@@ -206,7 +223,7 @@ const onSquareClick = (row: number, col: number) => {
   }
 }
 
-.square:hover:not(.square-hidden) {
+.square-clickable:hover:not(.square-hidden) {
   background-color: #E6E6FA !important;
 }
 
