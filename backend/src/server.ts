@@ -32,8 +32,6 @@ app.get('/rooms', (req, res) => {
 
 // Socket.io 连接处理
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
-
   // 创建房间
   socket.on('create-room', (data: SocketEvents['create-room']) => {
     try {
@@ -209,8 +207,6 @@ io.on('connection', (socket) => {
 
   // 断开连接
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.id}`);
-    
     // 清理用户所在的房间
     const rooms = roomService.getAllRooms();
     for (const room of rooms) {

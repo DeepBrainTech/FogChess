@@ -31,15 +31,17 @@ import ChessPiece from './ChessPiece.vue';
 
 const gameStore = useGameStore();
 
-// 当gameState或fog变化时，触发重新渲染
+// 当 gameState/fog 或 replayState 变化时，触发重新渲染
 const boardRenderKey = computed(() => {
   const gs = gameStore.gameState as any;
   if (!gs) return 'empty';
   const fog = gs.fogOfWar || {};
-  // 加入选中格与可走列表，确保点击后高亮强制更新
   const sel = gameStore.selectedSquare || '';
   const movesSig = (gameStore.possibleMoves || []).join(',');
-  return `${gs.board}|${fog.whiteVisible?.length || 0}|${fog.blackVisible?.length || 0}|${sel}|${movesSig}`;
+  const replayBoard = (gameStore.replayState as any)?.board || '';
+  // 优先使用回看时的棋盘快照，否则使用最新 gameState.board
+  const boardSig = replayBoard || gs.board || '';
+  return `${boardSig}|${fog.whiteVisible?.length || 0}|${fog.blackVisible?.length || 0}|${sel}|${movesSig}`;
 });
 
 const getSquareClass = (row: number, col: number) => {

@@ -27,20 +27,10 @@ class AudioService {
       this.captureSound.volume = 0.4; // 吃子音效稍大一些
       this.captureSound.src = '/sounds/capture.mp3';
       
-      // 处理加载错误
-      this.moveSound.addEventListener('error', () => {
-        console.warn('Move sound failed to load');
-      });
-      
-      this.captureSound.addEventListener('error', () => {
-        console.warn('Capture sound failed to load');
-      });
-      
       // 预加载音效
       this.moveSound.load();
       this.captureSound.load();
     } catch (error) {
-      console.warn('Audio initialization failed:', error);
       this.isEnabled = false;
     }
   }
@@ -50,7 +40,7 @@ class AudioService {
    */
   playMoveSound() {
     if (!this.isEnabled || !this.moveSound) return;
-    this.playSound(this.moveSound, 'move');
+    this.playSound(this.moveSound);
   }
 
   /**
@@ -58,13 +48,13 @@ class AudioService {
    */
   playCaptureSound() {
     if (!this.isEnabled || !this.captureSound) return;
-    this.playSound(this.captureSound, 'capture');
+    this.playSound(this.captureSound);
   }
 
   /**
    * 通用音效播放方法
    */
-  private playSound(sound: HTMLAudioElement, type: string) {
+  private playSound(sound: HTMLAudioElement) {
     try {
       // 重置播放位置到开始
       sound.currentTime = 0;
@@ -74,12 +64,12 @@ class AudioService {
       
       // 处理播放失败
       if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.warn(`${type} sound play failed:`, error);
+        playPromise.catch(() => {
+          // Sound play failed, continue silently
         });
       }
     } catch (error) {
-      console.warn(`${type} sound play error:`, error);
+      // Sound play error, continue silently
     }
   }
 

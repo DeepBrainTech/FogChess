@@ -54,7 +54,6 @@ export const useRoomStore = defineStore('room', () => {
         if (navigator.clipboard && window.isSecureContext) {
           navigator.clipboard.writeText(shareUrl).catch(() => {});
         }
-        console.log('Room created. Share link copied:', shareUrl);
       } catch {}
     });
 

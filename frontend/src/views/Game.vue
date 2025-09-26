@@ -160,34 +160,45 @@
             <button 
               class="replay-btn"
               title="回到开始"
+              @click="goToStart"
+              :disabled="totalMoves === 0 || currentMoveIndex === 0"
             >
               <img src="/src/assets/replay/rewind-start.svg" alt="回到开始" class="replay-icon" />
             </button>
             <button 
               class="replay-btn"
               title="回退一步"
+              @click="stepBackward"
+              :disabled="totalMoves === 0 || currentMoveIndex === 0"
             >
               <img src="/src/assets/replay/step-backward.svg" alt="回退一步" class="replay-icon" />
             </button>
-            <button 
-              class="replay-btn play-btn"
-              title="自动播放"
+            <div 
+              class="replay-btn notification-btn"
+              :class="{ 'has-new-move': hasNewMove }"
+              title="新移动通知"
             >
               <img 
-                src="/src/assets/replay/play.svg" 
-                alt="播放" 
-                class="replay-icon" 
+                :src="hasNewMove ? '/src/assets/replay/notice_yellow.svg' : '/src/assets/replay/notice.svg'"
+                alt="新移动通知" 
+                :class="hasNewMove ? 'replay-icon-notification' : 'replay-icon'"
+                @error="onImageError"
+                :key="hasNewMove ? 'yellow' : 'white'"
               />
-            </button>
+            </div>
             <button 
               class="replay-btn"
               title="前进一步"
+              @click="stepForward"
+              :disabled="totalMoves === 0 || currentMoveIndex === totalMoves"
             >
               <img src="/src/assets/replay/step-forward.svg" alt="前进一步" class="replay-icon" />
             </button>
             <button 
               class="replay-btn"
               title="跳到最新"
+              @click="goToEnd"
+              :disabled="totalMoves === 0 || currentMoveIndex === totalMoves"
             >
               <img src="/src/assets/replay/fast-forward.svg" alt="跳到最新" class="replay-icon" />
             </button>
@@ -250,6 +261,8 @@ import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
 import { useGameStore } from '../stores/game';
 import { audioService } from '../services/audio';
+import { replayService } from '../services/replay';
+import { animationService } from '../services/animation';
 import ChessBoard from '../components/chess/ChessBoard.vue';
 
 const router = useRouter();
@@ -363,24 +376,17 @@ const getPieceImage = (pieceSymbol: string) => {
   return new URL(`../assets/pieces/${pieceName}.svg`, import.meta.url).href;
 };
 
-// 判断当前玩家是否能看见这个移动（已弃用，使用 canSeeMoveAtRound 替代）
-// const canSeeMove = (move: any) => {
-//   if (!roomStore.currentPlayer) return false;
-//   
-//   // 迷雾棋规则：只能看到自己的移动
-//   return move.player === roomStore.currentPlayer.color;
-// };
+// 进度查看状态（非模式化）：随时可查看任意手数
+const currentMoveIndex = ref(0); // 当前查看的手数（0 表示初始局面；= totalMoves 表示最新）
+const totalMoves = computed(() => {
+  const moves = gameState.value?.moveHistory || [];
+  return moves.length;
+});
 
-// 回放控制状态（暂时保留，明天实现逻辑）
-// const currentMoveIndex = ref(0);
-// const isAutoPlaying = ref(false);
-// const autoPlayInterval = ref<number | null>(null);
-// const isReplayMode = ref(false);
-
-// 计算当前回合索引
-// const currentRoundIndex = computed(() => {
-//   return Math.floor(currentMoveIndex.value / 2);
-// });
+// 新移动通知状态
+const hasNewMove = ref(false);
+const lastKnownMoveCount = ref(0);
+const isShowingNotification = ref(false);
 
 // 将移动历史按回合分组
 const getRounds = () => {
@@ -414,17 +420,65 @@ const canSeeMoveAtRound = (move: any) => {
   return move.player === roomStore.currentPlayer.color;
 };
 
-// 回放控制函数（明天实现）
-// const goToStart = () => { ... };
-// const stepBackward = () => { ... };
-// const stepForward = () => { ... };
-// const goToEnd = () => { ... };
-// const toggleAutoPlay = () => { ... };
-// const startAutoPlay = () => { ... };
-// const stopAutoPlay = () => { ... };
-// const updateBoardState = () => { ... };
-// const reconstructBoardFromMoves = (moves: any[]) => { ... };
-// const applyMoveToBoard = (board: string, move: any) => { ... };
+// 回放控制函数
+const goToStart = () => {
+  if (totalMoves.value === 0) return;
+  currentMoveIndex.value = 0;
+  updateBoardForMoves(currentMoveIndex.value);
+};
+
+const stepBackward = async () => {
+  if (totalMoves.value === 0) return;
+  if (currentMoveIndex.value > 0) {
+    currentMoveIndex.value -= 1;
+    await updateBoardForMoves(currentMoveIndex.value);
+  } else {
+    // 已在最开始，无操作
+  }
+};
+
+const stepForward = async () => {
+  if (currentMoveIndex.value < totalMoves.value) {
+    currentMoveIndex.value += 1;
+    if (currentMoveIndex.value === totalMoves.value) {
+      // 切回最新（实时局面）
+      goToEnd();
+    } else {
+      await updateBoardForMoves(currentMoveIndex.value);
+    }
+  }
+};
+
+const goToEnd = () => {
+  // 恢复最新局面
+  currentMoveIndex.value = totalMoves.value;
+  gameStore.setReplayState(null);
+  // 清除新移动通知
+  hasNewMove.value = false;
+  isShowingNotification.value = false;
+};
+
+async function updateBoardForMoves(movesApplied: number) {
+  const gs = gameState.value;
+  if (!gs) return;
+  const moves = gs.moveHistory || [];
+  const upToIndex = Math.min(moves.length, movesApplied); // 每次按一手棋推进
+  
+  // 如果是从历史状态前进，播放动画
+  if (movesApplied > 0 && currentMoveIndex.value < movesApplied) {
+    const movesToAnimate = moves.slice(currentMoveIndex.value, upToIndex);
+    const animationMoves = movesToAnimate.map(move => ({ from: move.from, to: move.to }));
+    
+    if (animationMoves.length > 0) {
+      // 播放移动动画
+      await animationService.animateMoves(animationMoves, { duration: 150 });
+    }
+  }
+  
+  const boardPart = (replayService.constructor as any).reconstructBoardFromMoves(moves, upToIndex);
+  // 仅传棋盘部分即可
+  gameStore.setReplayState({ board: boardPart });
+}
 
 // 组件销毁时清理（明天实现）
 // onUnmounted(() => {
@@ -772,6 +826,54 @@ onMounted(() => {
   
   // 不再需要这个事件监听器，改为直接检查棋盘状态
 });
+
+// 一旦有新走子/状态变化：如果当前不在最新，立即跳到最新
+watch(gameState, (gs) => {
+  if (!gs) return;
+  const latestMoves = (gs.moveHistory || []).length;
+  
+  // 检查是否有新移动（且不是自己的移动）
+  if (latestMoves > lastKnownMoveCount.value) {
+    // 检查最新移动是否是对方的移动
+    const latestMove = gs.moveHistory?.[latestMoves - 1];
+    const isOpponentMove = latestMove && latestMove.player !== roomStore.currentPlayer?.color;
+    
+    if (isOpponentMove) {
+      // 只有对方移动时才触发通知
+      triggerNotification();
+    }
+    lastKnownMoveCount.value = latestMoves;
+  }
+  
+  // 如果当前不在最新，立即跳到最新
+  if (currentMoveIndex.value !== latestMoves) {
+    currentMoveIndex.value = latestMoves;
+    gameStore.setReplayState(null);
+  }
+});
+
+// 触发通知效果
+const triggerNotification = () => {
+  if (isShowingNotification.value) return; // 防止重复触发
+  
+  isShowingNotification.value = true;
+  hasNewMove.value = true;
+  
+  // 0.6秒后自动恢复
+  setTimeout(() => {
+    hasNewMove.value = false;
+    isShowingNotification.value = false;
+  }, 600);
+};
+
+// 图片加载错误处理
+const onImageError = (event: any) => {
+  // 如果黄色图标加载失败，回退到白色图标
+  if (event.target.src.includes('notice_yellow.svg')) {
+    event.target.src = '/src/assets/replay/notice.svg';
+    event.target.className = 'replay-icon';
+  }
+};
 
 // 游戏结束时的胜负状态
 const isWinner = ref(false);
@@ -1414,10 +1516,40 @@ const confirmDownloadPgn = () => {
   background: #c82333;
 }
 
+/* 通知按钮样式 */
+.replay-btn.notification-btn {
+  background: #adb5bd; /* 与不可点击按钮相同的浅灰色 */
+  cursor: default;
+  pointer-events: none; /* 完全不可点击 */
+}
+
+.replay-btn.notification-btn.has-new-move {
+  animation: shake-notification 0.6s ease-in-out;
+}
+
+@keyframes shake-notification {
+  0%, 100% { 
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% { 
+    transform: translateX(-2px);
+  }
+  20%, 40%, 60%, 80% { 
+    transform: translateX(2px);
+  }
+}
+
 .replay-icon {
   width: 24px;
   height: 24px;
   filter: brightness(0) invert(1); /* 将SVG图标变为白色 */
+  transition: all 0.2s ease;
+}
+
+.replay-icon-notification {
+  width: 28px;
+  height: 28px;
+  /* 黄色背景的通知图标不需要滤镜 */
   transition: all 0.2s ease;
 }
 

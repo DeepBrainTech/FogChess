@@ -31,13 +31,11 @@ export class ChessService {
    * 从FEN字符串设置棋盘
    */
   setBoardFromFen(fen: string): void {
-    console.log('[ChessService] setBoardFromFen - FEN:', fen);
     this.initializeBoard();
     const [boardPart] = fen.split(' ');
     
     let row = 0;
     let col = 0;
-    let pieceCount = 0;
     
     for (const char of boardPart) {
       if (char === '/') {
@@ -49,24 +47,17 @@ export class ChessService {
         const piece = this.charToPiece(char, row, col);
         if (piece) {
           this.board[row][col].piece = piece;
-          pieceCount++;
         }
         col++;
       }
     }
-    
-    console.log('[ChessService] setBoardFromFen - Pieces placed:', pieceCount);
   }
 
   applyFogFor(playerColor: 'white' | 'black', fog: { whiteVisible: string[]; blackVisible: string[] }): void {
     const list = playerColor === 'white' ? fog.whiteVisible : fog.blackVisible;
     const visible = new Set(list);
     
-    console.log('[ChessService] applyFogFor - Player:', playerColor, 'Visible squares:', list.length);
-    console.log('[ChessService] applyFogFor - Visible squares list:', list.sort());
-    
     if (visible.size === 0) {
-      console.log('[ChessService] applyFogFor - No visible squares, keeping all visible');
       // 防御：如果服务端未计算出可见格，保持当前棋盘可见，不做隐藏
       return;
     }
@@ -102,8 +93,6 @@ export class ChessService {
         }
       }
     }
-    
-    console.log('[ChessService] applyFogFor - Applied fog, visible squares:', visibleCount);
   }
 
   /**

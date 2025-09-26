@@ -235,9 +235,6 @@ export class RoomService {
       return { success: false, error: 'Game is not in playing state' };
     }
 
-    console.log(`[RoomService] executeUndo - Before undo, move history length: ${room.gameState.moveHistory.length}`);
-    console.log(`[RoomService] executeUndo - Before undo, FEN: ${room.gameState.board}`);
-
     const chess = this.roomIdToChess.get(roomId);
     if (!chess) {
       return { success: false, error: 'Game not initialized' };

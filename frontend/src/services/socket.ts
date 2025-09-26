@@ -18,14 +18,6 @@ class SocketService {
         reconnectionDelay: 1000,
       });
 
-      this.socket.on('connect', () => {
-        console.log('Socket connected:', this.socket?.id);
-      });
-
-      this.socket.on('disconnect', () => {
-        console.log('Socket disconnected');
-      });
-
       this.socket.on('error', (error) => {
         console.error('Socket error:', error);
       });

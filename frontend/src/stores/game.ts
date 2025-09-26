@@ -4,6 +4,8 @@ import type { GameState, Move, Player } from '../types';
 import { socketService } from '../services/socket';
 import { chessService } from '../services/chess';
 import { audioService } from '../services/audio';
+import { replayService } from '../services/replay';
+import { animationService } from '../services/animation';
 import { useRoomStore } from './room';
 
 export const useGameStore = defineStore('game', () => {
@@ -21,21 +23,12 @@ export const useGameStore = defineStore('game', () => {
 
   // 动作
   const setGameState = (newGameState: GameState) => {
-    console.log('[setGameState] Received game state:', {
-      fen: newGameState.board,
-      current: newGameState.currentPlayer,
-      status: newGameState.gameStatus,
-      wVisible: newGameState.fogOfWar?.whiteVisible?.length,
-      bVisible: newGameState.fogOfWar?.blackVisible?.length
-    });
-    
     gameState.value = newGameState;
     chessService.setBoardFromFen(newGameState.board);
     
     // 迷雾棋规则：每个玩家始终看到自己的棋子和自己棋子可以移动到的格子
     // 视野应该基于当前连接的玩家身份，而不是当前回合
     const playerColor = currentPlayer.value?.color || roomStore.currentPlayer?.color;
-    console.log('[setGameState] Applying fog for player:', playerColor);
     
     if (playerColor && newGameState.fogOfWar) {
       chessService.applyFogFor(playerColor, newGameState.fogOfWar);
@@ -90,8 +83,15 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
+    // 播放移动动画
+    try {
+      await animationService.animateMove(from, to, { duration: 200 });
+    } catch (error) {
+      console.warn('动画播放失败，继续执行移动:', error);
+    }
+
     // 播放音效：检查是否吃子
-    const isCapture = checkIfCapture(from, to);
+    const isCapture = checkIfCapture(to);
     if (isCapture) {
       audioService.playCaptureSound();
     } else {
@@ -130,7 +130,7 @@ export const useGameStore = defineStore('game', () => {
     return piece.color === 'white' ? symbol : symbol.toLowerCase();
   };
 
-  const checkIfCapture = (from: string, to: string): boolean => {
+  const checkIfCapture = (to: string): boolean => {
     // 检查目标格是否有对方棋子
     const targetPiece = getPieceAtSquare(to);
     if (!targetPiece) return false;
@@ -276,10 +276,14 @@ export const useGameStore = defineStore('game', () => {
     if (state) {
       // 进入回放模式，设置棋盘状态
       chessService.setBoardFromFen(state.board);
-      // 应用迷雾规则
-      if (currentPlayer.value && gameState.value?.fogOfWar) {
-        chessService.applyFogFor(currentPlayer.value.color, gameState.value.fogOfWar);
-      }
+      // 历史局面下的基础视野：仅显示"自己棋子所在格"（不暴露对方）
+      try {
+        const viewer = currentPlayer.value?.color;
+        if (viewer) {
+          const fog = (replayService.constructor as any).calculateBasicVisibility(state.board, viewer);
+          chessService.applyFogFor(viewer, fog as any);
+        }
+      } catch {}
     } else {
       // 退出回放模式，恢复当前游戏状态
       if (gameState.value) {
@@ -307,17 +311,14 @@ export const useGameStore = defineStore('game', () => {
   // 监听Socket事件
   const setupSocketListeners = () => {
     socketService.on('move-made', (data: any) => {
-      console.log('[socket] move-made', data);
       setGameState(data.gameState);
     });
 
     socketService.on('game-updated', (data: any) => {
-      console.log('[socket] game-updated', data);
       setGameState(data.gameState);
     });
 
     socketService.on('undo-requested', (data: any) => {
-      console.log('[socket] undo-requested', data);
       // 这里需要通知Game.vue显示弹窗
       // 可以通过事件总线或者直接调用方法
       window.dispatchEvent(new CustomEvent('show-undo-request', { 
@@ -329,7 +330,6 @@ export const useGameStore = defineStore('game', () => {
     });
 
     socketService.on('undo-response', (data: any) => {
-      console.log('[socket] undo-response', data);
       // 这里需要通知Game.vue显示结果弹窗
       window.dispatchEvent(new CustomEvent('show-undo-result', { 
         detail: { accepted: data.accepted } 
@@ -337,14 +337,13 @@ export const useGameStore = defineStore('game', () => {
     });
 
     socketService.on('undo-executed', (data: any) => {
-      console.log('[socket] undo-executed', data);
       setGameState(data.gameState);
     });
 
     // 监听错误事件
     socketService.on('error', (data: any) => {
-      console.log('[socket] error', data);
-      // 走子不合法（例如点击非蓝点）静默处理：不弹“无法悔棋”
+      console.error('Socket error:', data);
+      // 走子不合法（例如点击非蓝点）静默处理：不弹"无法悔棋"
       if (data && (data.message === 'Invalid move' || data.message === 'Failed to make move')) {
         return;
       }
