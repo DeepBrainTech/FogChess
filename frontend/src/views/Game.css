@@ -1,0 +1,111 @@
+/* Extracted from Game.vue */
+.game-container { height: 100vh; background: #9ca8b8; display: flex; flex-direction: column; overflow: hidden; }
+.game-header { background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: flex; justify-content: space-between; align-items: center; }
+.room-info h2 { margin: 0 0 15px 0; color: #333; font-size: 26px; }
+.room-info-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+.room-id, .invite-link { display: flex; align-items: center; justify-content: space-between; font-size: 17px; gap: 20px; }
+.copy-btn { padding: 8px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; transition: background-color 0.3s ease; }
+.copy-btn:hover { background: #1976D2; }
+.invite-btn { background: #4CAF50; }
+.invite-btn:hover { background: #45a049; }
+.tooltip-container { position: relative; display: inline-block; }
+.tooltip { position: absolute; top: 50%; left: 100%; transform: translateY(-50%); background: rgba(0, 0, 0, 0.9); color: white; padding: 8px 12px; border-radius: 6px; font-size: 13px; white-space: nowrap; opacity: 0; visibility: hidden; transition: all 0.3s ease; z-index: 1000; margin-left: 8px; }
+.tooltip::after { content: ''; position: absolute; top: 50%; right: 100%; transform: translateY(-50%); border: 5px solid transparent; border-right-color: rgba(0, 0, 0, 0.9); }
+.tooltip-container:hover .tooltip { opacity: 1; visibility: visible; }
+.players { display: flex; flex-direction: column; gap: 12px; }
+.player-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-radius: 20px; background: #f0f2f5; transition: all 0.3s ease; font-size: 15px; min-width: 320px; }
+.player-row.current-player { background: #e3f2fd; border: 2px solid #2196F3; }
+.player-row.winner { background: rgba(76, 175, 80, 0.3); border: 2px solid rgba(76, 175, 80, 0.6); }
+.player-row.loser { background: rgba(244, 67, 54, 0.3); border: 2px solid rgba(244, 67, 54, 0.6); }
+.player-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.captured-pieces { display: flex; align-items: center; gap: 0; white-space: nowrap; flex: 0 0 auto; max-width: 250px; }
+.captured-piece { width: 21px; height: 21px; object-fit: contain; filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.3)); transition: all 0.2s ease; margin-left: -6px; }
+.captured-piece:first-child { margin-left: 0; }
+.captured-piece:hover { transform: scale(1.1); }
+.player-color { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #333; }
+.player-color.white { background: white; }
+.player-color.black { background: black; }
+.turn-indicator { font-size: 15px; color: #2196F3; font-weight: bold; }
+.game-controls { display: flex; gap: 10px; }
+.sound-button { padding: 12px 20px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease; font-size: 16px; }
+.sound-button:hover { background: #45a049; }
+.sound-button.sound-off { background: #757575; }
+.sound-button.sound-off:hover { background: #616161; }
+.leave-button { padding: 12px 20px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease; font-size: 16px; }
+.leave-button:hover { background: #d32f2f; }
+.undo-button { padding: 12px 20px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease; margin-right: 10px; font-size: 16px; }
+.undo-button:hover:not(:disabled) { background: #f57c00; }
+.undo-button:disabled { background: #ccc; cursor: not-allowed; }
+.surrender-button { padding: 12px 20px; background: #ff5722; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease; margin-right: 10px; font-size: 16px; }
+.surrender-button:hover { background: #e64a19; }
+.download-button { padding: 12px 20px; background: #607d8b; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease; font-size: 16px; }
+.download-button:hover { background: #546e7a; }
+.download-button.secondary { background: #455a64; }
+.download-button.secondary:hover { background: #37474f; }
+.game-content { flex: 1; display: flex; gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
+.chess-container { flex: 1; display: flex; justify-content: center; align-items: flex-start; }
+.game-sidebar { width: 360px; display: flex; flex-direction: column; gap: 20px; }
+.game-status, .move-history { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+.game-status h3, .move-history h3 { margin: 0 0 15px 0; color: #333; font-size: 20px; }
+.status-item { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 15px; }
+.status-item:last-child { border-bottom: none; margin-bottom: 0; }
+.label { font-weight: bold; color: #666; }
+.value { color: #333; }
+.current-player-indicator { display: flex; align-items: center; gap: 8px; }
+.turn-dot { width: 16px; height: 16px; border-radius: 50%; transition: all 0.3s ease; }
+.turn-dot.my-turn { background-color: #478058; box-shadow: 0 0 8px rgba(71, 128, 88, 0.4); }
+.turn-dot.opponent-turn { background-color: #999; }
+.moves-list { max-height: 250px; overflow-y: auto; }
+.move-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+.move-item:last-child { border-bottom: none; }
+.move-header { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 2px solid #ddd; font-weight: bold; font-size: 14px; color: #333; background: #f8f9fa; border-radius: 6px 6px 0 0; position: sticky; top: 0; z-index: 10; }
+.header-round { font-weight: bold; color: #333; min-width: 35px; font-size: 14px; }
+.header-white, .header-black { flex: 1; text-align: center; font-size: 14px; }
+.replay-controls { display: flex; justify-content: center; gap: 8px; padding: 12px; background: #f8f9fa; border-top: 1px solid #ddd; border-radius: 0 0 8px 8px; margin-top: 10px; }
+.replay-btn { width: 50px; height: 50px; border: none; border-radius: 50%; background: #6c757d; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
+.replay-btn:hover:not(:disabled) { background: #5a6268; transform: scale(1.05); }
+.replay-btn:disabled { background: #adb5bd; cursor: not-allowed; transform: none; }
+.replay-btn.play-btn { background: #28a745; }
+.replay-btn.play-btn:hover:not(:disabled) { background: #218838; }
+.replay-btn.play-btn.playing { background: #dc3545; }
+.replay-btn.play-btn.playing:hover:not(:disabled) { background: #c82333; }
+.replay-btn.notification-btn { background: #adb5bd; cursor: default; pointer-events: none; }
+.replay-btn.notification-btn.has-new-move { animation: shake-notification 0.6s ease-in-out; }
+@keyframes shake-notification { 0%, 100% { transform: translateX(0);} 10%, 30%, 50%, 70%, 90% { transform: translateX(-2px);} 20%, 40%, 60%, 80% { transform: translateX(2px);} }
+.replay-icon { width: 24px; height: 24px; filter: brightness(0) invert(1); transition: all 0.2s ease; }
+.replay-icon-notification { width: 28px; height: 28px; transition: all 0.2s ease; }
+.replay-btn:hover:not(:disabled) .replay-icon { transform: scale(1.1); }
+.replay-btn:disabled .replay-icon { opacity: 0.5; }
+.move-number { font-weight: bold; color: #666; min-width: 35px; font-size: 14px; }
+.move-columns { display: flex; flex: 1; gap: 8px; }
+.move-column { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 20px; }
+.move-notation { font-family: monospace; font-size: 14px; color: #495057; font-weight: 500; }
+.move-hidden { color: #adb5bd; font-size: 16px; font-weight: bold; }
+.move-player { font-size: 14px; color: #666; padding: 4px 10px; background: #f0f0f0; border-radius: 10px; }
+@media (max-width: 768px) { .game-content { flex-direction: column; } .game-sidebar { width: 100%; } .game-header { flex-direction: column; gap: 15px; text-align: center; } .players { justify-content: center; } }
+/* 统一弹窗样式 */
+.dialog-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.dialog-content { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); max-width: 500px; width: 90%; text-align: center; }
+.dialog-content h3 { margin: 0 0 20px 0; color: #333; font-size: 26px; font-weight: 600; }
+.victory-title { color: #4CAF50 !important; text-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
+.defeat-title { color: #f44336 !important; text-shadow: 0 0 10px rgba(244, 67, 54, 0.3); }
+.dialog-content p { margin: 0 0 30px 0; color: #666; line-height: 1.6; font-size: 18px; }
+.dialog-buttons { display: flex; gap: 15px; justify-content: center; }
+.dialog-buttons button { padding: 14px 28px; border: none; border-radius: 6px; cursor: pointer; font-size: 17px; font-weight: 500; transition: all 0.3s ease; min-width: 110px; }
+.confirm-btn { background: #4CAF50; color: white; }
+.confirm-btn:hover { background: #45a049; }
+.cancel-btn { background: #f44336; color: white; }
+.cancel-btn:hover { background: #da190b; }
+.accept-btn { background: #4CAF50; color: white; }
+.accept-btn:hover { background: #45a049; }
+.reject-btn { background: #f44336; color: white; }
+.reject-btn:hover { background: #da190b; }
+.ok-btn { background: #2196F3; color: white; }
+.ok-btn:hover { background: #1976D2; }
+/* 背景闪烁效果 */
+.game-container { position: relative; transition: all 0.3s ease; }
+.game-container::before { content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 500; opacity: 0; transition: opacity 0.3s ease; }
+.game-container.victory-flash::before { background: rgba(76, 175, 80, 0.6); backdrop-filter: blur(2px); opacity: 1; animation: victoryPulse 2s ease-in-out; }
+.game-container.defeat-flash::before { background: rgba(244, 67, 54, 0.6); backdrop-filter: blur(2px); opacity: 1; animation: defeatPulse 2s ease-in-out; }
+@keyframes victoryPulse { 0% { opacity: 0; background: rgba(76, 175, 80, 0);} 25% { opacity: 1; background: rgba(76, 175, 80, 0.7);} 50% { opacity: 1; background: rgba(76, 175, 80, 0.6);} 75% { opacity: 1; background: rgba(76, 175, 80, 0.5);} 100% { opacity: 0; background: rgba(76, 175, 80, 0);} }
+@keyframes defeatPulse { 0% { opacity: 0; background: rgba(244, 67, 54, 0);} 25% { opacity: 1; background: rgba(244, 67, 54, 0.7);} 50% { opacity: 1; background: rgba(244, 67, 54, 0.6);} 75% { opacity: 1; background: rgba(244, 67, 54, 0.5);} 100% { opacity: 0; background: rgba(244, 67, 54, 0);} }

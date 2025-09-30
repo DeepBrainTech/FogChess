@@ -1,0 +1,58 @@
+<template>
+  <div class="game-status">
+    <h3>游戏状态</h3>
+    <div class="status-item">
+      <span class="label">当前玩家:</span>
+      <span class="value current-player-indicator">
+        <span class="turn-dot" :class="{ 'my-turn': isMyTurn, 'opponent-turn': !isMyTurn }"></span>
+        {{ gameState?.currentPlayer === 'white' ? '白方' : '黑方' }}
+      </span>
+    </div>
+    <div class="status-item">
+      <span class="label">游戏状态:</span>
+      <span class="value">{{ statusText }}</span>
+    </div>
+    <div v-if="gameState?.winner" class="status-item">
+      <span class="label">获胜者:</span>
+      <span class="value">{{ gameState.winner === 'white' ? '白方' : '黑方' }}</span>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { GameState } from '../../types';
+import { computed } from 'vue';
+
+interface Props {
+  gameState: GameState | null;
+  isMyTurn: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  gameState: null,
+  isMyTurn: false
+});
+
+const statusText = computed(() => {
+  if (!props.gameState) return '等待中';
+  switch (props.gameState.gameStatus) {
+    case 'waiting': return '等待玩家';
+    case 'playing': return '游戏中';
+    case 'finished': return '游戏结束';
+    default: return '未知状态';
+  }
+});
+</script>
+
+<style scoped>
+.game-status { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+.game-status h3 { margin: 0 0 15px 0; color: #333; font-size: 20px; }
+.status-item { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 15px; }
+.status-item:last-child { border-bottom: none; margin-bottom: 0; }
+.label { font-weight: bold; color: #666; }
+.value { color: #333; }
+.current-player-indicator { display: flex; align-items: center; gap: 8px; }
+.turn-dot { width: 16px; height: 16px; border-radius: 50%; transition: all 0.3s ease; }
+.turn-dot.my-turn { background-color: #478058; box-shadow: 0 0 8px rgba(71, 128, 88, 0.4); }
+.turn-dot.opponent-turn { background-color: #999; }
+</style>

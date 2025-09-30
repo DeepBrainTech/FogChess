@@ -35,6 +35,36 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
+  function countMyPieces(boardPart: string, myColor: 'white' | 'black'): number {
+    let count = 0;
+    for (const ch of boardPart) {
+      if (myColor === 'white') {
+        if (/[KQRBNP]/.test(ch)) count++;
+      } else {
+        if (/[kqrbnp]/.test(ch)) count++;
+      }
+    }
+    return count;
+  }
+
+  function playOpponentMoveSoundIfAny(prevFen: string | undefined, nextFen: string, nextCurrentPlayer: 'white' | 'black') {
+    if (!currentPlayer.value) return;
+    if (!prevFen) return;
+    const myColor = currentPlayer.value.color;
+    const lastMover: 'white' | 'black' = nextCurrentPlayer === 'white' ? 'black' : 'white';
+    if (lastMover !== myColor) {
+      const prevBoard = prevFen.split(' ')[0] || '';
+      const nextBoard = nextFen.split(' ')[0] || '';
+      const prevCount = countMyPieces(prevBoard, myColor);
+      const nextCount = countMyPieces(nextBoard, myColor);
+      if (nextCount < prevCount) {
+        audioService.playCaptureSound();
+      } else {
+        audioService.playMoveSound();
+      }
+    }
+  }
+
   const setCurrentPlayer = (player: Player) => {
     currentPlayer.value = player;
     if (gameState.value) {
@@ -311,10 +341,15 @@ export const useGameStore = defineStore('game', () => {
   // 监听Socket事件
   const setupSocketListeners = () => {
     socketService.on('move-made', (data: any) => {
-      setGameState(data.gameState);
+      const prevFen = gameState.value?.board;
+      const next = data.gameState as GameState;
+      // 先根据对手移动情况播放音效（基于 FEN 差异）
+      playOpponentMoveSoundIfAny(prevFen, next.board, next.currentPlayer);
+      setGameState(next);
     });
 
     socketService.on('game-updated', (data: any) => {
+      // 通常用于悔棋等同步更新，不播放音效
       setGameState(data.gameState);
     });
 
