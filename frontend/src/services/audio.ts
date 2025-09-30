@@ -18,13 +18,13 @@ class AudioService {
       // 创建移动音效对象
       this.moveSound = new Audio();
       this.moveSound.preload = 'auto';
-      this.moveSound.volume = 0.3; // 设置音量为30%
-      this.moveSound.src = '/sounds/move.mp3';
+      this.moveSound.volume = 0.7; // 设置音量为30%
+      this.moveSound.src = '/sounds/move.m4a';
       
       // 创建吃子音效对象
       this.captureSound = new Audio();
       this.captureSound.preload = 'auto';
-      this.captureSound.volume = 0.4; // 吃子音效稍大一些
+      this.captureSound.volume = 0.8; // 吃子音效稍大一些
       this.captureSound.src = '/sounds/capture.mp3';
       
       // 预加载音效

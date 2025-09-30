@@ -7,6 +7,8 @@
       :src="pieceImage" 
       :alt="`${piece.color} ${piece.type}`"
       class="piece-image"
+      draggable="false"
+      @dragstart.prevent
     />
   </div>
 </template>

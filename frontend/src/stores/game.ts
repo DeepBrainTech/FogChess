@@ -47,21 +47,18 @@ export const useGameStore = defineStore('game', () => {
     return count;
   }
 
-  function playOpponentMoveSoundIfAny(prevFen: string | undefined, nextFen: string, nextCurrentPlayer: 'white' | 'black') {
+  function playMoveSoundByBoardDiff(prevFen: string | undefined, nextFen: string) {
     if (!currentPlayer.value) return;
     if (!prevFen) return;
     const myColor = currentPlayer.value.color;
-    const lastMover: 'white' | 'black' = nextCurrentPlayer === 'white' ? 'black' : 'white';
-    if (lastMover !== myColor) {
-      const prevBoard = prevFen.split(' ')[0] || '';
-      const nextBoard = nextFen.split(' ')[0] || '';
-      const prevCount = countMyPieces(prevBoard, myColor);
-      const nextCount = countMyPieces(nextBoard, myColor);
-      if (nextCount < prevCount) {
-        audioService.playCaptureSound();
-      } else {
-        audioService.playMoveSound();
-      }
+    const prevBoard = prevFen.split(' ')[0] || '';
+    const nextBoard = nextFen.split(' ')[0] || '';
+    const prevCount = countMyPieces(prevBoard, myColor);
+    const nextCount = countMyPieces(nextBoard, myColor);
+    if (nextCount < prevCount) {
+      audioService.playCaptureSound();
+    } else {
+      audioService.playMoveSound();
     }
   }
 
@@ -88,7 +85,7 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
-  const makeMove = async (from: string, to: string) => {
+  const makeMove = async (from: string, to: string, options?: { animate?: boolean }) => {
     if (!gameState.value || !currentPlayer.value) return;
     
     const move: Omit<Move, 'timestamp'> = {
@@ -113,20 +110,16 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // 播放移动动画
-    try {
-      await animationService.animateMove(from, to, { duration: 200 });
-    } catch (error) {
-      console.warn('动画播放失败，继续执行移动:', error);
+    // 播放移动动画（可选）
+    if (options?.animate !== false) {
+      try {
+        await animationService.animateMove(from, to, { duration: 200 });
+      } catch (error) {
+        console.warn('动画播放失败，继续执行移动:', error);
+      }
     }
 
-    // 播放音效：检查是否吃子
-    const isCapture = checkIfCapture(to);
-    if (isCapture) {
-      audioService.playCaptureSound();
-    } else {
-      audioService.playMoveSound();
-    }
+    // 声音改为在服务器确认后统一播放（见 socket 监听）
 
     // 发送移动到服务器
     if (roomStore.currentRoom) {
@@ -160,22 +153,7 @@ export const useGameStore = defineStore('game', () => {
     return piece.color === 'white' ? symbol : symbol.toLowerCase();
   };
 
-  const checkIfCapture = (to: string): boolean => {
-    // 检查目标格是否有对方棋子
-    const targetPiece = getPieceAtSquare(to);
-    if (!targetPiece) return false;
-    
-    // 检查是否是对方棋子
-    const currentColor = currentPlayer.value?.color;
-    if (!currentColor) return false;
-    
-    const isWhitePiece = targetPiece === targetPiece.toUpperCase();
-    const isBlackPiece = targetPiece === targetPiece.toLowerCase();
-    const isOpponentPiece = (currentColor === 'white' && isBlackPiece) || 
-                           (currentColor === 'black' && isWhitePiece);
-    
-    return isOpponentPiece;
-  };
+  // 前端不再在本地判断是否吃子以播放声音，改为在 socket 回调里根据 FEN 差异播放
 
   const getPossibleMoves = (square: string): string[] => {
     // 简化版本，实际应该调用chess.js或实现完整规则
@@ -343,8 +321,8 @@ export const useGameStore = defineStore('game', () => {
     socketService.on('move-made', (data: any) => {
       const prevFen = gameState.value?.board;
       const next = data.gameState as GameState;
-      // 先根据对手移动情况播放音效（基于 FEN 差异）
-      playOpponentMoveSoundIfAny(prevFen, next.board, next.currentPlayer);
+      // 基于 FEN 差异播放音效（无论是己方还是对手走子），确保在移动完成后播放
+      playMoveSoundByBoardDiff(prevFen, next.board);
       setGameState(next);
     });
 
