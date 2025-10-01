@@ -89,18 +89,16 @@ export const useGameStore = defineStore('game', () => {
       player: currentPlayer.value.color
     };
 
-    // 兵升变：若兵走到末行，弹窗选择升变子
+    // 兵升变：若兵走到末行，弹出贴图选择
     const pieceSymbol = move.piece.toLowerCase();
     if (pieceSymbol === 'p') {
       const destRank = parseInt(to[1], 10);
       const isWhite = move.piece === 'P';
       const promote = (isWhite && destRank === 8) || (!isWhite && destRank === 1);
       if (promote) {
-        const choice = window.prompt('选择升变(Q/R/B/N)，默认Q：', 'Q');
-        const map: Record<string, 'q'|'r'|'b'|'n'> = { Q: 'q', R: 'r', B: 'b', N: 'n', q: 'q', r: 'r', b: 'b', n: 'n' };
-        const picked = choice ? map[choice.trim()] : 'q';
-        if (!picked) return; // 用户取消或输入无效则不走
-        (move as any).promotion = picked;
+        const picked = await requestPromotionChoice(isWhite ? 'white' : 'black');
+        if (!picked) return; // 用户取消
+        (move as any).promotion = picked; // 'q'|'r'|'b'|'n'
       }
     }
 
@@ -125,6 +123,26 @@ export const useGameStore = defineStore('game', () => {
     possibleMoves.value = [];
     chessService.clearHighlights();
   };
+
+  // 请求前端显示升变选择，并等待选择结果
+  function requestPromotionChoice(color: 'white' | 'black'): Promise<'q' | 'r' | 'b' | 'n' | null> {
+    return new Promise((resolve) => {
+      const onPick = (ev: any) => {
+        window.removeEventListener('promotion-selected', onPick as any);
+        window.removeEventListener('promotion-cancel', onCancel as any);
+        const choice = ev?.detail?.choice as 'q'|'r'|'b'|'n' | undefined;
+        resolve(choice || null);
+      };
+      const onCancel = () => {
+        window.removeEventListener('promotion-selected', onPick as any);
+        window.removeEventListener('promotion-cancel', onCancel as any);
+        resolve(null);
+      };
+      window.addEventListener('promotion-selected', onPick as any, { once: true });
+      window.addEventListener('promotion-cancel', onCancel as any, { once: true });
+      window.dispatchEvent(new CustomEvent('show-promotion', { detail: { color } }));
+    });
+  }
 
   const getPieceAtSquare = (square: string): string | null => {
     const coords = chessService.getSquareCoordinates(square);

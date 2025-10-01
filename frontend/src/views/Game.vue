@@ -73,11 +73,33 @@
     :message="gameOverMessage" 
     @close="closeGameOver"
   />
+
+  <!-- 升变选择弹窗 -->
+  <div v-if="promotion.visible" class="promotion-overlay" @click="hidePromotion">
+    <div class="promotion-dialog" @click.stop>
+      <h3>请选择升变</h3>
+      <div class="promotion-grid">
+        <button class="promotion-item" @click="pickPromotion('q')">
+          <img :src="pieceImage('queen')" alt="后" />
+        </button>
+        <button class="promotion-item" @click="pickPromotion('n')">
+          <img :src="pieceImage('knight')" alt="马" />
+        </button>
+        <button class="promotion-item" @click="pickPromotion('r')">
+          <img :src="pieceImage('rook')" alt="车" />
+        </button>
+        <button class="promotion-item" @click="pickPromotion('b')">
+          <img :src="pieceImage('bishop')" alt="象" />
+        </button>
+      </div>
+      <button class="promotion-cancel" @click="hidePromotion">取消</button>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import './Game.css';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
 import { useGameStore } from '../stores/game';
@@ -142,6 +164,29 @@ const getCapturedPieces = (playerColor: 'white' | 'black') => {
 
 // 获取棋子图片路径
 const getPieceImage = (pieceSymbol: string) => getPieceImageBySymbol(pieceSymbol);
+
+// 升变弹窗状态与事件
+const promotion = reactive({ visible: false, color: 'white' as 'white' | 'black' });
+
+function pieceImage(type: 'queen' | 'rook' | 'bishop' | 'knight') {
+  const color = promotion.color;
+  return new URL(`../assets/pieces/${type}-${color}.svg`, import.meta.url).href;
+}
+
+function showPromotion(color: 'white' | 'black') {
+  promotion.visible = true;
+  promotion.color = color;
+}
+
+function hidePromotion() {
+  promotion.visible = false;
+  window.dispatchEvent(new CustomEvent('promotion-cancel'));
+}
+
+function pickPromotion(choice: 'q' | 'r' | 'b' | 'n') {
+  promotion.visible = false;
+  window.dispatchEvent(new CustomEvent('promotion-selected', { detail: { choice } }));
+}
 
 // 使用 composables 管理回放与通知
 const { currentMoveIndex, totalMoves, goToStart, stepBackward, stepForward, goToEnd: goToEndBase } = useReplay(gameState as any, currentPlayerColor as any);
@@ -210,6 +255,12 @@ onMounted(() => {
   
 // 通过 composable 注册撤销相关窗口事件
 registerUndoWindowEvents();
+
+// 监听升变请求事件
+window.addEventListener('show-promotion', (ev: any) => {
+  const color = ev?.detail?.color || 'white';
+  showPromotion(color);
+});
   
   // 不再需要这个事件监听器，改为直接检查棋盘状态
 });
@@ -220,3 +271,15 @@ registerUndoWindowEvents();
 
 // PGN 导出实现已移至 useGameDialogs
 </script>
+
+<style scoped>
+.promotion-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1200; }
+.promotion-dialog { background: #fff; border-radius: 12px; padding: 20px 22px; width: 360px; max-width: 92vw; box-shadow: 0 10px 30px rgba(0,0,0,0.25); text-align: center; }
+.promotion-dialog h3 { margin: 0 0 14px; font-size: 18px; }
+.promotion-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+.promotion-item { border: none; background: transparent; padding: 8px; border-radius: 8px; cursor: pointer; transition: transform .15s ease, background .15s ease; }
+.promotion-item:hover { transform: translateY(-2px); background: #f3f5f7; }
+.promotion-item img { width: 48px; height: 48px; user-select: none; pointer-events: none; display: block; }
+.promotion-cancel { width: 100%; border: none; background: #e0e0e0; padding: 10px; border-radius: 8px; cursor: pointer; }
+.promotion-cancel:hover { background: #d5d5d5; }
+</style>
