@@ -1,20 +1,20 @@
 <template>
   <div class="replay-controls">
-    <button class="replay-btn" title="回到开始" :disabled="disabledStart" @click="$emit('goToStart')">
+    <button class="replay-btn" title="回到开始" :disabled="disabledStart" @click="onClick('goToStart')">
       <img src="/src/assets/replay/rewind-start.svg" alt="回到开始" class="replay-icon" />
     </button>
 
-    <button class="replay-btn" title="回退一步" :disabled="disabledBackward" @click="$emit('stepBackward')">
+    <button class="replay-btn" title="回退一步" :disabled="disabledBackward" @click="onClick('stepBackward')">
       <img src="/src/assets/replay/step-backward.svg" alt="回退一步" class="replay-icon" />
     </button>
 
     <NewMoveNotice :hasNewMove="hasNewMove" />
 
-    <button class="replay-btn" title="前进一步" :disabled="disabledForward" @click="$emit('stepForward')">
+    <button class="replay-btn" title="前进一步" :disabled="disabledForward" @click="onClick('stepForward')">
       <img src="/src/assets/replay/step-forward.svg" alt="前进一步" class="replay-icon" />
     </button>
 
-    <button class="replay-btn" title="跳到最新" :disabled="disabledEnd" @click="$emit('goToEnd')">
+    <button class="replay-btn" title="跳到最新" :disabled="disabledEnd" @click="onClick('goToEnd')">
       <img src="/src/assets/replay/fast-forward.svg" alt="跳到最新" class="replay-icon" />
     </button>
   </div>
@@ -36,10 +36,50 @@ const props = withDefaults(defineProps<Props>(), {
   hasNewMove: false
 });
 
+const emit = defineEmits<{
+  (e: 'goToStart'): void;
+  (e: 'stepBackward'): void;
+  (e: 'stepForward'): void;
+  (e: 'goToEnd'): void;
+}>();
+
 const disabledStart = computed(() => props.totalMoves === 0 || props.currentMoveIndex === 0);
 const disabledBackward = computed(() => props.totalMoves === 0 || props.currentMoveIndex === 0);
 const disabledForward = computed(() => props.totalMoves === 0 || props.currentMoveIndex === props.totalMoves);
 const disabledEnd = computed(() => props.totalMoves === 0 || props.currentMoveIndex === props.totalMoves);
+
+// 仅用于回放控制按钮的点击提示音，不修改现有移动/吃子音效服务
+const clickAudio = new Audio('/sounds/notice.m4a');
+clickAudio.preload = 'auto';
+clickAudio.volume = 0.6;
+
+function playClickSound() {
+  try {
+    clickAudio.currentTime = 0;
+    const p = clickAudio.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => {});
+    }
+  } catch {}
+}
+
+function onClick(action: 'goToStart' | 'stepBackward' | 'stepForward' | 'goToEnd') {
+  playClickSound();
+  switch (action) {
+    case 'goToStart':
+      emit('goToStart');
+      break;
+    case 'stepBackward':
+      emit('stepBackward');
+      break;
+    case 'stepForward':
+      emit('stepForward');
+      break;
+    case 'goToEnd':
+      emit('goToEnd');
+      break;
+  }
+}
 </script>
 
 <style scoped>

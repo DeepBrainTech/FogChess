@@ -35,27 +35,21 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
-  function countMyPieces(boardPart: string, myColor: 'white' | 'black'): number {
+  function countAllPieces(boardPart: string): number {
     let count = 0;
     for (const ch of boardPart) {
-      if (myColor === 'white') {
-        if (/[KQRBNP]/.test(ch)) count++;
-      } else {
-        if (/[kqrbnp]/.test(ch)) count++;
-      }
+      if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) count++;
     }
     return count;
   }
 
   function playMoveSoundByBoardDiff(prevFen: string | undefined, nextFen: string) {
-    if (!currentPlayer.value) return;
     if (!prevFen) return;
-    const myColor = currentPlayer.value.color;
     const prevBoard = prevFen.split(' ')[0] || '';
     const nextBoard = nextFen.split(' ')[0] || '';
-    const prevCount = countMyPieces(prevBoard, myColor);
-    const nextCount = countMyPieces(nextBoard, myColor);
-    if (nextCount < prevCount) {
+    const prevTotal = countAllPieces(prevBoard);
+    const nextTotal = countAllPieces(nextBoard);
+    if (nextTotal < prevTotal) {
       audioService.playCaptureSound();
     } else {
       audioService.playMoveSound();
