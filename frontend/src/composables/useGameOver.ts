@@ -28,11 +28,23 @@ export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlaye
 
       const fenStr = (gs as any).board ?? (gs as any).fen;
       const kingWasCaptured = isKingCaptured(fenStr);
-      const reason = kingWasCaptured ? 'king' : 'surrender';
-      if (reason === 'king') {
-        gameOverMessage.value = win ? '恭喜你，吃掉了对面国王！' : '很抱歉，你被吃掉了国王！';
+      
+      // 检查是否是超时结束
+      const isTimeout = (gs as any).timeout || false;
+      
+      if (isTimeout) {
+        if (win) {
+          gameOverMessage.value = '恭喜你，对手超时了！';
+        } else {
+          gameOverMessage.value = '很抱歉，你超时了！';
+        }
       } else {
-        gameOverMessage.value = win ? '恭喜你，你赢了！' : '很抱歉，你输了！';
+        const reason = kingWasCaptured ? 'king' : 'surrender';
+        if (reason === 'king') {
+          gameOverMessage.value = win ? '恭喜你，吃掉了对面国王！' : '很抱歉，你被吃掉了国王！';
+        } else {
+          gameOverMessage.value = win ? '恭喜你，你赢了！' : '很抱歉，你输了！';
+        }
       }
 
       if (win) {
@@ -48,6 +60,34 @@ export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlaye
       }, 2000);
     }
   });
+
+  // 监听超时事件
+  if (typeof window !== 'undefined') {
+    window.addEventListener('game-timeout', (ev: any) => {
+      const detail = ev?.detail;
+      if (detail?.player) {
+        const myColor = currentPlayerColorSource.value;
+        const isMyTimeout = myColor === detail.player;
+        
+        isWinner.value = !isMyTimeout; // 如果不是我超时，则我获胜
+        gameOverTitle.value = isMyTimeout ? 'Defeat' : 'Victory';
+        gameOverMessage.value = isMyTimeout ? '很抱歉，你超时了！' : '恭喜你，对手超时了！';
+        
+        if (isMyTimeout) {
+          isDefeatFlash.value = true;
+        } else {
+          isVictoryFlash.value = true;
+        }
+        
+        showGameOver.value = true;
+
+        setTimeout(() => {
+          isDefeatFlash.value = false;
+          isVictoryFlash.value = false;
+        }, 2000);
+      }
+    });
+  }
 
   const closeGameOver = () => {
     showGameOver.value = false;

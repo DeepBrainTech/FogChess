@@ -34,8 +34,8 @@ class SocketService {
   }
 
   // 创建房间
-  createRoom(roomName: string, playerName: string): void {
-    this.socket?.emit('create-room', { roomName, playerName });
+  createRoom(roomName: string, playerName: string, timerMode: string = 'unlimited'): void {
+    this.socket?.emit('create-room', { roomName, playerName, timerMode });
   }
 
   // 加入房间
@@ -66,6 +66,11 @@ class SocketService {
   // 认输
   surrender(roomId: string): void {
     this.socket?.emit('surrender', { roomId });
+  }
+
+  // 上报超时（由本地倒计时归零触发，后端进行权威结算）
+  reportTimeout(roomId: string, player: 'white' | 'black'): void {
+    this.socket?.emit('report-timeout', { roomId, player });
   }
 
   // 离开房间

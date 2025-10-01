@@ -1,18 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Room, Player, GameState } from '../types';
 import { ChessService } from './ChessService';
+import { TimerService } from './TimerService';
 
 export class RoomService {
   private rooms: Map<string, Room> = new Map();
   private roomIdToChess: Map<string, ChessService> = new Map();
+  private timerService: TimerService;
 
   constructor() {
+    this.timerService = new TimerService();
   }
 
   /**
    * 创建新房间
    */
-  createRoom(roomName: string, playerName: string, socketId: string): Room {
+  createRoom(roomName: string, playerName: string, socketId: string, timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited'): Room {
     const roomId = uuidv4();
     const player: Player = {
       id: uuidv4(),
@@ -30,10 +33,11 @@ export class RoomService {
       players: [player],
       gameState: chess.createNewGame(),
       createdAt: new Date(),
-      isFull: false
+      isFull: false,
+      timerMode: timerMode
     };
 
-    // 等待第二名玩家加入后再开始
+    // 计时器将在游戏开始时初始化，而不是房间创建时
 
     this.rooms.set(roomId, room);
     return room;
@@ -76,6 +80,20 @@ export class RoomService {
     this.roomIdToChess.set(roomId, chess);
     room.gameState = chess.createNewGame();
     room.gameState.gameStatus = 'playing';
+    
+    // 游戏开始时初始化计时器
+    if (room.timerMode && room.timerMode !== 'unlimited') {
+      this.timerService.initializeTimer(roomId, room.timerMode);
+      const timerState = this.timerService.getCurrentTimes(roomId);
+      if (timerState) {
+        room.gameState.clocks = {
+          white: timerState.white,
+          black: timerState.black,
+          increment: timerState.increment,
+          mode: timerState.mode
+        };
+      }
+    }
     // Game started with two players
 
     return { success: true, room, player };
@@ -143,7 +161,7 @@ export class RoomService {
   /**
    * 在房间中执行移动
    */
-  makeMove(roomId: string, move: any): { success: boolean; gameState?: GameState; error?: string } {
+  makeMove(roomId: string, move: any): { success: boolean; gameState?: GameState; error?: string; timeout?: boolean; winner?: 'white' | 'black' } {
     const room = this.rooms.get(roomId);
     
     if (!room) {
@@ -167,8 +185,36 @@ export class RoomService {
     const result = chess.makeMove(move);
     
     if (result.success && result.gameState) {
+      // 仅在移动成功后更新计时器（增秒在此时生效）
+      if (room.timerMode && room.timerMode !== 'unlimited') {
+        const timerResult = this.timerService.processMove(roomId, move.player);
+
+        if (timerResult.timeout) {
+          // 超时，游戏结束
+          room.gameState = result.gameState;
+          room.gameState.gameStatus = 'finished';
+          room.gameState.winner = timerResult.winner;
+          (room.gameState as any).timeout = true;
+          return { 
+            success: true, 
+            gameState: room.gameState, 
+            timeout: true, 
+            winner: timerResult.winner 
+          };
+        }
+
+        if (timerResult.clocks) {
+          result.gameState.clocks = {
+            white: timerResult.clocks.white,
+            black: timerResult.clocks.black,
+            increment: timerResult.clocks.increment,
+            mode: timerResult.clocks.mode
+          };
+        }
+      }
+
       room.gameState = result.gameState;
-      return { success: true, gameState: result.gameState };
+      return { success: true, gameState: room.gameState };
     }
 
     return { success: false, error: result.error || 'Invalid move' };
@@ -277,6 +323,28 @@ export class RoomService {
   }
 
   /**
+   * 处理超时上报（由前端本地倒计时触发，后端进行权威裁决与广播）
+   */
+  reportTimeout(roomId: string, player: 'white' | 'black'): { success: boolean; gameState?: GameState; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    if (room.gameState.gameStatus !== 'playing') {
+      return { success: false, error: 'Game is not in progress' };
+    }
+
+    // 根据上报方设置胜负
+    const winner = player === 'white' ? 'black' : 'white';
+    room.gameState.gameStatus = 'finished';
+    room.gameState.winner = winner;
+    (room.gameState as any).timeout = true;
+
+    return { success: true, gameState: room.gameState };
+  }
+
+  /**
    * 清理空房间
    */
   cleanupEmptyRooms(): void {
@@ -284,6 +352,7 @@ export class RoomService {
       if (room.players.length === 0) {
         this.rooms.delete(roomId);
         this.roomIdToChess.delete(roomId);
+        this.timerService.cleanupTimer(roomId);
       }
     }
   }

@@ -122,6 +122,8 @@ export const useGameStore = defineStore('game', () => {
     selectedSquare.value = null;
     possibleMoves.value = [];
     chessService.clearHighlights();
+    
+    // 移动完成事件已移除，后端会处理计时器
   };
 
   // 请求前端显示升变选择，并等待选择结果

@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
   // 创建房间
   socket.on('create-room', (data: SocketEvents['create-room']) => {
     try {
-      const room = roomService.createRoom(data.roomName, data.playerName, socket.id);
+      const room = roomService.createRoom(data.roomName, data.playerName, socket.id, data.timerMode);
       socket.join(room.id);
       socket.emit('room-created', { room });
       // 房间创建时处于等待状态
@@ -78,6 +78,13 @@ io.on('connection', (socket) => {
           move: data.move, 
           gameState: result.gameState 
         });
+        
+        // 如果是超时，发送游戏结束事件
+        if (result.timeout && result.winner) {
+          io.to(data.roomId).emit('game-updated', { 
+            gameState: result.gameState 
+          });
+        }
       } else {
         socket.emit('error', { message: result.error || 'Invalid move' });
       }
@@ -184,6 +191,20 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       socket.emit('error', { message: 'Failed to surrender' });
+    }
+  });
+
+  // 前端上报超时（由后端进行权威结算并广播）
+  socket.on('report-timeout', (data: SocketEvents['report-timeout']) => {
+    try {
+      const result = roomService.reportTimeout(data.roomId, data.player);
+      if (result.success && result.gameState) {
+        io.to(data.roomId).emit('game-updated', { gameState: result.gameState });
+      } else {
+        socket.emit('error', { message: result.error || 'Failed to report timeout' });
+      }
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to report timeout' });
     }
   });
 

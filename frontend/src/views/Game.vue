@@ -48,6 +48,13 @@
           @goToEnd="goToEnd"
         />
       </div>
+      
+      <!-- 计时器显示 -->
+      <div v-if="timer.visible" class="timer-display">
+        <div class="timer-circle" :class="{ 'timer-warning': timer.warning, 'timer-danger': timer.danger, 'timer-finished': gameState?.gameStatus === 'finished' }">
+          <div class="timer-text">{{ formatTime(timer.timeLeft) }}</div>
+        </div>
+      </div>
     </div>
     
     <AppDialogHost 
@@ -98,8 +105,9 @@
 </template>
 
 <script setup lang="ts">
+import { socketService } from '../services/socket';
 import './Game.css';
-import { computed, onMounted, reactive } from 'vue';
+import { computed, onMounted, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
 import { useGameStore } from '../stores/game';
@@ -168,6 +176,16 @@ const getPieceImage = (pieceSymbol: string) => getPieceImageBySymbol(pieceSymbol
 // 升变弹窗状态与事件
 const promotion = reactive({ visible: false, color: 'white' as 'white' | 'black' });
 
+// 计时器状态
+const timer = reactive({ 
+  visible: false, 
+  timeLeft: 0, 
+  warning: false, 
+  danger: false,
+  mode: 'unlimited' as string,
+  increment: 0
+});
+
 function pieceImage(type: 'queen' | 'rook' | 'bishop' | 'knight') {
   const color = promotion.color;
   return new URL(`../assets/pieces/${type}-${color}.svg`, import.meta.url).href;
@@ -186,6 +204,55 @@ function hidePromotion() {
 function pickPromotion(choice: 'q' | 'r' | 'b' | 'n') {
   promotion.visible = false;
   window.dispatchEvent(new CustomEvent('promotion-selected', { detail: { choice } }));
+}
+
+// 计时器相关函数
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// initializeTimer 函数已移除，改为从后端 clocks 数据初始化
+
+function startTimer() {
+  if (timer.mode === 'unlimited' || !timer.visible) return;
+  
+  const interval = setInterval(() => {
+    if (timer.timeLeft <= 0) {
+      clearInterval(interval);
+      handleTimeout();
+      return;
+    }
+    
+    timer.timeLeft--;
+    
+    // 设置警告/危险阈值：橙色固定60秒；红色：bullet为20秒，其他为30秒
+    const dangerThreshold = timer.mode === 'bullet' ? 20 : 30;
+    timer.danger = timer.timeLeft <= dangerThreshold;
+    timer.warning = !timer.danger && timer.timeLeft <= 60;
+  }, 1000);
+  
+  // 存储 interval ID 以便清理
+  (timer as any).intervalId = interval;
+}
+
+function stopTimer() {
+  if ((timer as any).intervalId) {
+    clearInterval((timer as any).intervalId);
+    (timer as any).intervalId = null;
+  }
+}
+
+// addTime 函数已移除，后端会处理加时
+
+function handleTimeout() {
+  // 停止本地倒计时
+  stopTimer();
+  // 通知后端进行权威结算，服务端会通过 game-updated 广播到双方
+  if (room.value?.id && currentPlayerColor.value) {
+    socketService.reportTimeout(room.value.id, currentPlayerColor.value);
+  }
 }
 
 // 使用 composables 管理回放与通知
@@ -250,6 +317,8 @@ onMounted(() => {
     gameStore.setGameState(room.value.gameState);
   }
   
+  // 计时器初始化已改为从 gameState.clocks 读取，无需手动初始化
+  
   // 设置Socket监听器
   gameStore.setupSocketListeners();
   
@@ -261,8 +330,60 @@ window.addEventListener('show-promotion', (ev: any) => {
   const color = ev?.detail?.color || 'white';
   showPromotion(color);
 });
+
+// 超时事件监听器已移至 useGameOver.ts 中处理
+
+// 移动完成事件已移除，后端会处理加时
+
+// 监听游戏状态变化，控制计时器
+watch(gameState, (newState) => {
+  if (!newState) return;
   
-  // 不再需要这个事件监听器，改为直接检查棋盘状态
+  // 游戏结束时停止计时器并清除警告态
+  if (newState.gameStatus === 'finished') {
+    stopTimer();
+    timer.warning = false;
+    timer.danger = false;
+    return;
+  }
+  
+  // 使用后端时钟数据初始化计时器
+  if (newState.clocks) {
+    updateTimerFromBackend(newState.clocks);
+  }
+  
+  // 根据当前玩家启动计时器
+  if (newState.currentPlayer === roomStore.currentPlayer?.color) {
+    startTimer();
+  } else {
+    stopTimer();
+  }
+}, { immediate: true });
+
+// 从后端时钟数据更新计时器
+function updateTimerFromBackend(clocks: any) {
+  if (!clocks || clocks.mode === 'unlimited') {
+    timer.visible = false;
+    return;
+  }
+  
+  timer.visible = true;
+  timer.mode = clocks.mode;
+  timer.increment = clocks.increment || 0;
+  
+  // 根据当前玩家显示对应的时间
+  const myColor = roomStore.currentPlayer?.color;
+  if (myColor === 'white') {
+    timer.timeLeft = clocks.white || 0;
+  } else {
+    timer.timeLeft = clocks.black || 0;
+  }
+  
+  // 重置警告状态
+  timer.warning = false;
+  timer.danger = false;
+}
+
 });
 
 // 通知与进度逻辑由 useNewMoveNotice 与 useReplay 管理
@@ -282,4 +403,57 @@ window.addEventListener('show-promotion', (ev: any) => {
 .promotion-item img { width: 48px; height: 48px; user-select: none; pointer-events: none; display: block; }
 .promotion-cancel { width: 100%; border: none; background: #e0e0e0; padding: 10px; border-radius: 8px; cursor: pointer; }
 .promotion-cancel:hover { background: #d5d5d5; }
+
+/* 计时器样式 */
+.timer-display {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  z-index: 100;
+}
+
+.timer-circle {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 5px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+}
+
+.timer-circle.timer-warning {
+  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.9);
+}
+
+.timer-circle.timer-danger {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.9);
+  animation: pulse 1s infinite;
+}
+
+/* 结束置灰，不再闪烁 */
+.timer-circle.timer-finished {
+  background: #cfd8dc;
+  border-color: #b0bec5;
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.timer-text {
+  font-size: 26px;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  line-height: 1;
+}
 </style>

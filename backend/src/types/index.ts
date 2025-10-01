@@ -12,6 +12,7 @@ export interface Room {
   gameState: GameState;
   createdAt: Date;
   isFull: boolean;
+  timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet';
 }
 
 export interface GameState {
@@ -21,6 +22,13 @@ export interface GameState {
   winner?: 'white' | 'black' | 'draw';
   moveHistory: Move[];
   fogOfWar: FogOfWarState;
+  timeout?: boolean;
+  clocks?: {
+    white: number; // seconds left
+    black: number; // seconds left
+    increment: number; // seconds per move
+    mode: 'unlimited' | 'classical' | 'rapid' | 'bullet';
+  };
 }
 
 export interface Move {
@@ -45,13 +53,14 @@ export interface FogOfWarState {
 export interface SocketEvents {
   // 客户端发送的事件
   'join-room': { roomId: string; playerName: string };
-  'create-room': { roomName: string; playerName: string };
+  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet' };
   'make-move': { roomId: string; move: Move };
   'get-legal-moves': { roomId: string; square: string };
   'leave-room': { roomId: string };
   'request-undo': { roomId: string };
   'respond-undo': { roomId: string; accepted: boolean };
   'surrender': { roomId: string };
+  'report-timeout': { roomId: string; player: 'white' | 'black' };
   
   // 服务端发送的事件
   'room-created': { room: Room };

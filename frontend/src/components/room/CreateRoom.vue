@@ -26,6 +26,20 @@
         />
       </div>
       
+      <div class="form-group">
+        <label for="timerMode">计时模式:</label>
+        <select
+          id="timerMode"
+          v-model="timerMode"
+          required
+        >
+          <option value="unlimited">无限时练习</option>
+          <option value="classical">慢棋30分钟+30秒增秒</option>
+          <option value="rapid">快棋10分钟+10秒增秒</option>
+          <option value="bullet">超快2分钟+5秒增秒</option>
+        </select>
+      </div>
+      
       <button 
         type="submit" 
         :disabled="!roomName.trim() || !playerName.trim() || isCreating"
@@ -51,6 +65,7 @@ const roomStore = useRoomStore();
 
 const roomName = ref('');
 const playerName = ref('');
+const timerMode = ref('unlimited');
 const isCreating = ref(false);
 const error = ref('');
 
@@ -61,7 +76,7 @@ const handleCreateRoom = async () => {
   error.value = '';
   
   try {
-    roomStore.createRoom(roomName.value.trim(), playerName.value.trim());
+    roomStore.createRoom(roomName.value.trim(), playerName.value.trim(), timerMode.value);
     
     // 监听房间创建成功事件
     const unsubscribe = roomStore.$subscribe((mutation, state) => {
@@ -122,9 +137,19 @@ input {
   transition: border-color 0.3s ease;
 }
 
-input:focus {
+input:focus, select:focus {
   outline: none;
   border-color: #4CAF50;
+}
+
+select {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  background: white;
+  transition: border-color 0.3s ease;
 }
 
 .create-button {

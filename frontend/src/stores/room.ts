@@ -9,10 +9,13 @@ export const useRoomStore = defineStore('room', () => {
   const currentPlayer = ref<Player | null>(null);
   const availableRooms = ref<Room[]>([]);
   const isConnected = ref(false);
+  // 记录最近一次创建房间时选择的计时模式（用于前端先行展示）
+  const lastTimerMode = ref<string>('unlimited');
 
   // 动作
-  const createRoom = (roomName: string, playerName: string) => {
-    socketService.createRoom(roomName, playerName);
+  const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited') => {
+    lastTimerMode.value = timerMode;
+    socketService.createRoom(roomName, playerName, timerMode);
   };
 
   const joinRoom = (roomId: string, playerName: string) => {
@@ -46,7 +49,12 @@ export const useRoomStore = defineStore('room', () => {
   // 监听Socket事件
   const setupSocketListeners = () => {
     socketService.on('room-created', (data: SocketEvents['room-created']) => {
-      setCurrentRoom(data.room);
+      // 将计时模式注入到房间对象（若后端暂未回传）
+      const roomWithTimer: any = { ...data.room } as any;
+      if (!('timerMode' in roomWithTimer)) {
+        roomWithTimer.timerMode = lastTimerMode.value;
+      }
+      setCurrentRoom(roomWithTimer as any);
       setCurrentPlayer(data.room.players[0]);
       try {
         const shareUrl = `${window.location.origin}?room=${data.room.id}`;

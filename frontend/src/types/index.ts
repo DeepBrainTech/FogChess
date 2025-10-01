@@ -12,6 +12,8 @@ export interface Room {
   gameState: GameState;
   createdAt: Date;
   isFull: boolean;
+  // 计时模式（可选，后端权威）
+  timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet';
 }
 
 export interface GameState {
@@ -21,6 +23,14 @@ export interface GameState {
   winner?: 'white' | 'black' | 'draw';
   moveHistory: Move[];
   fogOfWar: FogOfWarState;
+  timeout?: boolean; // 是否因超时结束
+  // 后端下发的时钟（可选）
+  clocks?: {
+    mode: 'unlimited' | 'classical' | 'rapid' | 'bullet';
+    white: number; // seconds left
+    black: number; // seconds left
+    increment: number; // seconds per move
+  };
 }
 
 export interface Move {
@@ -45,7 +55,7 @@ export interface FogOfWarState {
 export interface SocketEvents {
   // 客户端发送的事件
   'join-room': { roomId: string; playerName: string };
-  'create-room': { roomName: string; playerName: string };
+  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet' };
   'make-move': { roomId: string; move: Move };
   'leave-room': { roomId: string };
   'get-legal-moves': { roomId: string; square: string };
