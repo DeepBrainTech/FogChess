@@ -79,7 +79,7 @@ const handleCreateRoom = async () => {
     roomStore.createRoom(roomName.value.trim(), playerName.value.trim(), timerMode.value);
     
     // 监听房间创建成功事件
-    const unsubscribe = roomStore.$subscribe((mutation, state) => {
+    const unsubscribe = roomStore.$subscribe((_, state) => {
       if (state.currentRoom) {
         unsubscribe();
         router.push('/game');

@@ -86,7 +86,7 @@ const handleJoinRoom = async () => {
     roomStore.joinRoom(roomId.value.trim(), playerName.value.trim());
     
     // 监听加入成功事件
-    const unsubscribe = roomStore.$subscribe((mutation, state) => {
+    const unsubscribe = roomStore.$subscribe((_, state) => {
       if (state.currentRoom) {
         unsubscribe();
         router.push('/game');

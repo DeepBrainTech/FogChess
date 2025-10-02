@@ -2,7 +2,7 @@ import type { ChessPiece, BoardSquare, MoveValidation } from '../types/chess';
 
 export class ChessService {
   private board: BoardSquare[][] = [];
-  private lastAppliedFog: { whiteVisible: Set<string>; blackVisible: Set<string> } | null = null;
+  // private lastAppliedFog: { whiteVisible: Set<string>; blackVisible: Set<string> } | null = null;
 
   constructor() {
     this.initializeBoard();
@@ -61,10 +61,10 @@ export class ChessService {
       // 防御：如果服务端未计算出可见格，保持当前棋盘可见，不做隐藏
       return;
     }
-    this.lastAppliedFog = {
-      whiteVisible: new Set(fog.whiteVisible),
-      blackVisible: new Set(fog.blackVisible)
-    };
+    // this.lastAppliedFog = {
+    //   whiteVisible: new Set(fog.whiteVisible),
+    //   blackVisible: new Set(fog.blackVisible)
+    // };
 
     let visibleCount = 0;
     for (let row = 0; row < 8; row++) {
