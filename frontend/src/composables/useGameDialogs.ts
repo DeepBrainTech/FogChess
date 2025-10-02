@@ -18,6 +18,8 @@ export function useGameDialogs(params: {
     requestUndo: (roomId: string) => void;
     respondToUndo: (roomId: string, accepted: boolean) => void;
     surrender: (roomId: string) => void;
+    requestDraw: (roomId: string) => void;
+    respondToDraw: (roomId: string, accepted: boolean) => void;
   };
   router: Router;
 }) {
