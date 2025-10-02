@@ -1,0 +1,29 @@
+# 数据库初始化脚本
+# 运行此脚本来初始化 PostgreSQL 数据库表结构
+services:
+  postgres-init:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: fogchess
+      POSTGRES_USER: fogchess
+      POSTGRES_PASSWORD: fogchess123
+      PGHOST: postgres
+    volumes:
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    depends_on:
+      - postgres
+    command: psql -h postgres -U fogchess -d fogchess -f /docker-entrypoint-initdb.d/init.sql
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: fogchess
+      POSTGRES_USER: fogchess
+      POSTGRES_PASSWORD: fogchess123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

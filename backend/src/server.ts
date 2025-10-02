@@ -4,17 +4,23 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { RoomService } from './services/RoomService';
 import type { SocketEvents } from './types';
+import { RedisRoomRepository } from './repositories/RedisRoomRepository';
+import { PostgresArchiver } from './services/ArchiverService';
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || "http://localhost:8080",
     methods: ["GET", "POST"]
   }
 });
 
-const roomService = new RoomService();
+const redisUrl = process.env.REDIS_URL;
+const dbUrl = process.env.DATABASE_URL;
+const repository = redisUrl ? new RedisRoomRepository(redisUrl) : undefined;
+const archiver = dbUrl ? new PostgresArchiver(dbUrl) : undefined;
+const roomService = new RoomService(repository, archiver);
 
 // Middleware
 app.use(cors());
@@ -205,6 +211,51 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       socket.emit('error', { message: 'Failed to report timeout' });
+    }
+  });
+
+  // 请求和棋
+  socket.on('request-draw', (data: SocketEvents['request-draw']) => {
+    try {
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Player not found in room' });
+        return;
+      }
+
+      const result = roomService.requestDraw(data.roomId, player.id);
+      if (result.success) {
+        // 通知对手
+        socket.to(data.roomId).emit('draw-requested', { fromPlayer: player.name });
+      } else {
+        socket.emit('error', { message: result.error || 'Failed to request draw' });
+      }
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to request draw' });
+    }
+  });
+
+  // 响应和棋请求
+  socket.on('respond-draw', (data: SocketEvents['respond-draw']) => {
+    try {
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Player not found in room' });
+        return;
+      }
+
+      // 通知请求方结果
+      socket.to(data.roomId).emit('draw-response', { accepted: data.accepted });
+      
+      const result = roomService.respondDraw(data.roomId, data.accepted);
+      if (result.success && result.gameState) {
+        // 通知所有玩家游戏状态更新
+        io.to(data.roomId).emit('game-updated', { gameState: result.gameState });
+      } else {
+        socket.emit('error', { message: result.error || 'Failed to respond to draw' });
+      }
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to respond to draw' });
     }
   });
 

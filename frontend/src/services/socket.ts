@@ -6,7 +6,7 @@ class SocketService {
   private url: string;
 
   constructor() {
-    this.url = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    this.url = import.meta.env.VITE_API_URL || 'http://backend:3001';
   }
 
   connect(): Socket {
@@ -71,6 +71,16 @@ class SocketService {
   // 上报超时（由本地倒计时归零触发，后端进行权威结算）
   reportTimeout(roomId: string, player: 'white' | 'black'): void {
     this.socket?.emit('report-timeout', { roomId, player });
+  }
+
+  // 请求和棋
+  requestDraw(roomId: string): void {
+    this.socket?.emit('request-draw', { roomId });
+  }
+
+  // 响应和棋请求
+  respondToDraw(roomId: string, accepted: boolean): void {
+    this.socket?.emit('respond-draw', { roomId, accepted });
   }
 
   // 离开房间

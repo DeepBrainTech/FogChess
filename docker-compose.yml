@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -10,23 +8,29 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3001
+      - FRONTEND_URL=http://localhost:8080
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://fogchess:fogchess123@postgres:5432/fogchess
     volumes:
       - ./backend:/app
       - /app/node_modules
     command: npm run dev
+    depends_on:
+      - redis
+      - postgres
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "8080:3000"
     environment:
-      - VITE_API_URL=http://backend:3001
+      - VITE_API_URL=http://localhost:3001
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: npm run dev
+    command: npm run dev -- --host 0.0.0.0
     depends_on:
       - backend
 
@@ -37,5 +41,18 @@ services:
     volumes:
       - redis_data:/data
 
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=fogchess
+      - POSTGRES_USER=fogchess
+      - POSTGRES_PASSWORD=fogchess123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+
 volumes:
   redis_data:
+  pg_data:

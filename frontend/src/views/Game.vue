@@ -15,8 +15,10 @@
         :game-status="gameState?.gameStatus || 'waiting'"
         :can-download-fen="!!gameState"
         :sound-enabled="audioService.getEnabled()"
+        :timer-mode="room?.timerMode || 'unlimited'"
         @request-undo="requestUndo"
         @show-surrender="showSurrenderDialog"
+        @show-draw="showDrawDialog"
         @download-pgn="showDownloadPgnDialog"
         @download-fen="showDownloadFenDialog"
         @toggle-sound="toggleSound"
@@ -69,6 +71,8 @@
       @confirm-leave="confirmLeave"
       @confirm-download-fen="confirmDownloadFen"
       @confirm-download-pgn="confirmDownloadPgn"
+      @confirm-draw-request="confirmDrawRequest"
+      @respond-draw="respondToDraw"
     />
   </div>
 
@@ -144,6 +148,7 @@ const {
   showDownloadFenDialog, showDownloadPgnDialog,
   confirmDownloadFen, confirmDownloadPgn,
   requestUndo, confirmUndoRequest, respondToUndo,
+  showDrawDialog, confirmDrawRequest, respondToDraw,
   registerUndoWindowEvents,
 } = useGameDialogs({ room, gameState, roomStore, gameStore, router });
 

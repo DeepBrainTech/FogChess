@@ -4,7 +4,7 @@ import type { Router } from 'vue-router';
 import { buildPGN } from '../utils/chessExport';
 import { parseBoardPartToMatrix, matrixToBoardPart, notationToCoords, isKingCapturedFromBoardPart } from '../utils/fen';
 
-export type DialogType = 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn';
+export type DialogType = 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result';
 
 export function useGameDialogs(params: {
   room: Ref<Room | null>;
@@ -74,6 +74,13 @@ export function useGameDialogs(params: {
     dialogType.value = 'download-pgn';
     dialogTitle.value = '导出PGN';
     dialogMessage.value = '确定导出本局PGN吗？';
+    showDialog.value = true;
+  };
+
+  const showDrawDialog = () => {
+    dialogType.value = 'draw-request';
+    dialogTitle.value = '申请和棋';
+    dialogMessage.value = '确定申请和棋吗？';
     showDialog.value = true;
   };
 
@@ -228,6 +235,32 @@ export function useGameDialogs(params: {
     undoRequestPending.value = false;
   };
 
+  const confirmDrawRequest = () => {
+    if (!room.value) return;
+    gameStore.requestDraw(room.value.id);
+    closeDialog();
+  };
+
+  const respondToDraw = (accepted: boolean) => {
+    if (!room.value) return;
+    gameStore.respondToDraw(room.value.id, accepted);
+    closeDialog();
+  };
+
+  const showDrawRequestDialog = (fromPlayer: string) => {
+    dialogType.value = 'draw-response';
+    dialogTitle.value = '对手申请和棋';
+    dialogMessage.value = `${fromPlayer} 申请和棋，是否同意？`;
+    showDialog.value = true;
+  };
+
+  const showDrawResultDialog = (accepted: boolean) => {
+    dialogType.value = 'draw-result';
+    dialogTitle.value = '和棋结果';
+    dialogMessage.value = accepted ? '对手同意了和棋请求' : '对手拒绝了和棋请求';
+    showDialog.value = true;
+  };
+
   const registerUndoWindowEvents = () => {
     window.addEventListener('show-undo-request', (event: any) => {
       showUndoRequestDialog(event.detail.fromPlayer, event.detail.attemptsLeft);
@@ -237,6 +270,12 @@ export function useGameDialogs(params: {
     });
     window.addEventListener('show-undo-error', (event: any) => {
       showUndoErrorDialog(event.detail.message);
+    });
+    window.addEventListener('show-draw-request', (event: any) => {
+      showDrawRequestDialog(event.detail.fromPlayer);
+    });
+    window.addEventListener('show-draw-result', (event: any) => {
+      showDrawResultDialog(event.detail.accepted);
     });
   };
 
@@ -262,6 +301,11 @@ export function useGameDialogs(params: {
     showUndoRequestDialog,
     showUndoResultDialog,
     showUndoErrorDialog,
+    showDrawDialog,
+    confirmDrawRequest,
+    respondToDraw,
+    showDrawRequestDialog,
+    showDrawResultDialog,
     registerUndoWindowEvents,
   };
 }

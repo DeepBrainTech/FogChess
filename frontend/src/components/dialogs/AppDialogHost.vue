@@ -27,6 +27,14 @@
         <button @click="$emit('confirm-download-pgn')" class="confirm-btn">确定</button>
         <button @click="$emit('close')" class="cancel-btn">取消</button>
       </div>
+      <div v-else-if="type === 'draw-request'" class="dialog-buttons">
+        <button @click="$emit('confirm-draw-request')" class="confirm-btn">确定</button>
+        <button @click="$emit('close')" class="cancel-btn">取消</button>
+      </div>
+      <div v-else-if="type === 'draw-response'" class="dialog-buttons">
+        <button @click="$emit('respond-draw', true)" class="accept-btn">同意</button>
+        <button @click="$emit('respond-draw', false)" class="reject-btn">不同意</button>
+      </div>
       <div v-else class="dialog-buttons">
         <button @click="$emit('close')" class="ok-btn">确定</button>
       </div>
@@ -37,7 +45,7 @@
 <script setup lang="ts">
 interface Props {
   show: boolean;
-  type: 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'info';
+  type: 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result' | 'info';
   title: string;
   message?: string;
 }

@@ -1,7 +1,7 @@
 <template>
   <div class="game-controls">
     <button 
-      v-if="canRequestUndo" 
+      v-if="canRequestUndo && timerMode === 'unlimited'" 
       @click="$emit('request-undo')" 
       class="undo-button"
       :disabled="undoRequestPending"
@@ -15,6 +15,14 @@
       class="surrender-button"
     >
       认输
+    </button>
+
+    <button 
+      v-if="gameStatus === 'playing'"
+      @click="$emit('show-draw')" 
+      class="draw-button"
+    >
+      和棋
     </button>
 
     <button 
@@ -50,6 +58,7 @@ interface Props {
   gameStatus: 'waiting' | 'playing' | 'finished';
   canDownloadFen: boolean;
   soundEnabled: boolean;
+  timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet';
 }
 
 withDefaults(defineProps<Props>(), {
@@ -57,13 +66,15 @@ withDefaults(defineProps<Props>(), {
   undoRequestPending: false,
   gameStatus: 'waiting',
   canDownloadFen: false,
-  soundEnabled: true
+  soundEnabled: true,
+  timerMode: 'unlimited'
 });
 </script>
 
 <style scoped>
 .game-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -95,6 +106,20 @@ withDefaults(defineProps<Props>(), {
 }
 
 .surrender-button:hover { background: #e64a19; }
+
+.draw-button {
+  padding: 12px 20px;
+  background: #3f4f65;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-right: 10px;
+  font-size: 16px;
+}
+
+.draw-button:hover { background: #2d3a4a; }
 
 .download-button {
   padding: 12px 20px;

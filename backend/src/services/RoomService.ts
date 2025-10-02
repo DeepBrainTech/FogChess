@@ -1,15 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Room, Player, GameState } from '../types';
+import type { Room, Player, GameState, Move } from '../types';
 import { ChessService } from './ChessService';
 import { TimerService } from './TimerService';
+import type { RoomRepository } from '../repositories/RoomRepository';
+import type { GameArchiver } from './ArchiverService';
 
 export class RoomService {
   private rooms: Map<string, Room> = new Map();
   private roomIdToChess: Map<string, ChessService> = new Map();
   private timerService: TimerService;
+  private repository?: RoomRepository;
+  private archiver?: GameArchiver;
 
-  constructor() {
+  constructor(repository?: RoomRepository, archiver?: GameArchiver) {
     this.timerService = new TimerService();
+    this.repository = repository;
+    this.archiver = archiver;
   }
 
   /**
@@ -40,6 +46,8 @@ export class RoomService {
     // 计时器将在游戏开始时初始化，而不是房间创建时
 
     this.rooms.set(roomId, room);
+    // persist room to repository
+    this.repository?.saveRoom(room).catch(() => {});
     return room;
   }
 
@@ -73,6 +81,8 @@ export class RoomService {
       socketId
     };
 
+    // 清理旧玩家，只保留当前两个玩家
+    room.players = room.players.filter(p => p.socketId === socketId || p.socketId === room.players[0]?.socketId);
     room.players.push(player);
     room.isFull = true;
     // 重置为标准初始局并开始（使用该房间现有实例）
@@ -95,6 +105,8 @@ export class RoomService {
       }
     }
     // Game started with two players
+    // persist updated room and players
+    this.repository?.saveRoom(room).catch(() => {});
 
     return { success: true, room, player };
   }
@@ -121,9 +133,12 @@ export class RoomService {
     // 如果房间空了，删除房间
     if (room.players.length === 0) {
       this.rooms.delete(roomId);
+      this.repository?.deleteRoom(roomId).catch(() => {});
       return { success: true };
     }
 
+    // persist updated room
+    this.repository?.saveRoom(room).catch(() => {});
     return { success: true, room };
   }
 
@@ -161,7 +176,7 @@ export class RoomService {
   /**
    * 在房间中执行移动
    */
-  makeMove(roomId: string, move: any): { success: boolean; gameState?: GameState; error?: string; timeout?: boolean; winner?: 'white' | 'black' } {
+  makeMove(roomId: string, move: Move): { success: boolean; gameState?: GameState; error?: string; timeout?: boolean; winner?: 'white' | 'black' } {
     const room = this.rooms.get(roomId);
     
     if (!room) {
@@ -195,6 +210,13 @@ export class RoomService {
           room.gameState.gameStatus = 'finished';
           room.gameState.winner = timerResult.winner;
           (room.gameState as any).timeout = true;
+          
+          // 归档超时游戏
+          this.repository?.getMoves(roomId)
+            .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
+            .then(() => this.repository?.clearMoves(roomId))
+            .catch(() => {});
+          
           return { 
             success: true, 
             gameState: room.gameState, 
@@ -214,6 +236,18 @@ export class RoomService {
       }
 
       room.gameState = result.gameState;
+      
+      // 如果游戏结束（吃王），归档游戏
+      if (result.gameState.gameStatus === 'finished' && result.gameState.winner) {
+        this.repository?.getMoves(roomId)
+          .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
+          .then(() => this.repository?.clearMoves(roomId))
+          .catch(() => {});
+      }
+      
+      // append move and persist room state
+      this.repository?.appendMove(roomId, move).catch(() => {});
+      this.repository?.saveRoom(room).catch(() => {});
       return { success: true, gameState: room.gameState };
     }
 
@@ -318,7 +352,12 @@ export class RoomService {
     const winner = player.color === 'white' ? 'black' : 'white';
     room.gameState.gameStatus = 'finished';
     room.gameState.winner = winner;
-
+    // archive and cleanup moves (best-effort)
+    this.repository?.getMoves(roomId)
+      .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
+      .then(() => this.repository?.clearMoves(roomId))
+      .catch(() => {});
+    this.repository?.saveRoom(room).catch(() => {});
     return { success: true, gameState: room.gameState };
   }
 
@@ -340,6 +379,62 @@ export class RoomService {
     room.gameState.gameStatus = 'finished';
     room.gameState.winner = winner;
     (room.gameState as any).timeout = true;
+    // archive and cleanup moves (best-effort)
+    this.repository?.getMoves(roomId)
+      .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
+      .then(() => this.repository?.clearMoves(roomId))
+      .catch(() => {});
+    this.repository?.saveRoom(room).catch(() => {});
+    return { success: true, gameState: room.gameState };
+  }
+
+  /**
+   * 请求和棋
+   */
+  requestDraw(roomId: string, fromPlayerId: string): { success: boolean; error?: string } {
+    const room = this.rooms.get(roomId);
+    
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    if (room.gameState.gameStatus !== 'playing') {
+      return { success: false, error: 'Game is not in playing state' };
+    }
+
+    const player = room.players.find(p => p.id === fromPlayerId);
+    if (!player) {
+      return { success: false, error: 'Player not found' };
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * 响应和棋请求
+   */
+  respondDraw(roomId: string, accepted: boolean): { success: boolean; gameState?: GameState; error?: string } {
+    const room = this.rooms.get(roomId);
+    
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    if (room.gameState.gameStatus !== 'playing') {
+      return { success: false, error: 'Game is not in playing state' };
+    }
+
+    if (accepted) {
+      // 同意和棋
+      room.gameState.gameStatus = 'finished';
+      room.gameState.winner = 'draw';
+      // archive and cleanup moves (best-effort)
+      this.repository?.getMoves(roomId)
+        .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
+        .then(() => this.repository?.clearMoves(roomId))
+        .catch(() => {});
+      this.repository?.saveRoom(room).catch(() => {});
+    }
 
     return { success: true, gameState: room.gameState };
   }
@@ -353,6 +448,7 @@ export class RoomService {
         this.rooms.delete(roomId);
         this.roomIdToChess.delete(roomId);
         this.timerService.cleanupTimer(roomId);
+        this.repository?.deleteRoom(roomId).catch(() => {});
       }
     }
   }

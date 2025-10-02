@@ -23,41 +23,56 @@ export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlaye
     if (gs.gameStatus === 'finished' && !showGameOver.value && gs.winner) {
       const myColor = currentPlayerColorSource.value;
       const win = myColor ? gs.winner === myColor : false;
+      const isDraw = gs.winner === 'draw';
+      
       isWinner.value = win;
-      gameOverTitle.value = win ? 'Victory' : 'Defeat';
-
-      const fenStr = (gs as any).board ?? (gs as any).fen;
-      const kingWasCaptured = isKingCaptured(fenStr);
       
-      // 检查是否是超时结束
-      const isTimeout = (gs as any).timeout || false;
-      
-      if (isTimeout) {
-        if (win) {
-          gameOverMessage.value = '恭喜你，对手超时了！';
-        } else {
-          gameOverMessage.value = '很抱歉，你超时了！';
-        }
-      } else {
-        const reason = kingWasCaptured ? 'king' : 'surrender';
-        if (reason === 'king') {
-          gameOverMessage.value = win ? '恭喜你，吃掉了对面国王！' : '很抱歉，你被吃掉了国王！';
-        } else {
-          gameOverMessage.value = win ? '恭喜你，你赢了！' : '很抱歉，你输了！';
-        }
-      }
-
-      if (win) {
-        isVictoryFlash.value = true;
-      } else {
-        isDefeatFlash.value = true;
-      }
-      showGameOver.value = true;
-
-      setTimeout(() => {
+      if (isDraw) {
+        gameOverTitle.value = 'Draw';
+        gameOverMessage.value = '平局！';
+        // 平局不闪红绿，也不设置胜负状态
         isVictoryFlash.value = false;
         isDefeatFlash.value = false;
-      }, 2000);
+        isWinner.value = false; // 平局时不是胜利者
+      } else {
+        gameOverTitle.value = win ? 'Victory' : 'Defeat';
+
+        const fenStr = (gs as any).board ?? (gs as any).fen;
+        const kingWasCaptured = isKingCaptured(fenStr);
+        
+        // 检查是否是超时结束
+        const isTimeout = (gs as any).timeout || false;
+        
+        if (isTimeout) {
+          if (win) {
+            gameOverMessage.value = '恭喜你，对手超时了！';
+          } else {
+            gameOverMessage.value = '很抱歉，你超时了！';
+          }
+        } else {
+          const reason = kingWasCaptured ? 'king' : 'surrender';
+          if (reason === 'king') {
+            gameOverMessage.value = win ? '恭喜你，吃掉了对面国王！' : '很抱歉，你被吃掉了国王！';
+          } else {
+            gameOverMessage.value = win ? '恭喜你，你赢了！' : '很抱歉，你输了！';
+          }
+        }
+
+        if (win) {
+          isVictoryFlash.value = true;
+        } else {
+          isDefeatFlash.value = true;
+        }
+      }
+      
+      showGameOver.value = true;
+
+      if (!isDraw) {
+        setTimeout(() => {
+          isVictoryFlash.value = false;
+          isDefeatFlash.value = false;
+        }, 2000);
+      }
     }
   });
 

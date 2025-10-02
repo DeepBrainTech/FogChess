@@ -330,6 +330,14 @@ export const useGameStore = defineStore('game', () => {
     socketService.surrender(roomId);
   };
 
+  const requestDraw = (roomId: string) => {
+    socketService.requestDraw(roomId);
+  };
+
+  const respondToDraw = (roomId: string, accepted: boolean) => {
+    socketService.respondToDraw(roomId, accepted);
+  };
+
   // 监听Socket事件
   const setupSocketListeners = () => {
     socketService.on('move-made', (data: any) => {
@@ -367,6 +375,18 @@ export const useGameStore = defineStore('game', () => {
       setGameState(data.gameState);
     });
 
+    socketService.on('draw-requested', (data: any) => {
+      window.dispatchEvent(new CustomEvent('show-draw-request', { 
+        detail: { fromPlayer: data.fromPlayer } 
+      }));
+    });
+
+    socketService.on('draw-response', (data: any) => {
+      window.dispatchEvent(new CustomEvent('show-draw-result', { 
+        detail: { accepted: data.accepted } 
+      }));
+    });
+
     // 监听错误事件
     socketService.on('error', (data: any) => {
       console.error('Socket error:', data);
@@ -401,6 +421,8 @@ export const useGameStore = defineStore('game', () => {
     requestUndo,
     respondToUndo,
     surrender,
+    requestDraw,
+    respondToDraw,
     setReplayState
   };
 });
