@@ -1,7 +1,7 @@
 <template>
   <div class="replay-btn notification-btn" :class="{ 'has-new-move': hasNewMove }" title="新移动通知">
     <img
-      :src="hasNewMove ? '/src/assets/replay/notice_yellow.svg' : '/src/assets/replay/notice.svg'"
+      :src="currentIconSrc"
       :alt="hasNewMove ? '新移动通知-有新移动' : '新移动通知'"
       :class="hasNewMove ? 'replay-icon-notification' : 'replay-icon'"
       @error="onImageError"
@@ -10,17 +10,26 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+
 interface Props {
   hasNewMove: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   hasNewMove: false
+});
+
+const noticeIconSrc = new URL('../../assets/replay/notice.svg', import.meta.url).href;
+const noticeYellowIconSrc = new URL('../../assets/replay/notice_yellow.svg', import.meta.url).href;
+
+const currentIconSrc = computed(() => {
+  return props.hasNewMove ? noticeYellowIconSrc : noticeIconSrc;
 });
 
 const onImageError = (event: any) => {
   if (event?.target?.src?.includes('notice_yellow.svg')) {
-    event.target.src = '/src/assets/replay/notice.svg';
+    event.target.src = noticeIconSrc;
     event.target.className = 'replay-icon';
   }
 };
