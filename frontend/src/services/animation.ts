@@ -53,28 +53,44 @@ export class AnimationService {
         throw new Error('Invalid square coordinates');
       }
 
-      // 计算像素偏移
-      const squareSize = 78; // 与CSS中的square尺寸一致
-      const deltaX = (toCoords.col - fromCoords.col) * squareSize;
-      const deltaY = (toCoords.row - fromCoords.row) * squareSize;
-
-      // 找到要移动的棋子元素
+      // 找到要移动的棋子元素（同时获取棋盘容器）
       const pieceElement = this.findPieceElement(fromSquare);
       if (!pieceElement) {
         throw new Error('Piece element not found');
       }
 
-      // 设置动画
+      // 动态计算格子大小（因为棋盘是响应式的）
+      const boardContainer = document.querySelector('.board-container') as HTMLElement | null;
+      if (!boardContainer) {
+        throw new Error('Board container not found');
+      }
+      const boardRect = boardContainer.getBoundingClientRect();
+      const squareSize = boardRect.width / 8; // 棋盘宽度的1/8
+      
+      // 计算像素偏移
+      const deltaX = (toCoords.col - fromCoords.col) * squareSize;
+      const deltaY = (toCoords.row - fromCoords.row) * squareSize;
+
+      // 检查棋子是否已经旋转（黑方视角）
+      const isRotated = pieceElement.classList.contains('piece-counter-rotated');
+      
+      // 设置动画，保留原有的旋转
+      // 注意：rotate() 会影响后续 translate() 的坐标系，所以需要反转偏移
       pieceElement.style.transition = `transform ${actualDuration}ms ${easing}`;
-      pieceElement.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+      if (isRotated) {
+        pieceElement.style.transform = `rotate(180deg) translate(${-deltaX}px, ${-deltaY}px)`;
+      } else {
+        pieceElement.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+      }
       pieceElement.style.zIndex = '1000'; // 确保在最上层
 
       // 等待动画完成
       await this.waitForAnimation(pieceElement, actualDuration);
 
-      // 重置样式
+      // 重置样式，恢复原有的旋转状态
+      const isRotated = pieceElement.classList.contains('piece-counter-rotated');
       pieceElement.style.transition = '';
-      pieceElement.style.transform = '';
+      pieceElement.style.transform = isRotated ? 'rotate(180deg)' : '';
       pieceElement.style.zIndex = '';
 
       onComplete?.();
@@ -167,12 +183,13 @@ export class AnimationService {
   stopAllAnimations(): void {
     this.activeAnimations.clear();
     
-    // 重置所有棋子的动画状态
+    // 重置所有棋子的动画状态，但保留旋转
     const pieceElements = document.querySelectorAll('.chess-piece');
     pieceElements.forEach(element => {
       const piece = element as HTMLElement;
+      const isRotated = piece.classList.contains('piece-counter-rotated');
       piece.style.transition = '';
-      piece.style.transform = '';
+      piece.style.transform = isRotated ? 'rotate(180deg)' : '';
       piece.style.zIndex = '';
     });
   }

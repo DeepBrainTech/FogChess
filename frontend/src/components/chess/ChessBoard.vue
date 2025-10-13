@@ -153,8 +153,16 @@ const clientPointToSquare = (clientX: number, clientY: number): string | null =>
   if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
     return null;
   }
-  const col = Math.floor(((clientX - rect.left) / rect.width) * 8);
-  const row = Math.floor(((clientY - rect.top) / rect.height) * 8);
+  
+  let col = Math.floor(((clientX - rect.left) / rect.width) * 8);
+  let row = Math.floor(((clientY - rect.top) / rect.height) * 8);
+  
+  // 如果棋盘旋转了（黑方视角），需要反转坐标
+  if (isBlackPlayer.value) {
+    row = 7 - row;
+    col = 7 - col;
+  }
+  
   const safeRow = Math.min(7, Math.max(0, row));
   const safeCol = Math.min(7, Math.max(0, col));
   return chessService.getSquareNotation(safeRow, safeCol);

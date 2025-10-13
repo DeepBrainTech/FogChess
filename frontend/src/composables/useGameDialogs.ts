@@ -229,6 +229,13 @@ export function useGameDialogs(params: {
     }
     if (message.includes('对局已结束') || message.includes('请开始新游戏')) {
       dialogTitle.value = '对局结束';
+    } else if (message.toLowerCase().includes('not your turn')) {
+      // 不是你的回合
+      dialogTitle.value = '无法移动';
+      dialogMessage.value = '不是你的回合';
+      showDialog.value = true;
+      undoRequestPending.value = false;
+      return;
     } else {
       dialogTitle.value = '无法悔棋';
     }
