@@ -390,8 +390,12 @@ export const useGameStore = defineStore('game', () => {
     // 监听错误事件
     socketService.on('error', (data: any) => {
       console.error('Socket error:', data);
-      // 走子不合法（例如点击非蓝点）静默处理：不弹"无法悔棋"
-      if (data && (data.message === 'Invalid move' || data.message === 'Failed to make move')) {
+      // 走子不合法或不是你的回合时，静默处理（不弹窗）
+      if (data && (
+        data.message === 'Invalid move' || 
+        data.message === 'Failed to make move' ||
+        data.message === 'Not your turn'
+      )) {
         return;
       }
       // 仅在悔棋等流程的错误时，通知Game.vue显示弹窗
