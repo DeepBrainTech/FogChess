@@ -294,6 +294,9 @@ const onSquareClick = (row: number, col: number) => {
   justify-content: center;
   align-items: center;
   padding: 20px;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .board-container {
@@ -303,6 +306,11 @@ const onSquareClick = (row: number, col: number) => {
   gap: 0;
   border: 2px solid #7a8a9a;
   box-shadow: 0 4px 8px rgba(156, 168, 184, 0.3);
+  /* 使用更小的固定尺寸或视口单位，确保在各种屏幕下都能完整显示 */
+  width: min(70vh, 90vw, 600px);
+  height: min(70vh, 90vw, 600px);
+  max-width: 600px;
+  max-height: 600px;
 }
 
 .board-row {
@@ -310,14 +318,16 @@ const onSquareClick = (row: number, col: number) => {
 }
 
 .square {
-  width: 78px; /* 适度增大棋盘格尺寸，平衡显示效果 */
-  height: 78px;
+  /* 移除固定尺寸，让 grid 自动计算 */
+  width: 100%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
   cursor: pointer;
   transition: all 0.2s ease;
+  aspect-ratio: 1; /* 确保方格始终是正方形 */
 }
 
 .square-non-clickable {
@@ -391,9 +401,14 @@ const onSquareClick = (row: number, col: number) => {
 }
 
 @media (max-width: 768px) {
-  .square {
-    width: 60px;
-    height: 60px;
+  .chess-board {
+    padding: 10px; /* 移动端减小 padding */
+  }
+  
+  .board-container {
+    /* 移动端使用更小的尺寸 */
+    width: min(80vh, 95vw, 500px);
+    height: min(80vh, 95vw, 500px);
   }
 }
 </style>

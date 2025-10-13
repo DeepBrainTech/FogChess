@@ -1,5 +1,14 @@
 /* Extracted from Game.vue */
-.game-container { height: 100vh; background: #9ca8b8; display: flex; flex-direction: column; overflow: hidden; }
+.game-container { 
+  height: 100vh; 
+  background: #9ca8b8; 
+  display: flex; 
+  flex-direction: column; 
+  overflow: hidden;
+  /* 移除父元素的 padding 影响 */
+  margin: -2rem;
+  padding: 0;
+}
 .game-header { background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: flex; justify-content: space-between; align-items: center; }
 .room-info h2 { margin: 0 0 15px 0; color: #333; font-size: 26px; }
 .room-info-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
@@ -42,8 +51,24 @@
 .download-button:hover { background: #546e7a; }
 .download-button.secondary { background: #455a64; }
 .download-button.secondary:hover { background: #37474f; }
-.game-content { flex: 1; display: flex; gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
-.chess-container { flex: 1; display: flex; justify-content: center; align-items: flex-start; }
+.game-content { 
+  flex: 1; 
+  display: flex; 
+  gap: 20px; 
+  padding: 20px; 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  width: 100%;
+  min-height: 0; /* 确保 flex 子元素不会超出 */
+  overflow: auto; /* 允许在需要时滚动 */
+}
+.chess-container { 
+  flex: 1; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; /* 改为居中对齐，防止底部被截断 */
+  min-height: 0; /* 确保 flex 子元素不会超出 */
+}
 .game-sidebar { width: 360px; display: flex; flex-direction: column; gap: 20px; }
 .game-status, .move-history { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
 .game-status h3, .move-history h3 { margin: 0 0 15px 0; color: #333; font-size: 20px; }
@@ -82,7 +107,27 @@
 .move-notation { font-family: monospace; font-size: 14px; color: #495057; font-weight: 500; }
 .move-hidden { color: #adb5bd; font-size: 16px; font-weight: bold; }
 .move-player { font-size: 14px; color: #666; padding: 4px 10px; background: #f0f0f0; border-radius: 10px; }
-@media (max-width: 768px) { .game-content { flex-direction: column; } .game-sidebar { width: 100%; } .game-header { flex-direction: column; gap: 15px; text-align: center; } .players { justify-content: center; } }
+@media (max-width: 768px) { 
+  .game-content { 
+    flex-direction: column; 
+    padding: 10px; /* 移动端减小 padding */
+  } 
+  .game-sidebar { 
+    width: 100%; 
+  } 
+  .game-header { 
+    flex-direction: column; 
+    gap: 15px; 
+    text-align: center; 
+    padding: 15px; /* 移动端减小 padding */
+  } 
+  .players { 
+    justify-content: center; 
+  }
+  .chess-container {
+    align-items: center; /* 确保移动端也居中 */
+  }
+}
 /* 统一弹窗样式 */
 .dialog-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
 .dialog-content { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); max-width: 500px; width: 90%; text-align: center; }
