@@ -87,8 +87,7 @@ export class AnimationService {
       // 等待动画完成
       await this.waitForAnimation(pieceElement, actualDuration);
 
-      // 重置样式，恢复原有的旋转状态
-      const isRotated = pieceElement.classList.contains('piece-counter-rotated');
+      // 重置样式，恢复原有的旋转状态（使用之前检测的 isRotated）
       pieceElement.style.transition = '';
       pieceElement.style.transform = isRotated ? 'rotate(180deg)' : '';
       pieceElement.style.zIndex = '';
