@@ -20,10 +20,12 @@ import type { ChessPiece } from '../../types/chess';
 interface Props {
   piece: ChessPiece;
   isVisible?: boolean;
+  isRotated?: boolean; // 棋盘是否旋转了
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isVisible: true
+  isVisible: true,
+  isRotated: false
 });
 
 const pieceImage = computed(() => {
@@ -34,7 +36,8 @@ const pieceClass = computed(() => ({
   'chess-piece': true,
   'piece-white': props.piece.color === 'white',
   'piece-black': props.piece.color === 'black',
-  'piece-hidden': !props.isVisible
+  'piece-hidden': !props.isVisible,
+  'piece-counter-rotated': props.isRotated // 反向旋转棋子
 }));
 
 const pieceStyle = computed(() => ({
@@ -74,8 +77,18 @@ const pieceStyle = computed(() => ({
   z-index: 0;
 }
 
+/* 棋盘旋转时，反向旋转棋子使其保持正向 */
+.piece-counter-rotated {
+  transform: rotate(180deg);
+}
+
 .chess-piece:hover:not(.piece-hidden) {
   transform: scale(1.1);
+}
+
+/* 旋转时的悬停效果 */
+.piece-counter-rotated:hover:not(.piece-hidden) {
+  transform: rotate(180deg) scale(1.1);
 }
 
 @media (max-width: 768px) {

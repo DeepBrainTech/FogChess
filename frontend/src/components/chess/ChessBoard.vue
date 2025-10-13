@@ -1,6 +1,10 @@
 <template>
   <div class="chess-board">
-    <div class="board-container" :key="boardRenderKey">
+    <div 
+      class="board-container" 
+      :class="{ 'board-rotated': isBlackPlayer }"
+      :key="boardRenderKey"
+    >
       <div 
         v-for="row in 8" 
         :key="`row-${row}`"
@@ -17,6 +21,7 @@
             v-if="getSquarePiece(row - 1, col - 1)"
             :piece="getSquarePiece(row - 1, col - 1)!"
             :is-visible="isSquareVisible(row - 1, col - 1)"
+            :is-rotated="isBlackPlayer"
           />
         </div>
       </div>
@@ -31,6 +36,11 @@ import { chessService } from '../../services/chess';
 import ChessPiece from './ChessPiece.vue';
 
 const gameStore = useGameStore();
+
+// 判断当前玩家是否是黑方
+const isBlackPlayer = computed(() => {
+  return gameStore.currentPlayer?.color === 'black';
+});
 
 // 当 gameState/fog 或 replayState 变化时，触发重新渲染
 const boardRenderKey = computed(() => {
@@ -311,6 +321,12 @@ const onSquareClick = (row: number, col: number) => {
   height: min(70vh, 90vw, 600px);
   max-width: 600px;
   max-height: 600px;
+  transition: transform 0.6s ease;
+}
+
+/* 黑方视角：旋转棋盘180度 */
+.board-container.board-rotated {
+  transform: rotate(180deg);
 }
 
 .board-row {
