@@ -88,22 +88,22 @@
   <!-- 升变选择弹窗 -->
   <div v-if="promotion.visible" class="promotion-overlay" @click="hidePromotion">
     <div class="promotion-dialog" @click.stop>
-      <h3>请选择升变</h3>
+      <h3>{{ t('promotion.title') }}</h3>
       <div class="promotion-grid">
         <button class="promotion-item" @click="pickPromotion('q')">
-          <img :src="pieceImage('queen')" alt="后" />
+          <img :src="pieceImage('queen')" :alt="t('pieces.queen')" />
         </button>
         <button class="promotion-item" @click="pickPromotion('n')">
-          <img :src="pieceImage('knight')" alt="马" />
+          <img :src="pieceImage('knight')" :alt="t('pieces.knight')" />
         </button>
         <button class="promotion-item" @click="pickPromotion('r')">
-          <img :src="pieceImage('rook')" alt="车" />
+          <img :src="pieceImage('rook')" :alt="t('pieces.rook')" />
         </button>
         <button class="promotion-item" @click="pickPromotion('b')">
-          <img :src="pieceImage('bishop')" alt="象" />
+          <img :src="pieceImage('bishop')" :alt="t('pieces.bishop')" />
         </button>
       </div>
-      <button class="promotion-cancel" @click="hidePromotion">取消</button>
+      <button class="promotion-cancel" @click="hidePromotion">{{ t('btn.cancel') }}</button>
     </div>
   </div>
 </template>
@@ -127,6 +127,7 @@ import GameOverOverlay from '../components/game/GameOverOverlay.vue';
 import { useGameOver } from '../composables/useGameOver';
 import { useReplay } from '../composables/useReplay';
 import { useNewMoveNotice } from '../composables/useNewMoveNotice';
+import { t } from '../services/i18n';
 import { useGameDialogs } from '../composables/useGameDialogs';
 import { copyText } from '../utils/clipboard';
 import { getCapturedPiecesForColor, getPieceImageBySymbol } from '../utils/captured';

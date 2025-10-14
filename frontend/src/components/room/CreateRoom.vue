@@ -90,13 +90,13 @@ const handleCreateRoom = async () => {
     // 设置超时
     setTimeout(() => {
       if (!roomStore.currentRoom) {
-        error.value = '创建房间失败，请重试';
+        error.value = t('room.create.fail');
         isCreating.value = false;
       }
     }, 5000);
     
   } catch (err) {
-    error.value = '创建房间时发生错误';
+    error.value = t('room.create.error');
     isCreating.value = false;
   }
 };

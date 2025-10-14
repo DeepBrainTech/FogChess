@@ -229,24 +229,24 @@ export function useGameDialogs(params: {
   const showUndoErrorDialog = async (message: string) => {
     const { t } = await import('../services/i18n');
     dialogType.value = 'undo-error';
-    if (message && (message.toLowerCase().includes('not in playing state') || message.includes('未开始'))) {
+    if (message && message.toLowerCase().includes('not in playing state')) {
       dialogTitle.value = t('dialog.notStarted.title');
       dialogMessage.value = t('dialog.notStarted.message');
       showDialog.value = true;
       undoRequestPending.value = false;
       return;
     }
-    if (message.includes('对局已结束') || message.includes('请开始新游戏')) {
+    if (message.includes('game finished') || message.includes('please start new game')) {
       dialogTitle.value = t('dialog.finished.title');
     } else if (message.toLowerCase().includes('not your turn')) {
-      // 不是你的回合
+      // Not your turn
       dialogTitle.value = t('dialog.cannotMove.title');
       dialogMessage.value = t('dialog.notYourTurn');
       showDialog.value = true;
       undoRequestPending.value = false;
       return;
     } else if (message.toLowerCase().includes('cannot undo, please make a move first')) {
-      // 不能悔棋，请先下棋
+      // Cannot undo, please make a move first
       dialogTitle.value = t('dialog.cannotUndo.title');
       dialogMessage.value = t('dialogs.cannotUndo.msg');
       showDialog.value = true;

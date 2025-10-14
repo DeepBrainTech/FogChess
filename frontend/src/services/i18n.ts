@@ -153,6 +153,13 @@ const dict: Dict = {
   
   // Cannot undo message
   'dialogs.cannotUndo.msg': { zh: '不能悔棋，请先下棋', en: 'Cannot undo, please make a move first' },
+
+  // Promotion
+  'promotion.title': { zh: '请选择升变', en: 'Choose promotion' },
+  'pieces.queen': { zh: '后', en: 'Queen' },
+  'pieces.knight': { zh: '马', en: 'Knight' },
+  'pieces.rook': { zh: '车', en: 'Rook' },
+  'pieces.bishop': { zh: '象', en: 'Bishop' },
 };
 
 export function t(key: keyof typeof dict): string {

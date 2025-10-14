@@ -97,13 +97,13 @@ const handleJoinRoom = async () => {
     // 设置超时
     setTimeout(() => {
       if (!roomStore.currentRoom) {
-        error.value = '加入房间失败，请检查房间ID';
+        error.value = t('room.join.fail');
         isJoining.value = false;
       }
     }, 5000);
     
   } catch (err) {
-    error.value = '加入房间时发生错误';
+    error.value = t('room.join.error');
     isJoining.value = false;
   }
 };
