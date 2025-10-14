@@ -12,34 +12,38 @@ export class PostgresArchiver implements GameArchiver {
     this.pool = new Pool({ connectionString: databaseUrl });
   }
 
+  private async ensureTableExists(client: any): Promise<void> {
+    const initSql = `
+      CREATE TABLE IF NOT EXISTS games (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        room_id VARCHAR(255) NOT NULL,
+        white_name VARCHAR(255) NOT NULL,
+        black_name VARCHAR(255) NOT NULL,
+        timer_mode VARCHAR(50) NOT NULL DEFAULT 'unlimited',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        started_at TIMESTAMP WITH TIME ZONE,
+        finished_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        result VARCHAR(50),
+        starting_fen TEXT NOT NULL,
+        final_fen TEXT NOT NULL,
+        pgn TEXT,
+        moves JSONB NOT NULL,
+        created_on TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_games_room_id ON games(room_id);
+      CREATE INDEX IF NOT EXISTS idx_games_result ON games(result);
+      CREATE INDEX IF NOT EXISTS idx_games_finished_at ON games(finished_at);
+      CREATE INDEX IF NOT EXISTS idx_games_timer_mode ON games(timer_mode);
+      CREATE INDEX IF NOT EXISTS idx_games_players ON games(white_name, black_name);
+    `;
+    await client.query(initSql);
+  }
+
   async initializeTables(): Promise<void> {
     const client = await this.pool.connect();
     try {
-      const initSql = `
-        CREATE TABLE IF NOT EXISTS games (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          room_id VARCHAR(255) NOT NULL,
-          white_name VARCHAR(255) NOT NULL,
-          black_name VARCHAR(255) NOT NULL,
-          timer_mode VARCHAR(50) NOT NULL DEFAULT 'unlimited',
-          created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-          started_at TIMESTAMP WITH TIME ZONE,
-          finished_at TIMESTAMP WITH TIME ZONE NOT NULL,
-          result VARCHAR(50),
-          starting_fen TEXT NOT NULL,
-          final_fen TEXT NOT NULL,
-          pgn TEXT,
-          moves JSONB NOT NULL,
-          created_on TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_games_room_id ON games(room_id);
-        CREATE INDEX IF NOT EXISTS idx_games_result ON games(result);
-        CREATE INDEX IF NOT EXISTS idx_games_finished_at ON games(finished_at);
-        CREATE INDEX IF NOT EXISTS idx_games_timer_mode ON games(timer_mode);
-        CREATE INDEX IF NOT EXISTS idx_games_players ON games(white_name, black_name);
-      `;
-      await client.query(initSql);
+      await this.ensureTableExists(client);
     } finally {
       client.release();
     }
@@ -48,6 +52,9 @@ export class PostgresArchiver implements GameArchiver {
   async archiveFinishedGame(room: Room, moves: any[]): Promise<void> {
     const client = await this.pool.connect();
     try {
+      // 确保表存在（如果初始化失败，这里会重新创建）
+      await this.ensureTableExists(client);
+      
       const text = `
         INSERT INTO games (
           id, room_id, white_name, black_name, timer_mode, created_at,

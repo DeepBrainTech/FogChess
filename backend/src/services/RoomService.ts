@@ -22,8 +22,8 @@ export class RoomService {
    * 创建新房间
    */
   createRoom(roomName: string, playerName: string, socketId: string, timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited'): Room {
-    // 清理该socketId的旧房间
-    this.cleanupPlayerRooms(socketId);
+    // 清理该socketId的旧房间（强制删除只包含该玩家的房间）
+    this.cleanupPlayerRooms(socketId, true);
     
     const roomId = uuidv4();
     const player: Player = {
@@ -445,8 +445,12 @@ export class RoomService {
 
   /**
    * 清理特定玩家的所有房间
+   * @param socketId 要清理的玩家socketId
+   * @param forceDeleteSinglePlayer 是否强制删除只包含该玩家的房间（用于创建新房间时）
    */
-  private cleanupPlayerRooms(socketId: string): void {
+  private cleanupPlayerRooms(socketId: string, forceDeleteSinglePlayer: boolean = false): void {
+    const roomsToDelete: string[] = [];
+    
     for (const [roomId, room] of this.rooms.entries()) {
       const playerIndex = room.players.findIndex(p => p.socketId === socketId);
       if (playerIndex !== -1) {
@@ -454,14 +458,21 @@ export class RoomService {
         room.players.splice(playerIndex, 1);
         room.isFull = false;
         
-        // 如果房间为空，删除房间
-        if (room.players.length === 0) {
-          this.rooms.delete(roomId);
-          this.roomIdToChess.delete(roomId);
-          this.timerService.cleanupTimer(roomId);
-          this.repository?.deleteRoom(roomId).catch(() => {});
+        // 删除房间的条件：
+        // 1. 房间完全为空
+        // 2. 强制删除模式且房间只剩0个玩家（该玩家刚被移除）
+        if (room.players.length === 0 || (forceDeleteSinglePlayer && room.players.length === 0)) {
+          roomsToDelete.push(roomId);
         }
       }
+    }
+    
+    // 删除所有标记的房间
+    for (const roomId of roomsToDelete) {
+      this.rooms.delete(roomId);
+      this.roomIdToChess.delete(roomId);
+      this.timerService.cleanupTimer(roomId);
+      this.repository?.deleteRoom(roomId).catch(() => {});
     }
   }
 
