@@ -4,39 +4,39 @@
       <h3>{{ title }}</h3>
       <p v-if="message">{{ message }}</p>
       <div v-if="type === 'undo-request'" class="dialog-buttons">
-        <button @click="$emit('confirm-undo-request')" class="confirm-btn">确定</button>
-        <button @click="$emit('close')" class="cancel-btn">取消</button>
+        <button @click="$emit('confirm-undo-request')" class="confirm-btn">{{ t('btn.confirm') }}</button>
+        <button @click="$emit('close')" class="cancel-btn">{{ t('btn.cancel') }}</button>
       </div>
       <div v-else-if="type === 'undo-response'" class="dialog-buttons">
-        <button @click="$emit('respond-undo', true)" class="accept-btn">同意</button>
-        <button @click="$emit('respond-undo', false)" class="reject-btn">不同意</button>
+        <button @click="$emit('respond-undo', true)" class="accept-btn">{{ t('btn.agree') }}</button>
+        <button @click="$emit('respond-undo', false)" class="reject-btn">{{ t('btn.disagree') }}</button>
       </div>
       <div v-else-if="type === 'surrender-confirm'" class="dialog-buttons">
-        <button @click="$emit('confirm-surrender')" class="confirm-btn">确认</button>
-        <button @click="$emit('close')" class="cancel-btn">我再想想</button>
+        <button @click="$emit('confirm-surrender')" class="confirm-btn">{{ t('btn.confirm') }}</button>
+        <button @click="$emit('close')" class="cancel-btn">{{ t('btn.thinkAgain') }}</button>
       </div>
       <div v-else-if="type === 'leave-confirm'" class="dialog-buttons">
-        <button @click="$emit('confirm-leave')" class="confirm-btn">确定</button>
-        <button @click="$emit('close')" class="cancel-btn">取消</button>
+        <button @click="$emit('confirm-leave')" class="confirm-btn">{{ t('btn.ok') }}</button>
+        <button @click="$emit('close')" class="cancel-btn">{{ t('btn.cancel') }}</button>
       </div>
       <div v-else-if="type === 'download-fen'" class="dialog-buttons">
-        <button @click="$emit('confirm-download-fen')" class="confirm-btn">确定</button>
-        <button @click="$emit('close')" class="cancel-btn">取消</button>
+        <button @click="$emit('confirm-download-fen')" class="confirm-btn">{{ t('btn.ok') }}</button>
+        <button @click="$emit('close')" class="cancel-btn">{{ t('btn.cancel') }}</button>
       </div>
       <div v-else-if="type === 'download-pgn'" class="dialog-buttons">
-        <button @click="$emit('confirm-download-pgn')" class="confirm-btn">确定</button>
-        <button @click="$emit('close')" class="cancel-btn">取消</button>
+        <button @click="$emit('confirm-download-pgn')" class="confirm-btn">{{ t('btn.ok') }}</button>
+        <button @click="$emit('close')" class="cancel-btn">{{ t('btn.cancel') }}</button>
       </div>
       <div v-else-if="type === 'draw-request'" class="dialog-buttons">
-        <button @click="$emit('confirm-draw-request')" class="confirm-btn">确定</button>
-        <button @click="$emit('close')" class="cancel-btn">取消</button>
+        <button @click="$emit('confirm-draw-request')" class="confirm-btn">{{ t('btn.ok') }}</button>
+        <button @click="$emit('close')" class="cancel-btn">{{ t('btn.cancel') }}</button>
       </div>
       <div v-else-if="type === 'draw-response'" class="dialog-buttons">
-        <button @click="$emit('respond-draw', true)" class="accept-btn">同意</button>
-        <button @click="$emit('respond-draw', false)" class="reject-btn">不同意</button>
+        <button @click="$emit('respond-draw', true)" class="accept-btn">{{ t('btn.agree') }}</button>
+        <button @click="$emit('respond-draw', false)" class="reject-btn">{{ t('btn.disagree') }}</button>
       </div>
       <div v-else class="dialog-buttons">
-        <button @click="$emit('close')" class="ok-btn">确定</button>
+        <button @click="$emit('close')" class="ok-btn">{{ t('btn.ok') }}</button>
       </div>
     </div>
   </div>
@@ -55,6 +55,7 @@ withDefaults(defineProps<Props>(), {
   type: 'info',
   title: ''
 });
+import { t } from '../../services/i18n';
 </script>
 
 <style scoped>

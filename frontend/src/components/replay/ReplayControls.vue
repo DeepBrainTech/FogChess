@@ -1,21 +1,21 @@
 <template>
   <div class="replay-controls">
-    <button class="replay-btn" title="回到开始" :disabled="disabledStart" @click="onClick('goToStart')">
-      <img src="/src/assets/replay/rewind-start.svg" alt="回到开始" class="replay-icon" />
+    <button class="replay-btn" :title="t('replay.toStart')" :disabled="disabledStart" @click="onClick('goToStart')">
+      <img src="/src/assets/replay/rewind-start.svg" :alt="t('replay.toStart')" class="replay-icon" />
     </button>
 
-    <button class="replay-btn" title="回退一步" :disabled="disabledBackward" @click="onClick('stepBackward')">
-      <img src="/src/assets/replay/step-backward.svg" alt="回退一步" class="replay-icon" />
+    <button class="replay-btn" :title="t('replay.stepBack')" :disabled="disabledBackward" @click="onClick('stepBackward')">
+      <img src="/src/assets/replay/step-backward.svg" :alt="t('replay.stepBack')" class="replay-icon" />
     </button>
 
     <NewMoveNotice :hasNewMove="hasNewMove" />
 
-    <button class="replay-btn" title="前进一步" :disabled="disabledForward" @click="onClick('stepForward')">
-      <img src="/src/assets/replay/step-forward.svg" alt="前进一步" class="replay-icon" />
+    <button class="replay-btn" :title="t('replay.stepForward')" :disabled="disabledForward" @click="onClick('stepForward')">
+      <img src="/src/assets/replay/step-forward.svg" :alt="t('replay.stepForward')" class="replay-icon" />
     </button>
 
-    <button class="replay-btn" title="跳到最新" :disabled="disabledEnd" @click="onClick('goToEnd')">
-      <img src="/src/assets/replay/fast-forward.svg" alt="跳到最新" class="replay-icon" />
+    <button class="replay-btn" :title="t('replay.toEnd')" :disabled="disabledEnd" @click="onClick('goToEnd')">
+      <img src="/src/assets/replay/fast-forward.svg" :alt="t('replay.toEnd')" class="replay-icon" />
     </button>
   </div>
 </template>
@@ -23,6 +23,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import NewMoveNotice from './NewMoveNotice.vue';
+import { t } from '../../services/i18n';
 
 interface Props {
   totalMoves: number;

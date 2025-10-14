@@ -1,20 +1,20 @@
 <template>
   <div class="game-status">
-    <h3>游戏状态</h3>
+    <h3>{{ t('status.title') }}</h3>
     <div class="status-item">
-      <span class="label">当前玩家:</span>
+      <span class="label">{{ t('status.currentPlayer') }}</span>
       <span class="value current-player-indicator">
         <span class="turn-dot" :class="{ 'my-turn': isMyTurn, 'opponent-turn': !isMyTurn }"></span>
-        {{ gameState?.currentPlayer === 'white' ? '白方' : '黑方' }}
+        {{ gameState?.currentPlayer === 'white' ? t('status.white') : t('status.black') }}
       </span>
     </div>
     <div class="status-item">
-      <span class="label">游戏状态:</span>
+      <span class="label">{{ t('status.gameStatus') }}</span>
       <span class="value">{{ statusText }}</span>
     </div>
     <div v-if="gameState?.winner" class="status-item">
-      <span class="label">获胜者:</span>
-      <span class="value">{{ gameState.winner === 'white' ? '白方' : '黑方' }}</span>
+      <span class="label">{{ t('status.winner') }}</span>
+      <span class="value">{{ gameState.winner === 'white' ? t('status.white') : t('status.black') }}</span>
     </div>
   </div>
 </template>
@@ -22,6 +22,7 @@
 <script setup lang="ts">
 import type { GameState } from '../../types';
 import { computed } from 'vue';
+import { t } from '../../services/i18n';
 
 interface Props {
   gameState: GameState | null;
@@ -34,12 +35,12 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const statusText = computed(() => {
-  if (!props.gameState) return '等待中';
+  if (!props.gameState) return t('status.waiting');
   switch (props.gameState.gameStatus) {
-    case 'waiting': return '等待玩家';
-    case 'playing': return '游戏中';
-    case 'finished': return '游戏结束';
-    default: return '未知状态';
+    case 'waiting': return t('status.waitingPlayers');
+    case 'playing': return t('status.playing');
+    case 'finished': return t('status.finished');
+    default: return t('status.unknown');
   }
 });
 </script>

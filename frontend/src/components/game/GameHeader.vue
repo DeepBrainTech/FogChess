@@ -1,20 +1,20 @@
 <template>
   <div class="game-header">
     <div class="room-info">
-      <h2>{{ room?.name || '游戏房间' }}</h2>
+      <h2>{{ room?.name || t('header.roomTitle') }}</h2>
       <div v-if="room" class="room-info-container">
         <div class="invite-link">
-          邀请链接:
+          {{ t('header.inviteLink') }}
           <div class="tooltip-container">
-            <button class="copy-btn invite-btn" @click="$emit('copy-invite')">点击复制</button>
-            <div class="tooltip">从浏览器直接加入！</div>
+            <button class="copy-btn invite-btn" @click="$emit('copy-invite')">{{ t('header.clickCopy') }}</button>
+            <div class="tooltip">{{ t('header.inviteTooltip') }}</div>
           </div>
         </div>
         <div class="room-id">
-          房间地址:
+          {{ t('header.roomAddress') }}
           <div class="tooltip-container">
-            <button class="copy-btn" @click="$emit('copy-roomid')">点击复制</button>
-            <div class="tooltip">从主菜单加入房间！</div>
+            <button class="copy-btn" @click="$emit('copy-roomid')">{{ t('header.clickCopy') }}</button>
+            <div class="tooltip">{{ t('header.roomTooltip') }}</div>
           </div>
         </div>
       </div>
@@ -31,8 +31,8 @@
         >
           <div class="player-info">
             <span class="player-color" :class="player.color"></span>
-            {{ player.color === currentPlayerColor ? '你' : '对方' }}
-            <span v-if="player.color === gameState?.currentPlayer && gameState?.gameStatus !== 'finished'" class="turn-indicator">(当前回合)</span>
+            {{ player.color === currentPlayerColor ? t('header.you') : t('header.opponent') }}
+            <span v-if="player.color === gameState?.currentPlayer && gameState?.gameStatus !== 'finished'" class="turn-indicator">{{ t('header.currentTurn') }}</span>
           </div>
           <div class="captured-pieces">
             <img 
@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import type { Room, GameState } from '../../types';
+import { t } from '../../services/i18n';
 
 interface Props {
   room: Room | null;

@@ -42,11 +42,12 @@ export function useGameDialogs(params: {
     router.push('/');
   };
 
-  const showLeaveDialog = () => {
+  const showLeaveDialog = async () => {
+    const { t } = await import('../services/i18n');
     if (gameState.value?.gameStatus === 'playing') {
       dialogType.value = 'leave-confirm';
-      dialogTitle.value = '离开游戏';
-      dialogMessage.value = '确定要离开游戏吗？';
+      dialogTitle.value = t('dialogs.leave.title');
+      dialogMessage.value = t('dialogs.leave.msg');
       showDialog.value = true;
     } else {
       directLeave();
@@ -58,31 +59,35 @@ export function useGameDialogs(params: {
     closeDialog();
   };
 
-  const showSurrenderDialog = () => {
+  const showSurrenderDialog = async () => {
+    const { t } = await import('../services/i18n');
     dialogType.value = 'surrender-confirm';
-    dialogTitle.value = '认输';
-    dialogMessage.value = '确定认输吗？';
+    dialogTitle.value = t('dialogs.resign.title');
+    dialogMessage.value = t('dialogs.resign.msg');
     showDialog.value = true;
   };
 
-  const showDownloadFenDialog = () => {
+  const showDownloadFenDialog = async () => {
+    const { t } = await import('../services/i18n');
     dialogType.value = 'download-fen';
-    dialogTitle.value = '下载FEN';
-    dialogMessage.value = '确定下载对局代码吗？';
+    dialogTitle.value = t('dialogs.downloadFen.title');
+    dialogMessage.value = t('dialogs.downloadFen.msg');
     showDialog.value = true;
   };
 
-  const showDownloadPgnDialog = () => {
+  const showDownloadPgnDialog = async () => {
+    const { t } = await import('../services/i18n');
     dialogType.value = 'download-pgn';
-    dialogTitle.value = '导出PGN';
-    dialogMessage.value = '确定导出本局PGN吗？';
+    dialogTitle.value = t('dialogs.exportPgn.title');
+    dialogMessage.value = t('dialogs.exportPgn.msg');
     showDialog.value = true;
   };
 
-  const showDrawDialog = () => {
+  const showDrawDialog = async () => {
+    const { t } = await import('../services/i18n');
     dialogType.value = 'draw-request';
-    dialogTitle.value = '申请和棋';
-    dialogMessage.value = '确定申请和棋吗？';
+    dialogTitle.value = t('dialogs.draw.title');
+    dialogMessage.value = t('dialogs.draw.msg');
     showDialog.value = true;
   };
 
@@ -137,7 +142,7 @@ export function useGameDialogs(params: {
         }
       }
     }
-    const roomName = room.value?.name || '迷雾象棋';
+    const roomName = room.value?.name || 'FogChess';
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -163,7 +168,7 @@ export function useGameDialogs(params: {
     const whiteName = room.value?.players.find(p => p.color === 'white')?.name || 'White';
     const blackName = room.value?.players.find(p => p.color === 'black')?.name || 'Black';
     const pgn = buildPGN(moves as any, whiteName, blackName, result, new Date());
-    const roomName = room.value?.name || '迷雾象棋';
+    const roomName = room.value?.name || 'FogChess';
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -181,11 +186,12 @@ export function useGameDialogs(params: {
     closeDialog();
   };
 
-  const requestUndo = () => {
+  const requestUndo = async () => {
     if (!room.value || !roomStore.currentPlayer) return;
     dialogType.value = 'undo-request';
-    dialogTitle.value = '请求悔棋';
-    dialogMessage.value = '确定要请求悔棋吗？';
+    const { t } = await import('../services/i18n');
+    dialogTitle.value = t('dialogs.undo.request.title');
+    dialogMessage.value = t('dialogs.undo.request.msg');
     showDialog.value = true;
   };
 
@@ -202,42 +208,45 @@ export function useGameDialogs(params: {
     closeDialog();
   };
 
-  const showUndoRequestDialog = (fromPlayer: string, attemptsLeft?: number) => {
+  const showUndoRequestDialog = async (fromPlayer: string, attemptsLeft?: number) => {
+    const { t } = await import('../services/i18n');
     dialogType.value = 'undo-response';
-    dialogTitle.value = '对手请求悔棋';
-    const attemptsText = attemptsLeft ? ` (剩余尝试次数: ${attemptsLeft})` : '';
-    dialogMessage.value = `${fromPlayer} 请求悔棋，是否同意？${attemptsText}`;
+    dialogTitle.value = t('dialogs.undo.fromOpponent');
+    const attemptsText = attemptsLeft ? (current => current.replace('{attempts}', ` (${attemptsLeft})`))(t('dialogs.undo.fromOpponent.msg')) : t('dialogs.undo.fromOpponent.msg').replace('{attempts}', '');
+    dialogMessage.value = attemptsText.replace('{name}', fromPlayer);
     showDialog.value = true;
   };
 
-  const showUndoResultDialog = (accepted: boolean) => {
+  const showUndoResultDialog = async (accepted: boolean) => {
     dialogType.value = 'undo-result';
-    dialogTitle.value = '悔棋结果';
-    dialogMessage.value = accepted ? '对手同意了悔棋请求' : '对手拒绝了悔棋请求';
+    dialogTitle.value = 'Undo';
+    const { t } = await import('../services/i18n');
+    dialogMessage.value = accepted ? t('dialog.undo.accepted') : t('dialog.undo.rejected');
     showDialog.value = true;
     undoRequestPending.value = false;
   };
 
-  const showUndoErrorDialog = (message: string) => {
+  const showUndoErrorDialog = async (message: string) => {
+    const { t } = await import('../services/i18n');
     dialogType.value = 'undo-error';
     if (message && (message.toLowerCase().includes('not in playing state') || message.includes('未开始'))) {
-      dialogTitle.value = '游戏未开始';
-      dialogMessage.value = '等待对手加入';
+      dialogTitle.value = t('dialog.notStarted.title');
+      dialogMessage.value = t('dialog.notStarted.message');
       showDialog.value = true;
       undoRequestPending.value = false;
       return;
     }
     if (message.includes('对局已结束') || message.includes('请开始新游戏')) {
-      dialogTitle.value = '对局结束';
+      dialogTitle.value = t('dialog.finished.title');
     } else if (message.toLowerCase().includes('not your turn')) {
       // 不是你的回合
-      dialogTitle.value = '无法移动';
-      dialogMessage.value = '不是你的回合';
+      dialogTitle.value = t('dialog.cannotMove.title');
+      dialogMessage.value = t('dialog.notYourTurn');
       showDialog.value = true;
       undoRequestPending.value = false;
       return;
     } else {
-      dialogTitle.value = '无法悔棋';
+      dialogTitle.value = t('dialog.cannotUndo.title');
     }
     dialogMessage.value = message;
     showDialog.value = true;
@@ -256,17 +265,19 @@ export function useGameDialogs(params: {
     closeDialog();
   };
 
-  const showDrawRequestDialog = (fromPlayer: string) => {
+  const showDrawRequestDialog = async (fromPlayer: string) => {
+    const { t } = await import('../services/i18n');
     dialogType.value = 'draw-response';
-    dialogTitle.value = '对手申请和棋';
-    dialogMessage.value = `${fromPlayer} 申请和棋，是否同意？`;
+    dialogTitle.value = t('dialogs.draw.fromOpponent');
+    dialogMessage.value = t('dialogs.undo.fromOpponent.msg').replace('{name}', fromPlayer).replace('{attempts}', '');
     showDialog.value = true;
   };
 
-  const showDrawResultDialog = (accepted: boolean) => {
+  const showDrawResultDialog = async (accepted: boolean) => {
+    const { t } = await import('../services/i18n');
     dialogType.value = 'draw-result';
-    dialogTitle.value = '和棋结果';
-    dialogMessage.value = accepted ? '对手同意了和棋请求' : '对手拒绝了和棋请求';
+    dialogTitle.value = t('dialogs.draw.result');
+    dialogMessage.value = accepted ? t('dialogs.draw.accepted') : t('dialogs.draw.rejected');
     showDialog.value = true;
   };
 

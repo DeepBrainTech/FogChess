@@ -4,7 +4,7 @@
       <h3 :class="{ 'victory-title': isWinner, 'defeat-title': !isWinner }">{{ title }}</h3>
       <p>{{ message }}</p>
       <div class="dialog-buttons">
-        <button @click="$emit('close')" class="ok-btn">确定</button>
+        <button @click="$emit('close')" class="ok-btn">{{ t('btn.ok') }}</button>
       </div>
     </div>
   </div>
@@ -24,6 +24,7 @@ withDefaults(defineProps<Props>(), {
   title: 'Game Over',
   message: ''
 });
+import { t } from '../../services/i18n';
 </script>
 
 <style scoped>

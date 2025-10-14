@@ -6,7 +6,7 @@
       class="undo-button"
       :disabled="undoRequestPending"
     >
-      {{ undoRequestPending ? '等待对手同意...' : '悔棋' }}
+      {{ undoRequestPending ? t('actions.waitingApproval') : t('actions.undo') }}
     </button>
 
     <button 
@@ -14,7 +14,7 @@
       @click="$emit('show-surrender')" 
       class="surrender-button"
     >
-      认输
+      {{ t('actions.surrender') }}
     </button>
 
     <button 
@@ -22,7 +22,7 @@
       @click="$emit('show-draw')" 
       class="draw-button"
     >
-      和棋
+      {{ t('actions.draw') }}
     </button>
 
     <button 
@@ -30,7 +30,7 @@
       @click="$emit('download-pgn')" 
       class="download-button secondary"
     >
-      导出PGN
+      {{ t('actions.exportPGN') }}
     </button>
 
     <button 
@@ -38,15 +38,15 @@
       @click="$emit('download-fen')" 
       class="download-button"
     >
-      下载FEN
+      {{ t('actions.downloadFEN') }}
     </button>
 
     <button @click="$emit('toggle-sound')" class="sound-button" :class="{ 'sound-off': !soundEnabled }">
-      {{ soundEnabled ? '🔊' : '🔇' }} 音效
+      {{ soundEnabled ? '🔊' : '🔇' }} {{ t('actions.sound') }}
     </button>
 
     <button @click="$emit('leave')" class="leave-button">
-      离开游戏
+      {{ t('actions.leave') }}
     </button>
   </div>
 </template>
@@ -60,6 +60,8 @@ interface Props {
   soundEnabled: boolean;
   timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet';
 }
+
+import { t } from '../../services/i18n';
 
 withDefaults(defineProps<Props>(), {
   canRequestUndo: false,

@@ -1,26 +1,26 @@
 <template>
   <div class="room-list">
-    <h2>加入房间</h2>
+    <h2>{{ t('room.join.title') }}</h2>
     
     <div class="join-form">
       <div class="form-group">
-        <label for="roomId">房间ID:</label>
+        <label for="roomId">{{ t('room.join.roomId') }}</label>
         <input
           id="roomId"
           v-model="roomId"
           type="text"
-          placeholder="输入房间ID"
+          :placeholder="t('room.join.roomId.ph')"
           required
         />
       </div>
       
       <div class="form-group">
-        <label for="playerName">你的昵称:</label>
+        <label for="playerName">{{ t('room.join.name') }}</label>
         <input
           id="playerName"
           v-model="playerName"
           type="text"
-          placeholder="输入你的昵称"
+          :placeholder="t('room.join.name.ph')"
           required
           maxlength="15"
         />
@@ -31,7 +31,7 @@
         :disabled="!roomId.trim() || !playerName.trim() || isJoining"
         class="join-button"
       >
-        {{ isJoining ? '加入中...' : '加入房间' }}
+        {{ isJoining ? t('room.join.joining') : t('room.join.button') }}
       </button>
     </div>
     
@@ -40,7 +40,7 @@
     </div>
     
     <div class="available-rooms" v-if="availableRooms.length > 0">
-      <h3>可用房间</h3>
+      <h3>{{ t('room.join.availableRooms') }}</h3>
       <div class="rooms-grid">
         <div 
           v-for="room in availableRooms" 
@@ -50,9 +50,9 @@
         >
           <div class="room-name">{{ room.name }}</div>
           <div class="room-info">
-            <span class="player-count">{{ room.players.length }}/2 玩家</span>
+            <span class="player-count">{{ room.players.length }}/2 {{ t('room.join.players') }}</span>
             <span class="room-status" :class="room.isFull ? 'full' : 'available'">
-              {{ room.isFull ? '已满' : '可加入' }}
+              {{ room.isFull ? t('room.join.full') : t('room.join.available') }}
             </span>
           </div>
         </div>
@@ -65,6 +65,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../../stores/room';
+import { t } from '../../services/i18n';
 
 const router = useRouter();
 const roomStore = useRoomStore();

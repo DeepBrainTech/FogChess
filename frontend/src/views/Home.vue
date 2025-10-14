@@ -1,24 +1,24 @@
 <template>
   <div class="home">
     <div class="hero">
-      <h1>迷雾国际象棋</h1>
-      <p class="subtitle">体验全新的迷雾战争模式</p>
+      <h1>{{ t('app.title') }}</h1>
+      <p class="subtitle">{{ t('home.subtitle') }}</p>
     </div>
     
     <div class="actions">
       <div class="action-card">
-        <h3>创建房间</h3>
-        <p>创建新房间，邀请朋友对战</p>
+        <h3>{{ t('home.create.title') }}</h3>
+        <p>{{ t('home.create.desc') }}</p>
         <button @click="showCreateRoom = true" class="action-button create">
-          创建房间
+          {{ t('home.create.button') }}
         </button>
       </div>
       
       <div class="action-card">
-        <h3>加入房间</h3>
-        <p>输入房间ID加入朋友的对战</p>
+        <h3>{{ t('home.join.title') }}</h3>
+        <p>{{ t('home.join.desc') }}</p>
         <button @click="showJoinRoom = true" class="action-button join">
-          加入房间
+          {{ t('home.join.button') }}
         </button>
       </div>
     </div>
@@ -41,6 +41,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { t } from '../services/i18n';
 import { useRoomStore } from '../stores/room';
 import CreateRoom from '../components/room/CreateRoom.vue';
 import RoomList from '../components/room/RoomList.vue';

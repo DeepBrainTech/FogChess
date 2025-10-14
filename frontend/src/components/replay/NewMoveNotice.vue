@@ -1,8 +1,8 @@
 <template>
-  <div class="replay-btn notification-btn" :class="{ 'has-new-move': hasNewMove }" title="新移动通知">
+  <div class="replay-btn notification-btn" :class="{ 'has-new-move': hasNewMove }" :title="hasNewMove ? t('replay.stepForward') : t('replay.stepForward')">
     <img
       :src="currentIconSrc"
-      :alt="hasNewMove ? '新移动通知-有新移动' : '新移动通知'"
+      :alt="hasNewMove ? t('replay.stepForward') : t('replay.stepForward')"
       :class="hasNewMove ? 'replay-icon-notification' : 'replay-icon'"
       @error="onImageError"
     />
@@ -11,6 +11,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { t } from '../../services/i18n';
 
 interface Props {
   hasNewMove: boolean;

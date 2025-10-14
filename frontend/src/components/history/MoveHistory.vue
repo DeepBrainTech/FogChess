@@ -1,11 +1,11 @@
 <template>
   <div class="move-history">
-    <h3>移动历史</h3>
+    <h3>{{ t('history.title') }}</h3>
     <div class="moves-list">
       <div class="move-header">
-        <div class="header-round">回合数</div>
-        <div class="header-white">白方</div>
-        <div class="header-black">黑方</div>
+        <div class="header-round">{{ t('history.round') }}</div>
+        <div class="header-white">{{ t('history.white') }}</div>
+        <div class="header-black">{{ t('history.black') }}</div>
       </div>
       <div 
         v-for="(round, roundIndex) in rounds" 
@@ -18,13 +18,13 @@
             <span v-if="round.white && canSeeMove(round.white)" class="move-notation">
               {{ round.white.from }}-{{ round.white.to }}
             </span>
-            <span v-else class="move-hidden">?</span>
+            <span v-else class="move-hidden">{{ t('history.hidden') }}</span>
           </div>
           <div class="move-column black-moves">
             <span v-if="round.black && canSeeMove(round.black)" class="move-notation">
               {{ round.black.from }}-{{ round.black.to }}
             </span>
-            <span v-else class="move-hidden">?</span>
+            <span v-else class="move-hidden">{{ t('history.hidden') }}</span>
           </div>
         </div>
       </div>
@@ -35,6 +35,7 @@
 <script setup lang="ts">
 import type { Move } from '../../types';
 import { computed } from 'vue';
+import { t } from '../../services/i18n';
 
 interface Props {
   moves: Move[];

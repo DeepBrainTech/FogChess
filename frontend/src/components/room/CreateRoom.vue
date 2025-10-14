@@ -1,42 +1,42 @@
 <template>
   <div class="create-room">
-    <h2>创建新房间</h2>
+    <h2>{{ t('room.create.title') }}</h2>
     <form @submit.prevent="handleCreateRoom">
       <div class="form-group">
-        <label for="roomName">房间名称:</label>
+        <label for="roomName">{{ t('room.create.roomName') }}</label>
         <input
           id="roomName"
           v-model="roomName"
           type="text"
-          placeholder="输入房间名称"
+          :placeholder="t('room.create.roomName.ph')"
           required
           maxlength="20"
         />
       </div>
       
       <div class="form-group">
-        <label for="playerName">你的昵称:</label>
+        <label for="playerName">{{ t('room.create.name') }}</label>
         <input
           id="playerName"
           v-model="playerName"
           type="text"
-          placeholder="输入你的昵称"
+          :placeholder="t('room.create.name.ph')"
           required
           maxlength="15"
         />
       </div>
       
       <div class="form-group">
-        <label for="timerMode">计时模式:</label>
+        <label for="timerMode">{{ t('room.create.timer') }}</label>
         <select
           id="timerMode"
           v-model="timerMode"
           required
         >
-          <option value="unlimited">无限时练习</option>
-          <option value="classical">慢棋30分钟+30秒增秒</option>
-          <option value="rapid">快棋10分钟+10秒增秒</option>
-          <option value="bullet">超快2分钟+5秒增秒</option>
+          <option value="unlimited">{{ t('room.create.timer.unlimited') }}</option>
+          <option value="classical">{{ t('room.create.timer.classical') }}</option>
+          <option value="rapid">{{ t('room.create.timer.rapid') }}</option>
+          <option value="bullet">{{ t('room.create.timer.bullet') }}</option>
         </select>
       </div>
       
@@ -45,7 +45,7 @@
         :disabled="!roomName.trim() || !playerName.trim() || isCreating"
         class="create-button"
       >
-        {{ isCreating ? '创建中...' : '创建房间' }}
+        {{ isCreating ? t('room.create.creating') : t('room.create.button') }}
       </button>
     </form>
     
@@ -59,6 +59,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../../stores/room';
+import { t } from '../../services/i18n';
 
 const router = useRouter();
 const roomStore = useRoomStore();
