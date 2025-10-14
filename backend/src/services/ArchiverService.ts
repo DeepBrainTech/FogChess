@@ -53,7 +53,9 @@ export class PostgresArchiver implements GameArchiver {
     const client = await this.pool.connect();
     try {
       // 确保表存在（如果初始化失败，这里会重新创建）
+      console.log('Ensuring database tables exist...');
       await this.ensureTableExists(client);
+      console.log('Database tables ensured, proceeding with game archive...');
       
       const text = `
         INSERT INTO games (
