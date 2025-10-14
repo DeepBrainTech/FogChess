@@ -41,6 +41,18 @@ const dict: Dict = {
   'dialog.finished.title': { zh: '对局结束', en: 'Game Finished' },
   'dialog.gameOver.title': { zh: '游戏结束', en: 'Game Over' },
   'dialog.gameOver.message': { zh: '对局已结束，请开始新游戏', en: 'Game has ended, please start a new game' },
+  
+  // Game over results
+  'gameOver.victory': { zh: '胜利', en: 'Victory' },
+  'gameOver.defeat': { zh: '失败', en: 'Defeat' },
+  'gameOver.draw': { zh: '平局', en: 'Draw' },
+  'gameOver.kingCaptured.win': { zh: '恭喜你，吃掉了对面国王！', en: 'Congratulations! You captured the opponent\'s king!' },
+  'gameOver.kingCaptured.lose': { zh: '很抱歉，你被吃掉了国王！', en: 'Sorry, your king was captured!' },
+  'gameOver.timeout.win': { zh: '恭喜你，对手超时了！', en: 'Congratulations! Your opponent ran out of time!' },
+  'gameOver.timeout.lose': { zh: '很抱歉，你超时了！', en: 'Sorry, you ran out of time!' },
+  'gameOver.surrender.win': { zh: '恭喜你，你赢了！', en: 'Congratulations! You won!' },
+  'gameOver.surrender.lose': { zh: '很抱歉，你输了！', en: 'Sorry, you lost!' },
+  'gameOver.draw.message': { zh: '平局！', en: 'It\'s a draw!' },
   'dialog.cannotUndo.title': { zh: '无法悔棋', en: 'Cannot Undo' },
   'dialog.cannotMove.title': { zh: '无法移动', en: 'Cannot Move' },
   'dialog.notYourTurn': { zh: '不是你的回合', en: 'Not your turn' },

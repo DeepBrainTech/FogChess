@@ -1,6 +1,7 @@
 import { ref, watch } from 'vue';
 import type { GameState } from '../types';
 import type { Ref } from 'vue';
+import { t } from '../services/i18n';
 
 export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlayerColorSource: Ref<'white' | 'black' | null>) {
   const showGameOver = ref(false);
@@ -28,14 +29,14 @@ export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlaye
       isWinner.value = win;
       
       if (isDraw) {
-        gameOverTitle.value = 'Draw';
-        gameOverMessage.value = '平局！';
+        gameOverTitle.value = t('gameOver.draw');
+        gameOverMessage.value = t('gameOver.draw.message');
         // 平局不闪红绿，也不设置胜负状态
         isVictoryFlash.value = false;
         isDefeatFlash.value = false;
         isWinner.value = false; // 平局时不是胜利者
       } else {
-        gameOverTitle.value = win ? 'Victory' : 'Defeat';
+        gameOverTitle.value = win ? t('gameOver.victory') : t('gameOver.defeat');
 
         const fenStr = (gs as any).board ?? (gs as any).fen;
         const kingWasCaptured = isKingCaptured(fenStr);
@@ -45,16 +46,16 @@ export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlaye
         
         if (isTimeout) {
           if (win) {
-            gameOverMessage.value = '恭喜你，对手超时了！';
+            gameOverMessage.value = t('gameOver.timeout.win');
           } else {
-            gameOverMessage.value = '很抱歉，你超时了！';
+            gameOverMessage.value = t('gameOver.timeout.lose');
           }
         } else {
           const reason = kingWasCaptured ? 'king' : 'surrender';
           if (reason === 'king') {
-            gameOverMessage.value = win ? '恭喜你，吃掉了对面国王！' : '很抱歉，你被吃掉了国王！';
+            gameOverMessage.value = win ? t('gameOver.kingCaptured.win') : t('gameOver.kingCaptured.lose');
           } else {
-            gameOverMessage.value = win ? '恭喜你，你赢了！' : '很抱歉，你输了！';
+            gameOverMessage.value = win ? t('gameOver.surrender.win') : t('gameOver.surrender.lose');
           }
         }
 
@@ -85,8 +86,8 @@ export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlaye
         const isMyTimeout = myColor === detail.player;
         
         isWinner.value = !isMyTimeout; // 如果不是我超时，则我获胜
-        gameOverTitle.value = isMyTimeout ? 'Defeat' : 'Victory';
-        gameOverMessage.value = isMyTimeout ? '很抱歉，你超时了！' : '恭喜你，对手超时了！';
+        gameOverTitle.value = isMyTimeout ? t('gameOver.defeat') : t('gameOver.victory');
+        gameOverMessage.value = isMyTimeout ? t('gameOver.timeout.lose') : t('gameOver.timeout.win');
         
         if (isMyTimeout) {
           isDefeatFlash.value = true;
