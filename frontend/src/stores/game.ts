@@ -398,10 +398,24 @@ export const useGameStore = defineStore('game', () => {
       )) {
         return;
       }
-      // 仅在悔棋等流程的错误时，通知Game.vue显示弹窗
-      window.dispatchEvent(new CustomEvent('show-undo-error', {
-        detail: { message: data.message }
-      }));
+      // 检查是否是游戏结束相关的错误
+      if (data.message && (
+        data.message.includes('对局已结束') || 
+        data.message.includes('game has ended') ||
+        data.message.includes('game finished') ||
+        data.message.includes('请开始新游戏') ||
+        data.message.includes('please start a new game')
+      )) {
+        // 游戏结束错误，显示游戏结束对话框
+        window.dispatchEvent(new CustomEvent('show-game-over', {
+          detail: { message: data.message }
+        }));
+      } else {
+        // 其他错误，显示悔棋错误对话框
+        window.dispatchEvent(new CustomEvent('show-undo-error', {
+          detail: { message: data.message }
+        }));
+      }
     });
   };
 
