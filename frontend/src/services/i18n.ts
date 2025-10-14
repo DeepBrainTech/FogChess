@@ -39,6 +39,8 @@ const dict: Dict = {
   'dialog.notStarted.title': { zh: '游戏未开始', en: 'Game Not Started' },
   'dialog.notStarted.message': { zh: '等待对手加入', en: 'Waiting for the opponent to join' },
   'dialog.finished.title': { zh: '对局结束', en: 'Game Finished' },
+  'dialog.gameOver.title': { zh: '游戏结束', en: 'Game Over' },
+  'dialog.gameOver.message': { zh: '对局已结束，请开始新游戏', en: 'Game has ended, please start a new game' },
   'dialog.cannotUndo.title': { zh: '无法悔棋', en: 'Cannot Undo' },
   'dialog.cannotMove.title': { zh: '无法移动', en: 'Cannot Move' },
   'dialog.notYourTurn': { zh: '不是你的回合', en: 'Not your turn' },

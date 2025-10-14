@@ -460,8 +460,8 @@ export class RoomService {
         
         // 删除房间的条件：
         // 1. 房间完全为空
-        // 2. 强制删除模式且房间只剩0个玩家（该玩家刚被移除）
-        if (room.players.length === 0 || (forceDeleteSinglePlayer && room.players.length === 0)) {
+        // 2. 强制删除模式且房间只剩1个或0个玩家
+        if (room.players.length === 0 || (forceDeleteSinglePlayer && room.players.length <= 1)) {
           roomsToDelete.push(roomId);
         }
       }

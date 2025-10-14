@@ -45,7 +45,7 @@
 <script setup lang="ts">
 interface Props {
   show: boolean;
-  type: 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result' | 'info';
+  type: 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result' | 'game-over' | 'info';
   title: string;
   message?: string;
 }

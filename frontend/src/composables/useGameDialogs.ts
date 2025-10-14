@@ -4,7 +4,7 @@ import type { Router } from 'vue-router';
 import { buildPGN } from '../utils/chessExport';
 import { parseBoardPartToMatrix, matrixToBoardPart, notationToCoords, isKingCapturedFromBoardPart } from '../utils/fen';
 
-export type DialogType = 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result';
+export type DialogType = 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result' | 'game-over';
 
 export function useGameDialogs(params: {
   room: Ref<Room | null>;
@@ -288,6 +288,14 @@ export function useGameDialogs(params: {
     showDialog.value = true;
   };
 
+  const showGameOverDialog = async () => {
+    const { t } = await import('../services/i18n');
+    dialogType.value = 'game-over';
+    dialogTitle.value = t('dialog.gameOver.title');
+    dialogMessage.value = t('dialog.gameOver.message');
+    showDialog.value = true;
+  };
+
   const registerUndoWindowEvents = () => {
     window.addEventListener('show-undo-request', (event: any) => {
       showUndoRequestDialog(event.detail.fromPlayer, event.detail.attemptsLeft);
@@ -303,6 +311,9 @@ export function useGameDialogs(params: {
     });
     window.addEventListener('show-draw-result', (event: any) => {
       showDrawResultDialog(event.detail.accepted);
+    });
+    window.addEventListener('show-game-over', () => {
+      showGameOverDialog();
     });
   };
 
@@ -333,6 +344,7 @@ export function useGameDialogs(params: {
     respondToDraw,
     showDrawRequestDialog,
     showDrawResultDialog,
+    showGameOverDialog,
     registerUndoWindowEvents,
   };
 }

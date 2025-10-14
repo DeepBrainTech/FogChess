@@ -263,8 +263,8 @@ const onSquareClick = (row: number, col: number) => {
   // 检查游戏状态：如果游戏结束，显示相应提示
   if (gameStore.gameState?.gameStatus === 'finished') {
     // 游戏结束时点击棋子，显示"游戏结束"弹窗
-    window.dispatchEvent(new CustomEvent('show-undo-error', {
-      detail: { message: '对局已结束，请开始新游戏' }
+    window.dispatchEvent(new CustomEvent('show-game-over', {
+      detail: { message: 'Game has ended, please start a new game' }
     }));
     return;
   }

@@ -300,7 +300,7 @@ io.on('connection', (socket) => {
         if (result.room) {
           socket.to(room.id).emit('player-left', { playerId: player.id });
         }
-        break;
+        // 不要break，继续清理其他房间中的该玩家
       }
     }
   });
