@@ -22,6 +22,18 @@ const repository = redisUrl ? new RedisRoomRepository(redisUrl) : undefined;
 const archiver = dbUrl ? new PostgresArchiver(dbUrl) : undefined;
 const roomService = new RoomService(repository, archiver);
 
+// 初始化数据库表
+async function initializeDatabase() {
+  if (dbUrl && archiver) {
+    try {
+      await archiver.initializeTables();
+      console.log('Database tables initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize database tables:', error);
+    }
+  }
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -301,7 +313,18 @@ setInterval(() => {
 
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+// 启动服务器
+async function startServer() {
+  // 初始化数据库表
+  await initializeDatabase();
+  
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+  });
+}
+
+startServer().catch(error => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });

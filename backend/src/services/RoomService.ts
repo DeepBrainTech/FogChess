@@ -84,8 +84,9 @@ export class RoomService {
       socketId
     };
 
-    // 清理旧玩家，只保留当前两个玩家
-    room.players = room.players.filter(p => p.socketId === socketId || p.socketId === room.players[0]?.socketId);
+    // 清理旧玩家，只保留第一个玩家（白方）
+    const firstPlayer = room.players[0];
+    room.players = firstPlayer ? [firstPlayer] : [];
     room.players.push(player);
     room.isFull = true;
     // 重置为标准初始局并开始（使用该房间现有实例）
