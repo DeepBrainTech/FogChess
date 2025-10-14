@@ -14,7 +14,7 @@
         :undo-request-pending="undoRequestPending"
         :game-status="gameState?.gameStatus || 'waiting'"
         :can-download-fen="!!gameState"
-        :sound-enabled="audioService.getEnabled()"
+        :sound-enabled="soundEnabled"
         :timer-mode="room?.timerMode || 'unlimited'"
         @request-undo="requestUndo"
         @show-surrender="showSurrenderDialog"
@@ -111,7 +111,7 @@
 <script setup lang="ts">
 import { socketService } from '../services/socket';
 import './Game.css';
-import { computed, onMounted, reactive, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
 import { useGameStore } from '../stores/game';
@@ -276,9 +276,13 @@ const goToEnd = () => {
 //   stopAutoPlay();
 // });
 
+// 声音状态管理
+const soundEnabled = ref(audioService.getEnabled());
+
 const toggleSound = () => {
-  const currentState = audioService.getEnabled();
-  audioService.setEnabled(!currentState);
+  const newState = !soundEnabled.value;
+  audioService.setEnabled(newState);
+  soundEnabled.value = newState;
 };
 
 // 上述对话框相关方法已移至 useGameDialogs

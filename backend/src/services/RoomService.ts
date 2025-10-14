@@ -22,6 +22,9 @@ export class RoomService {
    * 创建新房间
    */
   createRoom(roomName: string, playerName: string, socketId: string, timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited'): Room {
+    // 清理该socketId的旧房间
+    this.cleanupPlayerRooms(socketId);
+    
     const roomId = uuidv4();
     const player: Player = {
       id: uuidv4(),
@@ -437,6 +440,28 @@ export class RoomService {
     }
 
     return { success: true, gameState: room.gameState };
+  }
+
+  /**
+   * 清理特定玩家的所有房间
+   */
+  private cleanupPlayerRooms(socketId: string): void {
+    for (const [roomId, room] of this.rooms.entries()) {
+      const playerIndex = room.players.findIndex(p => p.socketId === socketId);
+      if (playerIndex !== -1) {
+        // 移除该玩家
+        room.players.splice(playerIndex, 1);
+        room.isFull = false;
+        
+        // 如果房间为空，删除房间
+        if (room.players.length === 0) {
+          this.rooms.delete(roomId);
+          this.roomIdToChess.delete(roomId);
+          this.timerService.cleanupTimer(roomId);
+          this.repository?.deleteRoom(roomId).catch(() => {});
+        }
+      }
+    }
   }
 
   /**

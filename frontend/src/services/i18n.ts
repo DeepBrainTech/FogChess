@@ -147,6 +147,7 @@ const dict: Dict = {
   'dialogs.undo.fromOpponent': { zh: '对手请求悔棋', en: 'Opponent requests undo' },
   'dialogs.undo.fromOpponent.msg': { zh: '{name} 请求悔棋，是否同意？{attempts}', en: '{name} requests an undo. Accept?{attempts}' },
   'dialogs.draw.fromOpponent': { zh: '对手申请和棋', en: 'Opponent offers a draw' },
+  'dialogs.draw.fromOpponent.msg': { zh: '{name} 申请和棋，是否同意？', en: '{name} offers a draw. Accept?' },
   'dialogs.draw.result': { zh: '和棋结果', en: 'Draw Result' },
   'dialogs.draw.accepted': { zh: '对手同意了和棋请求', en: 'Opponent accepted the draw offer' },
   'dialogs.draw.rejected': { zh: '对手拒绝了和棋请求', en: 'Opponent rejected the draw offer' },

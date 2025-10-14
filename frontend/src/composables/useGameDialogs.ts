@@ -276,7 +276,7 @@ export function useGameDialogs(params: {
     const { t } = await import('../services/i18n');
     dialogType.value = 'draw-response';
     dialogTitle.value = t('dialogs.draw.fromOpponent');
-    dialogMessage.value = t('dialogs.undo.fromOpponent.msg').replace('{name}', fromPlayer).replace('{attempts}', '');
+    dialogMessage.value = t('dialogs.draw.fromOpponent.msg').replace('{name}', fromPlayer);
     showDialog.value = true;
   };
 
