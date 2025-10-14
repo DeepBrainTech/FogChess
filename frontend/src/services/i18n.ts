@@ -63,10 +63,10 @@ const dict: Dict = {
   // Game actions
   'actions.undo': { zh: '悔棋', en: 'Undo' },
   'actions.waitingApproval': { zh: '等待对手同意...', en: 'Waiting for approval...' },
-  'actions.surrender': { zh: '认输', en: 'Surrender' },
+  'actions.surrender': { zh: '认输', en: 'Resign' },
   'actions.draw': { zh: '和棋', en: 'Offer Draw' },
   'actions.exportPGN': { zh: '导出PGN', en: 'Export PGN' },
-  'actions.downloadFEN': { zh: '下载FEN', en: 'Download FEN' },
+  'actions.downloadFEN': { zh: '下载FEN', en: 'Export FEN' },
   'actions.sound': { zh: '音效', en: 'Sound' },
   'actions.leave': { zh: '离开游戏', en: 'Leave Game' },
 
@@ -150,6 +150,9 @@ const dict: Dict = {
   'dialogs.draw.result': { zh: '和棋结果', en: 'Draw Result' },
   'dialogs.draw.accepted': { zh: '对手同意了和棋请求', en: 'Opponent accepted the draw offer' },
   'dialogs.draw.rejected': { zh: '对手拒绝了和棋请求', en: 'Opponent rejected the draw offer' },
+  
+  // Cannot undo message
+  'dialogs.cannotUndo.msg': { zh: '不能悔棋，请先下棋', en: 'Cannot undo, please make a move first' },
 };
 
 export function t(key: keyof typeof dict): string {

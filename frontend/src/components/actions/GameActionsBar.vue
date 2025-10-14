@@ -42,7 +42,7 @@
     </button>
 
     <button @click="$emit('toggle-sound')" class="sound-button" :class="{ 'sound-off': !soundEnabled }">
-      {{ soundEnabled ? '🔊' : '🔇' }} {{ t('actions.sound') }}
+      {{ soundEnabled ? '🔊' : '🔇' }}
     </button>
 
     <button @click="$emit('leave')" class="leave-button">

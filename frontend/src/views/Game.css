@@ -9,7 +9,7 @@
   margin: -2rem;
   padding: 0;
 }
-.game-header { background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: flex; justify-content: space-between; align-items: center; }
+.game-header { background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: flex; justify-content: space-between; align-items: center; gap: 30px; }
 .room-info h2 { margin: 0 0 15px 0; color: #333; font-size: 26px; }
 .room-info-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
 .room-id, .invite-link { display: flex; align-items: center; justify-content: space-between; font-size: 17px; gap: 20px; }
@@ -117,7 +117,7 @@
   } 
   .game-header { 
     flex-direction: column; 
-    gap: 15px; 
+    gap: 20px; 
     text-align: center; 
     padding: 15px; /* 移动端减小 padding */
   } 

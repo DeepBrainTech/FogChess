@@ -245,6 +245,13 @@ export function useGameDialogs(params: {
       showDialog.value = true;
       undoRequestPending.value = false;
       return;
+    } else if (message.toLowerCase().includes('cannot undo, please make a move first')) {
+      // 不能悔棋，请先下棋
+      dialogTitle.value = t('dialog.cannotUndo.title');
+      dialogMessage.value = t('dialogs.cannotUndo.msg');
+      showDialog.value = true;
+      undoRequestPending.value = false;
+      return;
     } else {
       dialogTitle.value = t('dialog.cannotUndo.title');
     }

@@ -136,7 +136,7 @@ io.on('connection', (socket) => {
         // 根据错误类型发送不同的消息
         let errorMessage = result.error || 'Failed to request undo';
         if (result.error === 'Cannot undo on your own turn') {
-          errorMessage = '不能悔棋，请先下棋';
+          errorMessage = 'Cannot undo, please make a move first';
         } else if (result.error === 'Maximum undo attempts reached for this move') {
           errorMessage = '当前移动对手不同意悔棋';
         } else if (result.error === 'No moves to undo') {
