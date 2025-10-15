@@ -76,20 +76,18 @@ export const useRoomStore = defineStore('room', () => {
     socketService.on('player-joined', (data: SocketEvents['player-joined']) => {
       if (currentRoom.value) {
         const updatedRoom = { ...currentRoom.value };
-        // 去重：按 socketId 去重；并确保每种颜色最多一个
-        const nextPlayers = [...updatedRoom.players, data.player];
-        const seenSocket = new Set<string>();
-        const byColor: { white?: any; black?: any } = {};
-        for (const p of nextPlayers) {
-          if (seenSocket.has(p.socketId)) continue;
-          seenSocket.add(p.socketId);
-          if (p.color === 'white') {
-            if (!byColor.white) byColor.white = p;
-          } else if (p.color === 'black') {
-            if (!byColor.black) byColor.black = p;
-          }
+        // 去重：按 id 或 socketId 去重，优先使用 id
+        const existingIndex = updatedRoom.players.findIndex(p => p.id === data.player.id || p.socketId === (data as any).player?.socketId);
+        if (existingIndex !== -1) {
+          updatedRoom.players.splice(existingIndex, 1);
         }
-        updatedRoom.players = [byColor.white, byColor.black].filter(Boolean) as any[];
+        updatedRoom.players.push(data.player);
+        // 再次保证最多两名玩家，若超过则只保留先到的白方和最新黑方
+        if (updatedRoom.players.length > 2) {
+          const white = updatedRoom.players.find(p => p.color === 'white');
+          const latestBlack = data.player.color === 'black' ? data.player : updatedRoom.players.find(p => p.color === 'black');
+          updatedRoom.players = [white!, latestBlack!].filter(Boolean) as any;
+        }
         updatedRoom.isFull = updatedRoom.players.length >= 2;
         setCurrentRoom(updatedRoom);
       }
