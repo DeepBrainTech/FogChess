@@ -77,16 +77,23 @@ export class RoomService {
       return { success: false, error: 'Player already in room' };
     }
 
+    // 根据当前房间内已有的颜色分配缺失的一方
+    const hasWhite = room.players.some(p => p.color === 'white');
+    const hasBlack = room.players.some(p => p.color === 'black');
+    let assignedColor: 'white' | 'black' = 'black';
+    if (!hasWhite) assignedColor = 'white';
+    else if (!hasBlack) assignedColor = 'black';
+    else return { success: false, error: 'Room already has 2 players' };
+
     const player: Player = {
       id: uuidv4(),
       name: playerName,
-      color: 'black', // 第二个玩家为黑方
+      color: assignedColor,
       socketId
     };
 
-    // 清理旧玩家，只保留第一个玩家（白方）
-    const firstPlayer = room.players[0];
-    room.players = firstPlayer ? [firstPlayer] : [];
+    // 去重同一socket或同一颜色的旧占位
+    room.players = room.players.filter(p => p.socketId !== socketId && p.color !== player.color);
     room.players.push(player);
     room.isFull = true;
     // 重置为标准初始局并开始（使用该房间现有实例）
