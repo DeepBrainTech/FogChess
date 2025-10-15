@@ -76,7 +76,20 @@ export const useRoomStore = defineStore('room', () => {
     socketService.on('player-joined', (data: SocketEvents['player-joined']) => {
       if (currentRoom.value) {
         const updatedRoom = { ...currentRoom.value };
-        updatedRoom.players.push(data.player);
+        // 去重：按 socketId 去重；并确保每种颜色最多一个
+        const nextPlayers = [...updatedRoom.players, data.player];
+        const seenSocket = new Set<string>();
+        const byColor: { white?: any; black?: any } = {};
+        for (const p of nextPlayers) {
+          if (seenSocket.has(p.socketId)) continue;
+          seenSocket.add(p.socketId);
+          if (p.color === 'white') {
+            if (!byColor.white) byColor.white = p;
+          } else if (p.color === 'black') {
+            if (!byColor.black) byColor.black = p;
+          }
+        }
+        updatedRoom.players = [byColor.white, byColor.black].filter(Boolean) as any[];
         updatedRoom.isFull = updatedRoom.players.length >= 2;
         setCurrentRoom(updatedRoom);
       }

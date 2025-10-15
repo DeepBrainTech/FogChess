@@ -20,8 +20,8 @@
       </div>
       <div class="players">
         <div 
-          v-for="player in room?.players" 
-          :key="player.id"
+          v-for="player in displayedPlayers" 
+          :key="player.socketId"
           class="player-row"
           :class="{ 
             'current-player': player.color === gameState?.currentPlayer && gameState?.gameStatus !== 'finished',
@@ -56,6 +56,7 @@
 <script setup lang="ts">
 import type { Room, GameState } from '../../types';
 import { t } from '../../services/i18n';
+import { computed } from 'vue';
 
 interface Props {
   room: Room | null;
@@ -69,6 +70,25 @@ withDefaults(defineProps<Props>(), {
   room: null,
   gameState: null,
   currentPlayerColor: null
+});
+
+// 防御性去重：最多显示一个白方和一个黑方；
+// 同时按 socketId 去重，避免重复渲染同一连接
+const props = defineProps<Props>();
+const displayedPlayers = computed(() => {
+  const players = props.room?.players || [];
+  const seenSocket = new Set<string>();
+  const byColor: { white?: any; black?: any } = {};
+  for (const p of players) {
+    if (seenSocket.has(p.socketId)) continue;
+    seenSocket.add(p.socketId);
+    if (p.color === 'white') {
+      if (!byColor.white) byColor.white = p;
+    } else if (p.color === 'black') {
+      if (!byColor.black) byColor.black = p;
+    }
+  }
+  return [byColor.white, byColor.black].filter(Boolean) as any[];
 });
 </script>
 
