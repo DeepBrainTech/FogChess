@@ -29,12 +29,18 @@ type Dict = Record<string, { zh: string; en: string }>
 const dict: Dict = {
   'app.title': { zh: '迷雾国际象棋', en: 'FogChess' },
   'home.subtitle': { zh: '体验全新的迷雾战争模式', en: 'Experience Fog of War Chess' },
+  'home.hero.title': { zh: '在线迷雾战争象棋', en: 'Play Fog of War Chess Online' },
+  'home.hero.description': { zh: '体验古代策略与现代智能的融合。与对手对战，掌握象棋艺术，每一步都训练你的思维。', en: 'Experience the fusion of ancient strategy and modern intelligence. Play against opponents, master the art of chess, and train your mind with every move.' },
+  'home.hero.startButton': { zh: '开始游戏', en: 'Start Game' },
   'home.create.title': { zh: '创建房间', en: 'Create Room' },
   'home.create.desc': { zh: '创建新房间，邀请朋友对战', en: 'Create a new room and invite friends' },
   'home.create.button': { zh: '创建房间', en: 'Create' },
   'home.join.title': { zh: '加入房间', en: 'Join Room' },
   'home.join.desc': { zh: '输入房间ID加入朋友的对战', en: 'Enter room ID to join a room' },
   'home.join.button': { zh: '加入房间', en: 'Join' },
+  'home.lobby.title': { zh: '大厅', en: 'Lobby' },
+  'home.lobby.desc': { zh: '查看所有可加入的房间', en: 'View all available rooms' },
+  'home.lobby.button': { zh: '进入大厅', en: 'Enter Lobby' },
 
   'dialog.notStarted.title': { zh: '游戏未开始', en: 'Game Not Started' },
   'dialog.notStarted.message': { zh: '等待对手加入', en: 'Waiting for the opponent to join' },
@@ -175,6 +181,27 @@ const dict: Dict = {
   'pieces.knight': { zh: '马', en: 'Knight' },
   'pieces.rook': { zh: '车', en: 'Rook' },
   'pieces.bishop': { zh: '象', en: 'Bishop' },
+
+  // Lobby
+  'lobby.title': { zh: '大厅', en: 'Lobby' },
+  'lobby.playerName': { zh: '你的昵称', en: 'Your name' },
+  'lobby.playerNamePlaceholder': { zh: '输入昵称以便加入房间', en: 'Enter name to join rooms' },
+  'lobby.search': { zh: '搜索', en: 'Search' },
+  'lobby.searchPlaceholder': { zh: '搜索房间名称、ID或玩家', en: 'Search room name, ID or players' },
+  'lobby.refresh': { zh: '刷新', en: 'Refresh' },
+  'lobby.loading': { zh: '加载房间中...', en: 'Loading rooms...' },
+  'lobby.noRooms': { zh: '暂无房间', en: 'No rooms yet' },
+  'lobby.roomName': { zh: '房间', en: 'Room' },
+  'lobby.waitingPlayers': { zh: '等待玩家...', en: 'Waiting for players...' },
+  'lobby.timerMode.unlimited': { zh: '无限时', en: 'Unlimited' },
+  'lobby.timerMode.classical': { zh: '慢棋', en: 'Classical' },
+  'lobby.timerMode.rapid': { zh: '快棋', en: 'Rapid' },
+  'lobby.timerMode.bullet': { zh: '超快', en: 'Bullet' },
+  'lobby.status.waiting': { zh: '等待中', en: 'Waiting' },
+  'lobby.status.playing': { zh: '游戏中', en: 'Playing' },
+  'lobby.status.finished': { zh: '已结束', en: 'Finished' },
+  'lobby.join': { zh: '加入', en: 'Join' },
+  'lobby.full': { zh: '已满', en: 'Full' },
 };
 
 export function t(key: keyof typeof dict): string {

@@ -39,6 +39,6 @@ import { currentLang, toggleLang } from './services/i18n';
 body {
   margin: 0;
   padding: 0;
-  background: #f5f5f5;
+  background: #fef6ec;
 }
 </style>

@@ -1,25 +1,66 @@
 <template>
   <div class="home">
-    <div class="hero">
-      <h1>{{ t('app.title') }}</h1>
-      <p class="subtitle">{{ t('home.subtitle') }}</p>
-    </div>
-    
-    <div class="actions">
-      <div class="action-card">
-        <h3>{{ t('home.create.title') }}</h3>
-        <p>{{ t('home.create.desc') }}</p>
-        <button @click="showCreateRoom = true" class="action-button create">
-          {{ t('home.create.button') }}
-        </button>
+
+    <!-- 主要内容区域 -->
+    <div class="main-content">
+      <!-- 左侧内容 -->
+      <div class="left-panel">
+        <div class="hero-section">
+          <h1 class="main-title">{{ t('home.hero.title') }}</h1>
+          <p class="hero-description">
+            {{ t('home.hero.description') }}
+          </p>
+          <button class="start-game-btn" @click="showCreateRoom = true">
+            {{ t('home.hero.startButton') }}
+          </button>
+        </div>
+        
+        <!-- 操作按钮区域 -->
+        <div class="action-buttons">
+          <button @click="showCreateRoom = true" class="action-btn create-btn">
+            <span class="btn-icon">🏠</span>
+            <div class="btn-content">
+              <h4>{{ t('home.create.title') }}</h4>
+              <p>{{ t('home.create.desc') }}</p>
+            </div>
+          </button>
+          
+          <button @click="showJoinRoom = true" class="action-btn join-btn">
+            <span class="btn-icon">🚪</span>
+            <div class="btn-content">
+              <h4>{{ t('home.join.title') }}</h4>
+              <p>{{ t('home.join.desc') }}</p>
+            </div>
+          </button>
+
+          <button @click="goLobby" class="action-btn lobby-btn">
+            <span class="btn-icon">🏛️</span>
+            <div class="btn-content">
+              <h4>{{ t('home.lobby.title') }}</h4>
+              <p>{{ t('home.lobby.desc') }}</p>
+            </div>
+          </button>
+        </div>
       </div>
-      
-      <div class="action-card">
-        <h3>{{ t('home.join.title') }}</h3>
-        <p>{{ t('home.join.desc') }}</p>
-        <button @click="showJoinRoom = true" class="action-button join">
-          {{ t('home.join.button') }}
-        </button>
+
+      <!-- 右侧视觉区域 -->
+      <div class="right-panel">
+        <div class="chess-board-container">
+          <!-- 象棋棋盘图片 -->
+          <div class="chess-board">
+            <img src="/chessboard.png" alt="Chess Board" class="chessboard-image" />
+          </div>
+          
+          <!-- 装饰元素 -->
+          <div class="decorative-elements">
+            
+            <!-- 抽象几何图形 -->
+            <div class="geometric-shapes">
+              <div class="shape shape-circle"></div>
+              <div class="shape shape-square"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -43,12 +84,18 @@
 import { ref, onMounted } from 'vue';
 import { t } from '../services/i18n';
 import { useRoomStore } from '../stores/room';
+import { useRouter } from 'vue-router';
 import CreateRoom from '../components/room/CreateRoom.vue';
 import RoomList from '../components/room/RoomList.vue';
 
 const roomStore = useRoomStore();
+const router = useRouter();
 const showCreateRoom = ref(false);
 const showJoinRoom = ref(false);
+
+const goLobby = () => {
+  router.push('/lobby');
+};
 
 onMounted(() => {
   roomStore.connect();
@@ -63,96 +110,243 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 整体布局 - 采用量子围棋风格 */
 .home {
-  height: 100vh;
+  min-height: 100vh;
+  background: #fef6ec; /* 淡米黄色背景 */
+  font-family: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', '幼圆', 'YouYuan', 'Georgia', 'Times New Roman', serif;
+}
+
+
+/* 主要内容区域 */
+.main-content {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* 左侧面板 */
+.left-panel {
+  flex: 1;
+  padding: 20px 40px;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+  max-width: 600px;
+  padding-top: 40px;
+}
+
+.hero-section {
+  margin-bottom: 30px;
+}
+
+.main-title {
+  font-size: 3.2rem;
+  font-weight: 700;
+  color: #2C3E50;
+  margin-bottom: 15px;
+  line-height: 1.1;
+  font-family: 'Georgia', serif;
+}
+
+.hero-description {
+  font-size: 1rem;
+  color: #2C3E50;
+  line-height: 1.5;
+  margin-bottom: 25px;
+  max-width: 500px;
+}
+
+.start-game-btn {
+  background: #77A9B8;
+  color: white;
+  border: none;
+  padding: 16px 32px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(119, 169, 184, 0.3);
+}
+
+.start-game-btn:hover {
+  background: #6B9BA8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(119, 169, 184, 0.4);
+}
+
+/* 操作按钮区域 */
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.action-btn {
+  display: flex;
   align-items: center;
+  padding: 15px;
+  background: white;
+  border: 2px solid #E8E8E8;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.action-btn:hover {
+  border-color: #77A9B8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.btn-icon {
+  font-size: 1.8rem;
+  margin-right: 15px;
+  min-width: 50px;
+}
+
+.btn-content h4 {
+  margin: 0 0 5px 0;
+  color: #2C3E50;
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-family: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', '幼圆', 'YouYuan', sans-serif;
+}
+
+.btn-content p {
+  margin: 0;
+  color: #666;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  font-family: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', '幼圆', 'YouYuan', sans-serif;
+}
+
+/* 右侧面板 */
+.right-panel {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
   justify-content: center;
   padding: 20px;
+  position: relative;
+  padding-top: 40px;
 }
 
-.hero {
-  text-align: center;
-  margin-bottom: 50px;
-  color: white;
-}
-
-h1 {
-  font-size: 3rem;
-  margin-bottom: 10px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.subtitle {
-  font-size: 1.2rem;
-  opacity: 0.9;
-}
-
-.actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 30px;
-  max-width: 800px;
+.chess-board-container {
+  position: relative;
   width: 100%;
+  max-width: 500px;
 }
 
-.action-card {
-  background: white;
-  padding: 30px;
+.chess-board {
+  background: #fef6ec;
   border-radius: 12px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  text-align: center;
+  padding: 20px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.chessboard-image {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
   transition: transform 0.3s ease;
 }
 
-.action-card:hover {
-  transform: translateY(-5px);
+.chessboard-image:hover {
+  transform: scale(1.02);
 }
 
-.action-card h3 {
-  margin-bottom: 15px;
-  color: #333;
+/* 装饰元素 */
+.decorative-elements {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.chess-pieces {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.piece {
+  width: 40px;
+  height: 40px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  animation: float 3s ease-in-out infinite;
 }
 
-.action-card p {
-  margin-bottom: 25px;
-  color: #666;
-  line-height: 1.5;
+.piece-king { animation-delay: 0s; }
+.piece-queen { animation-delay: 1s; }
+.piece-rook { animation-delay: 2s; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
 
-.action-button {
-  padding: 12px 30px;
-  border: none;
-  border-radius: 25px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 150px;
+.geometric-shapes {
+  position: absolute;
+  top: 20px;
+  left: 20px;
 }
 
-.action-button.create {
-  background: linear-gradient(45deg, #4CAF50, #45a049);
-  color: white;
+.shape {
+  position: absolute;
+  border-radius: 50%;
 }
 
-.action-button.create:hover {
-  background: linear-gradient(45deg, #45a049, #3d8b40);
-  transform: scale(1.05);
+.shape-circle {
+  width: 60px;
+  height: 60px;
+  background: #F0906C;
+  top: 0;
+  left: 0;
+  animation: pulse 2s ease-in-out infinite;
 }
 
-.action-button.join {
-  background: linear-gradient(45deg, #2196F3, #1976D2);
-  color: white;
+.shape-square {
+  width: 30px;
+  height: 30px;
+  background: #A8D9C7;
+  top: 40px;
+  left: 40px;
+  border-radius: 4px;
+  animation: rotate 4s linear infinite;
 }
 
-.action-button.join:hover {
-  background: linear-gradient(45deg, #1976D2, #1565C0);
-  transform: scale(1.05);
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 1; }
 }
 
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 模态框样式 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -168,24 +362,53 @@ h1 {
 
 .modal {
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   max-width: 90vw;
   max-height: 90vh;
   overflow: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .right-panel {
+    order: -1;
+    padding: 20px;
+  }
+  
+  .left-panel {
+    padding: 40px 20px;
+  }
+  
+  .main-title {
+    font-size: 3rem;
+  }
 }
 
 @media (max-width: 768px) {
-  h1 {
-    font-size: 2rem;
+  .main-title {
+    font-size: 2.5rem;
   }
   
-  .actions {
-    grid-template-columns: 1fr;
-    gap: 20px;
+  .action-buttons {
+    gap: 15px;
   }
   
-  .action-card {
-    padding: 20px;
+  .action-btn {
+    padding: 15px;
+  }
+  
+  .btn-icon {
+    font-size: 1.5rem;
+    margin-right: 15px;
+  }
+  
+  .chessboard-image {
+    max-width: 90%;
   }
 }
 </style>

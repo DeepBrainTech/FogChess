@@ -1,31 +1,5 @@
 <template>
   <div class="game-container" :class="{ 'victory-flash': isVictoryFlash, 'defeat-flash': isDefeatFlash }">
-    <GameHeader 
-      :room="room"
-      :game-state="gameState"
-      :current-player-color="roomStore.currentPlayer?.color || null"
-      :get-captured-pieces="getCapturedPieces"
-      :get-piece-image="getPieceImage"
-      @copy-invite="copyInviteLink"
-      @copy-roomid="copyRoomIdOnly"
-    >
-      <GameActionsBar 
-        :can-request-undo="canRequestUndo"
-        :undo-request-pending="undoRequestPending"
-        :game-status="gameState?.gameStatus || 'waiting'"
-        :can-download-fen="!!gameState"
-        :sound-enabled="soundEnabled"
-        :timer-mode="room?.timerMode || 'unlimited'"
-        @request-undo="requestUndo"
-        @show-surrender="showSurrenderDialog"
-        @show-draw="showDrawDialog"
-        @download-pgn="showDownloadPgnDialog"
-        @download-fen="showDownloadFenDialog"
-        @toggle-sound="toggleSound"
-        @leave="showLeaveDialog"
-      />
-    </GameHeader>
-    
     <div class="game-content">
       <div class="chess-container">
         <ChessBoard />
@@ -58,6 +32,32 @@
         </div>
       </div>
     </div>
+    
+    <GameHeader 
+      :room="room"
+      :game-state="gameState"
+      :current-player-color="roomStore.currentPlayer?.color || null"
+      :get-captured-pieces="getCapturedPieces"
+      :get-piece-image="getPieceImage"
+      @copy-invite="copyInviteLink"
+      @copy-roomid="copyRoomIdOnly"
+    >
+      <GameActionsBar 
+        :can-request-undo="canRequestUndo"
+        :undo-request-pending="undoRequestPending"
+        :game-status="gameState?.gameStatus || 'waiting'"
+        :can-download-fen="!!gameState"
+        :sound-enabled="soundEnabled"
+        :timer-mode="room?.timerMode || 'unlimited'"
+        @request-undo="requestUndo"
+        @show-surrender="showSurrenderDialog"
+        @show-draw="showDrawDialog"
+        @download-pgn="showDownloadPgnDialog"
+        @download-fen="showDownloadFenDialog"
+        @toggle-sound="toggleSound"
+        @leave="showLeaveDialog"
+      />
+    </GameHeader>
     
     <AppDialogHost 
       :show="showDialog"

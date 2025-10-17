@@ -1,17 +1,29 @@
 /* Extracted from Game.vue */
 .game-container { 
   height: 100vh; 
-  background: #9ca8b8; 
+  background: #fef6ec; 
   display: flex; 
   flex-direction: column; 
   overflow: hidden;
   /* 移除父元素的 padding 影响 */
   margin: -2rem;
   padding: 0;
+  box-sizing: border-box;
 }
-.game-header { background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: flex; justify-content: space-between; align-items: center; gap: 30px; }
-.room-info h2 { margin: 0 0 15px 0; color: #333; font-size: 26px; }
-.room-info-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+.game-header { 
+  background: white; 
+  padding: 12px 20px; 
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  gap: 15px; 
+  order: 2; /* 确保标题栏在底部 */
+  flex-shrink: 0; /* 防止被压缩 */
+  box-sizing: border-box;
+}
+.room-info h2 { margin: 0 0 8px 0; color: #333; font-size: 20px; }
+.room-info-container { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
 .room-id, .invite-link { display: flex; align-items: center; justify-content: space-between; font-size: 17px; gap: 20px; }
 .copy-btn { padding: 8px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; transition: background-color 0.3s ease; }
 .copy-btn:hover { background: #1976D2; }
@@ -54,13 +66,15 @@
 .game-content { 
   flex: 1; 
   display: flex; 
-  gap: 20px; 
-  padding: 20px; 
+  gap: 10px; 
+  padding: 10px; 
   max-width: 1200px; 
   margin: 0 auto; 
   width: 100%;
   min-height: 0; /* 确保 flex 子元素不会超出 */
-  overflow: auto; /* 允许在需要时滚动 */
+  overflow: hidden; /* 禁用滚动 */
+  order: 1; /* 确保内容区域在上方 */
+  box-sizing: border-box;
 }
 .chess-container { 
   flex: 1; 
@@ -69,10 +83,25 @@
   align-items: center; /* 改为居中对齐，防止底部被截断 */
   min-height: 0; /* 确保 flex 子元素不会超出 */
 }
-.game-sidebar { width: 360px; display: flex; flex-direction: column; gap: 20px; }
-.game-status, .move-history { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
-.game-status h3, .move-history h3 { margin: 0 0 15px 0; color: #333; font-size: 20px; }
-.status-item { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 15px; }
+.game-sidebar { 
+  width: 320px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px; 
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.game-status, .move-history { 
+  background: white; 
+  padding: 12px; 
+  border-radius: 8px; 
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
+  overflow: hidden;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.game-status h3, .move-history h3 { margin: 0 0 8px 0; color: #333; font-size: 16px; }
+.status-item { display: flex; justify-content: space-between; margin-bottom: 6px; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 13px; }
 .status-item:last-child { border-bottom: none; margin-bottom: 0; }
 .label { font-weight: bold; color: #666; }
 .value { color: #333; }
@@ -80,14 +109,19 @@
 .turn-dot { width: 16px; height: 16px; border-radius: 50%; transition: all 0.3s ease; }
 .turn-dot.my-turn { background-color: #478058; box-shadow: 0 0 8px rgba(71, 128, 88, 0.4); }
 .turn-dot.opponent-turn { background-color: #999; }
-.moves-list { max-height: 250px; overflow-y: auto; }
-.move-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+.moves-list { 
+  max-height: 180px; 
+  overflow-y: auto; 
+  flex: 1;
+  min-height: 0;
+}
+.move-item { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #eee; font-size: 12px; }
 .move-item:last-child { border-bottom: none; }
-.move-header { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 2px solid #ddd; font-weight: bold; font-size: 14px; color: #333; background: #f8f9fa; border-radius: 6px 6px 0 0; position: sticky; top: 0; z-index: 10; }
+.move-header { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 2px solid #ddd; font-weight: bold; font-size: 12px; color: #333; background: #f8f9fa; border-radius: 6px 6px 0 0; position: sticky; top: 0; z-index: 10; }
 .header-round { font-weight: bold; color: #333; min-width: 35px; font-size: 14px; }
 .header-white, .header-black { flex: 1; text-align: center; font-size: 14px; }
-.replay-controls { display: flex; justify-content: center; gap: 8px; padding: 12px; background: #f8f9fa; border-top: 1px solid #ddd; border-radius: 0 0 8px 8px; margin-top: 10px; }
-.replay-btn { width: 50px; height: 50px; border: none; border-radius: 50%; background: #6c757d; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
+.replay-controls { display: flex; justify-content: center; gap: 5px; padding: 6px; background: #f8f9fa; border-top: 1px solid #ddd; border-radius: 0 0 8px 8px; margin-top: 6px; }
+.replay-btn { width: 35px; height: 35px; border: none; border-radius: 50%; background: #6c757d; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
 .replay-btn:hover:not(:disabled) { background: #5a6268; transform: scale(1.05); }
 .replay-btn:disabled { background: #adb5bd; cursor: not-allowed; transform: none; }
 .replay-btn.play-btn { background: #28a745; }
@@ -97,7 +131,7 @@
 .replay-btn.notification-btn { background: #adb5bd; cursor: default; pointer-events: none; }
 .replay-btn.notification-btn.has-new-move { animation: shake-notification 0.6s ease-in-out; }
 @keyframes shake-notification { 0%, 100% { transform: translateX(0);} 10%, 30%, 50%, 70%, 90% { transform: translateX(-2px);} 20%, 40%, 60%, 80% { transform: translateX(2px);} }
-.replay-icon { width: 24px; height: 24px; filter: brightness(0) invert(1); transition: all 0.2s ease; }
+.replay-icon { width: 18px; height: 18px; filter: brightness(0) invert(1); transition: all 0.2s ease; }
 .replay-icon-notification { width: 28px; height: 28px; transition: all 0.2s ease; }
 .replay-btn:hover:not(:disabled) .replay-icon { transform: scale(1.1); }
 .replay-btn:disabled .replay-icon { opacity: 0.5; }

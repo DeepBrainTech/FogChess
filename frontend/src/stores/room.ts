@@ -42,6 +42,17 @@ export const useRoomStore = defineStore('room', () => {
     availableRooms.value = rooms;
   };
 
+  // 从后端获取房间列表
+  const fetchRooms = async () => {
+    try {
+      const base = (import.meta as any).env?.VITE_API_HTTP || window.location.origin.replace(/:\d+$/, ':3001');
+      const res = await fetch(`${base}/rooms`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setAvailableRooms(data as Room[]);
+    } catch (e) {}
+  };
+
   const setConnectionStatus = (connected: boolean) => {
     isConnected.value = connected;
   };
@@ -133,6 +144,7 @@ export const useRoomStore = defineStore('room', () => {
     setCurrentRoom,
     setCurrentPlayer,
     setAvailableRooms,
+    fetchRooms,
     connect,
     disconnect,
     setupSocketListeners
