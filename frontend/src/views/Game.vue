@@ -18,6 +18,7 @@
           :total-moves="totalMoves"
           :current-move-index="currentMoveIndex"
           :has-new-move="hasNewMove"
+          :sound-enabled="soundEnabled"
           @goToStart="goToStart"
           @stepBackward="stepBackward"
           @stepForward="stepForward"

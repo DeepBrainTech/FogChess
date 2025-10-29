@@ -53,11 +53,18 @@ io.on('connection', (socket) => {
   // 创建房间
   socket.on('create-room', (data: SocketEvents['create-room']) => {
     try {
-      const room = roomService.createRoom(data.roomName, data.playerName, socket.id, data.timerMode);
+      const room = roomService.createRoom(data.roomName, data.playerName, socket.id, data.timerMode, data.gameMode);
       socket.join(room.id);
       socket.emit('room-created', { room });
-      // 房间创建时处于等待状态
-      io.to(room.id).emit('game-updated', { gameState: room.gameState });
+      
+      // 如果是AI模式，直接开始游戏
+      if (data.gameMode === 'ai') {
+        room.gameState.gameStatus = 'playing';
+        io.to(room.id).emit('game-updated', { gameState: room.gameState });
+      } else {
+        // 房间创建时处于等待状态
+        io.to(room.id).emit('game-updated', { gameState: room.gameState });
+      }
     } catch (error) {
       socket.emit('error', { message: 'Failed to create room' });
     }
@@ -102,6 +109,22 @@ io.on('connection', (socket) => {
           io.to(data.roomId).emit('game-updated', { 
             gameState: result.gameState 
           });
+        }
+        
+        // 如果是AI模式且游戏未结束，让AI下棋
+        const room = roomService.getRoom(data.roomId);
+        if (room?.gameMode === 'ai' && result.gameState.gameStatus === 'playing') {
+          // 延迟1秒让AI下棋，模拟思考时间
+          setTimeout(() => {
+            const aiResult = roomService.makeAIMove(data.roomId);
+            if (aiResult) {
+              // 广播AI移动
+              io.to(data.roomId).emit('move-made', {
+                move: aiResult.move,
+                gameState: aiResult.gameState
+              });
+            }
+          }, 1000);
         }
       } else {
         socket.emit('error', { message: result.error || 'Invalid move' });

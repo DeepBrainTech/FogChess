@@ -51,9 +51,12 @@
           <div class="room-name">{{ room.name }}</div>
           <div class="room-info">
             <span class="player-count">{{ room.players.length }}/2 {{ t('room.join.players') }}</span>
-            <span class="room-status" :class="room.isFull ? 'full' : 'available'">
-              {{ room.isFull ? t('room.join.full') : t('room.join.available') }}
+            <span class="room-status" :class="getRoomStatusClass(room)">
+              {{ getRoomStatusText(room) }}
             </span>
+          </div>
+          <div v-if="room.gameMode === 'ai'" class="ai-indicator">
+            🤖 {{ t('room.join.ai') }}
           </div>
         </div>
       </div>
@@ -76,6 +79,20 @@ const isJoining = ref(false);
 const error = ref('');
 
 const availableRooms = computed(() => roomStore.availableRooms);
+
+const getRoomStatusClass = (room: any) => {
+  if (room.gameMode === 'ai') {
+    return 'ai-full';
+  }
+  return room.isFull ? 'full' : 'available';
+};
+
+const getRoomStatusText = (room: any) => {
+  if (room.gameMode === 'ai') {
+    return t('room.join.aiFull');
+  }
+  return room.isFull ? t('room.join.full') : t('room.join.available');
+};
 
 const handleJoinRoom = async () => {
   if (!roomId.value.trim() || !playerName.value.trim()) return;
@@ -264,5 +281,17 @@ input:focus {
 .room-status.full {
   background-color: #FFEBEE;
   color: #C62828;
+}
+
+.room-status.ai-full {
+  background-color: #E3F2FD;
+  color: #1976D2;
+}
+
+.ai-indicator {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+  text-align: center;
 }
 </style>

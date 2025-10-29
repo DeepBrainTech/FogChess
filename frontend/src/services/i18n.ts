@@ -58,6 +58,8 @@ const dict: Dict = {
   'gameOver.timeout.lose': { zh: '很抱歉，你超时了！', en: 'Sorry, you ran out of time!' },
   'gameOver.surrender.win': { zh: '恭喜你，你赢了！', en: 'Congratulations! You won!' },
   'gameOver.surrender.lose': { zh: '很抱歉，你输了！', en: 'Sorry, you lost!' },
+  'gameOver.noMoves.win': { zh: '恭喜你，AI无棋可走！', en: 'Congratulations! AI has no legal moves!' },
+  'gameOver.noMoves.lose': { zh: '很抱歉，你无棋可走！', en: 'Sorry, you have no legal moves!' },
   'gameOver.draw.message': { zh: '平局！', en: 'It\'s a draw!' },
   'dialog.cannotUndo.title': { zh: '无法悔棋', en: 'Cannot Undo' },
   'dialog.cannotMove.title': { zh: '无法移动', en: 'Cannot Move' },
@@ -123,6 +125,8 @@ const dict: Dict = {
   'room.join.players': { zh: '玩家', en: 'players' },
   'room.join.full': { zh: '已满', en: 'Full' },
   'room.join.available': { zh: '可加入', en: 'Available' },
+  'room.join.ai': { zh: 'AI对战', en: 'AI Game' },
+  'room.join.aiFull': { zh: 'AI对战', en: 'AI Game' },
 
   // Room create
   'room.create.title': { zh: '创建新房间', en: 'Create New Room' },
@@ -135,6 +139,9 @@ const dict: Dict = {
   'room.create.timer.classical': { zh: '慢棋30分钟+30秒增秒', en: 'Classical 30m + 30s' },
   'room.create.timer.rapid': { zh: '快棋10分钟+10秒增秒', en: 'Rapid 10m + 10s' },
   'room.create.timer.bullet': { zh: '超快2分钟+5秒增秒', en: 'Bullet 2m + 5s' },
+  'room.create.gameMode': { zh: '游戏模式:', en: 'Game Mode:' },
+  'room.create.gameMode.normal': { zh: '正常对战', en: 'Normal Game' },
+  'room.create.gameMode.ai': { zh: 'AI对战', en: 'AI Game' },
   'room.create.creating': { zh: '创建中...', en: 'Creating...' },
   'room.create.button': { zh: '创建房间', en: 'Create Room' },
   'room.create.fail': { zh: '创建房间失败，请重试', en: 'Failed to create room. Please retry.' },
@@ -202,6 +209,7 @@ const dict: Dict = {
   'lobby.status.finished': { zh: '已结束', en: 'Finished' },
   'lobby.join': { zh: '加入', en: 'Join' },
   'lobby.full': { zh: '已满', en: 'Full' },
+  'lobby.backToHome': { zh: '返回主界面', en: 'Back to Home' },
 };
 
 export function t(key: keyof typeof dict): string {

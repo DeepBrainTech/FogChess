@@ -29,12 +29,14 @@ interface Props {
   totalMoves: number;
   currentMoveIndex: number;
   hasNewMove: boolean;
+  soundEnabled: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   totalMoves: 0,
   currentMoveIndex: 0,
-  hasNewMove: false
+  hasNewMove: false,
+  soundEnabled: true
 });
 
 const emit = defineEmits<{
@@ -55,6 +57,9 @@ clickAudio.preload = 'auto';
 clickAudio.volume = 0.6;
 
 function playClickSound() {
+  // 只有在全局音量开启时才播放声音
+  if (!props.soundEnabled) return;
+  
   try {
     clickAudio.currentTime = 0;
     const p = clickAudio.play();

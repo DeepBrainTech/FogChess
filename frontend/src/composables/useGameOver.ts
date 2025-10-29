@@ -55,7 +55,13 @@ export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlaye
           if (reason === 'king') {
             gameOverMessage.value = win ? t('gameOver.kingCaptured.win') : t('gameOver.kingCaptured.lose');
           } else {
-            gameOverMessage.value = win ? t('gameOver.surrender.win') : t('gameOver.surrender.lose');
+            // 检查是否是AI无棋可走的情况
+            const isAINoMoves = (gs as any).aiNoMoves || false;
+            if (isAINoMoves) {
+              gameOverMessage.value = win ? t('gameOver.noMoves.win') : t('gameOver.noMoves.lose');
+            } else {
+              gameOverMessage.value = win ? t('gameOver.surrender.win') : t('gameOver.surrender.lose');
+            }
           }
         }
 

@@ -34,8 +34,8 @@ class SocketService {
   }
 
   // 创建房间
-  createRoom(roomName: string, playerName: string, timerMode: string = 'unlimited'): void {
-    this.socket?.emit('create-room', { roomName, playerName, timerMode });
+  createRoom(roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal'): void {
+    this.socket?.emit('create-room', { roomName, playerName, timerMode, gameMode });
   }
 
   // 加入房间

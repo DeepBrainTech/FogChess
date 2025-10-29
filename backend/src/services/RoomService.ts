@@ -2,12 +2,14 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Room, Player, GameState, Move } from '../types';
 import { ChessService } from './ChessService';
 import { TimerService } from './TimerService';
+import { AIService } from './AIService';
 import type { RoomRepository } from '../repositories/RoomRepository';
 import type { GameArchiver } from './ArchiverService';
 
 export class RoomService {
   private rooms: Map<string, Room> = new Map();
   private roomIdToChess: Map<string, ChessService> = new Map();
+  private roomIdToAI: Map<string, AIService> = new Map();
   private timerService: TimerService;
   private repository?: RoomRepository;
   private archiver?: GameArchiver;
@@ -21,7 +23,7 @@ export class RoomService {
   /**
    * 创建新房间
    */
-  createRoom(roomName: string, playerName: string, socketId: string, timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited'): Room {
+  createRoom(roomName: string, playerName: string, socketId: string, timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited', gameMode: 'normal' | 'ai' = 'normal'): Room {
     // 清理该socketId的旧房间（强制删除只包含该玩家的房间）
     this.cleanupPlayerRooms(socketId, true);
     
@@ -36,14 +38,21 @@ export class RoomService {
     const chess = new ChessService();
     this.roomIdToChess.set(roomId, chess);
 
+    // 如果是AI模式，创建AI实例
+    if (gameMode === 'ai') {
+      const ai = new AIService(6); // 难度6，相当于1000分水平
+      this.roomIdToAI.set(roomId, ai);
+    }
+
     const room: Room = {
       id: roomId,
       name: roomName,
       players: [player],
       gameState: chess.createNewGame(),
       createdAt: new Date(),
-      isFull: false,
-      timerMode: timerMode
+      isFull: gameMode === 'ai', // AI模式房间创建时就是满的
+      timerMode: timerMode,
+      gameMode: gameMode
     };
 
     // 计时器将在游戏开始时初始化，而不是房间创建时
@@ -248,6 +257,15 @@ export class RoomService {
 
       room.gameState = result.gameState;
       
+      // 如果是AI模式，同步AI的chess实例
+      if (room.gameMode === 'ai') {
+        const ai = this.roomIdToAI.get(roomId);
+        if (ai) {
+          ai.loadGameState(room.gameState);
+          console.log('AI chess instance synchronized after human move');
+        }
+      }
+      
       // 如果游戏结束（吃王），归档游戏
       if (result.gameState.gameStatus === 'finished' && result.gameState.winner) {
         this.repository?.getMoves(roomId)
@@ -259,6 +277,7 @@ export class RoomService {
       // append move and persist room state
       this.repository?.appendMove(roomId, move).catch(() => {});
       this.repository?.saveRoom(room).catch(() => {});
+
       return { success: true, gameState: room.gameState };
     }
 
@@ -484,6 +503,142 @@ export class RoomService {
   }
 
   /**
+   * AI执行移动
+   */
+  makeAIMove(roomId: string): { move?: Move; gameState?: GameState } | null {
+    const room = this.rooms.get(roomId);
+    const ai = this.roomIdToAI.get(roomId);
+    const chess = this.roomIdToChess.get(roomId);
+    
+    console.log('AI Move Debug:', {
+      roomId,
+      hasRoom: !!room,
+      hasAI: !!ai,
+      hasChess: !!chess,
+      gameStatus: room?.gameState.gameStatus,
+      currentPlayer: room?.gameState.currentPlayer
+    });
+    
+    if (!room || !ai || !chess || room.gameState.gameStatus !== 'playing') {
+      console.log('AI Move: Early return due to missing components or game not playing');
+      return null;
+    }
+
+    // 加载当前游戏状态到AI
+    ai.loadGameState(room.gameState);
+    
+    // 获取AI的最佳移动
+    const aiMove = ai.getBestMove();
+    console.log('AI Move Result:', aiMove);
+    if (!aiMove) {
+      console.log('AI Move: No move found - AI has no legal moves, human player wins!');
+      // AI没有可移动的棋子，人类玩家获胜
+      room.gameState.gameStatus = 'finished';
+      room.gameState.winner = 'white'; // 人类玩家是白方
+      room.gameState.currentPlayer = 'white';
+      (room.gameState as any).aiNoMoves = true; // 标记为AI无棋可走
+      
+      // 持久化游戏状态
+      this.repository?.saveRoom(room).catch(() => {});
+      
+      console.log('AI defeated - no legal moves available');
+      return { gameState: room.gameState };
+    }
+
+    // 创建AI移动记录 - 使用AI的chess实例获取棋子信息
+    // 从AI的chess实例中获取棋子信息
+    const fromPiece = ai.getPieceAtSquare(aiMove.from);
+    const capturedPiece = ai.getPieceAtSquare(aiMove.to);
+    
+    // AI是黑方，棋子应该已经是小写表示
+    const blackPiece = fromPiece;
+    
+    // 验证AI移动的棋子类型
+    console.log('AI Piece validation:', {
+      originalPiece: fromPiece,
+      blackPiece: blackPiece,
+      fromSquare: aiMove.from,
+      toSquare: aiMove.to,
+      aiFen: ai.getFen(),
+      gameFen: room.gameState.board
+    });
+    
+    // 处理吃子：如果吃的是白棋，保持大写；如果吃的是黑棋，转为小写
+    let blackCapturedPiece = capturedPiece;
+    if (capturedPiece && capturedPiece !== '') {
+      // 如果目标格有棋子，根据AI是黑方，被吃的应该是白棋（大写）
+      // 但我们需要确保逻辑正确
+      blackCapturedPiece = capturedPiece.toUpperCase();
+    }
+    
+    const move: Move = {
+      from: aiMove.from,
+      to: aiMove.to,
+      piece: blackPiece,
+      captured: blackCapturedPiece,
+      promotion: aiMove.promotion as any,
+      timestamp: new Date(),
+      player: 'black' // AI总是黑方
+    };
+
+    // 执行AI移动
+    console.log('AI Move to execute:', {
+      from: move.from,
+      to: move.to,
+      piece: move.piece,
+      captured: move.captured,
+      promotion: move.promotion,
+      player: move.player
+    });
+    const result = chess.makeMove(move);
+    console.log('AI Move execution result:', {
+      success: result.success,
+      gameStatus: result.gameState?.gameStatus,
+      currentPlayer: result.gameState?.currentPlayer,
+      winner: result.gameState?.winner,
+      error: result.error
+    });
+    
+    if (result.success && result.gameState) {
+      room.gameState = result.gameState;
+      
+      // 同步AI的chess实例
+      ai.loadGameState(room.gameState);
+      
+      // 如果游戏结束，归档游戏
+      if (result.gameState.gameStatus === 'finished' && result.gameState.winner) {
+        this.repository?.getMoves(roomId)
+          .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
+          .then(() => this.repository?.clearMoves(roomId))
+          .catch(() => {});
+      }
+      
+      // 保存移动和房间状态
+      this.repository?.appendMove(roomId, move).catch(() => {});
+      this.repository?.saveRoom(room).catch(() => {});
+      
+      console.log('AI Move completed successfully:', move.from, 'to', move.to);
+      return { move, gameState: room.gameState };
+    }
+    
+    return null;
+  }
+
+  /**
+   * 获取指定格子的棋子
+   */
+  private getPieceAtSquare(fen: string, square: string): string {
+    try {
+      const chess = new ChessService();
+      chess.loadGameState({ board: fen, currentPlayer: 'white', gameStatus: 'playing', moveHistory: [], fogOfWar: { whiteVisible: [], blackVisible: [], lastKnownPositions: { white: {}, black: {} } } });
+      const piece = chess.getPieceAtSquare(square);
+      return piece || '';
+    } catch {
+      return '';
+    }
+  }
+
+  /**
    * 清理空房间
    */
   cleanupEmptyRooms(): void {
@@ -491,6 +646,7 @@ export class RoomService {
       if (room.players.length === 0) {
         this.rooms.delete(roomId);
         this.roomIdToChess.delete(roomId);
+        this.roomIdToAI.delete(roomId);
         this.timerService.cleanupTimer(roomId);
         this.repository?.deleteRoom(roomId).catch(() => {});
       }

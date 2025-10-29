@@ -13,9 +13,9 @@ export const useRoomStore = defineStore('room', () => {
   const lastTimerMode = ref<string>('unlimited');
 
   // 动作
-  const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited') => {
+  const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal') => {
     lastTimerMode.value = timerMode;
-    socketService.createRoom(roomName, playerName, timerMode);
+    socketService.createRoom(roomName, playerName, timerMode, gameMode);
   };
 
   const joinRoom = (roomId: string, playerName: string) => {

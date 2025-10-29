@@ -1,6 +1,11 @@
 <template>
   <div class="lobby">
-    <h2>{{ t('lobby.title') }}</h2>
+    <div class="lobby-header">
+      <button @click="goHome" class="back-button">
+        ← {{ t('lobby.backToHome') }}
+      </button>
+      <h2>{{ t('lobby.title') }}</h2>
+    </div>
     <div class="toolbar">
       <div class="input-group">
         <label>{{ t('lobby.playerName') }}:</label>
@@ -88,6 +93,10 @@ const load = async (showLoading = false) => {
 
 const refresh = () => load(true);
 
+const goHome = () => {
+  router.push('/');
+};
+
 const join = (roomId: string) => {
   if (!playerName.value.trim()) return;
   roomStore.joinRoom(roomId, playerName.value.trim());
@@ -134,6 +143,29 @@ onUnmounted(() => {
   margin: 40px auto; 
   padding: 0 16px; 
   font-family: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', '幼圆', 'YouYuan', sans-serif;
+}
+
+.lobby-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.back-button {
+  padding: 10px 16px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+.back-button:hover {
+  background: #5a6268;
 }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; }
 .input-group { display: flex; align-items: center; gap: 10px; }

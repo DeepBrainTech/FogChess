@@ -649,4 +649,23 @@ export class ChessService {
       return { success: false, error: 'Failed to undo move' };
     }
   }
+
+  /**
+   * 加载游戏状态
+   */
+  loadGameState(gameState: GameState): void {
+    this.chess.load(gameState.board);
+    this.moveHistory = [...gameState.moveHistory];
+  }
+
+  /**
+   * 获取指定格子的棋子
+   */
+  getPieceAtSquare(square: string): string {
+    const piece = this.chess.get(square as any);
+    if (!piece) return '';
+    
+    const pieceChar = piece.type === 'p' ? '' : piece.type.toUpperCase();
+    return piece.color === 'w' ? pieceChar : pieceChar.toLowerCase();
+  }
 }

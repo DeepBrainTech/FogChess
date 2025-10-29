@@ -14,6 +14,8 @@ export interface Room {
   isFull: boolean;
   // 计时模式（可选，后端权威）
   timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet';
+  // 游戏模式
+  gameMode?: 'normal' | 'ai';
 }
 
 export interface GameState {
@@ -55,7 +57,7 @@ export interface FogOfWarState {
 export interface SocketEvents {
   // 客户端发送的事件
   'join-room': { roomId: string; playerName: string };
-  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet' };
+  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai' };
   'make-move': { roomId: string; move: Move };
   'leave-room': { roomId: string };
   'get-legal-moves': { roomId: string; square: string };

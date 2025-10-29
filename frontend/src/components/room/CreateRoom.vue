@@ -40,6 +40,18 @@
         </select>
       </div>
       
+      <div class="form-group">
+        <label for="gameMode">{{ t('room.create.gameMode') }}</label>
+        <select
+          id="gameMode"
+          v-model="gameMode"
+          required
+        >
+          <option value="normal">{{ t('room.create.gameMode.normal') }}</option>
+          <option value="ai">{{ t('room.create.gameMode.ai') }}</option>
+        </select>
+      </div>
+      
       <button 
         type="submit" 
         :disabled="!roomName.trim() || !playerName.trim() || isCreating"
@@ -67,6 +79,7 @@ const roomStore = useRoomStore();
 const roomName = ref('');
 const playerName = ref('');
 const timerMode = ref('unlimited');
+const gameMode = ref('normal');
 const isCreating = ref(false);
 const error = ref('');
 
@@ -77,7 +90,7 @@ const handleCreateRoom = async () => {
   error.value = '';
   
   try {
-    roomStore.createRoom(roomName.value.trim(), playerName.value.trim(), timerMode.value);
+    roomStore.createRoom(roomName.value.trim(), playerName.value.trim(), timerMode.value, gameMode.value);
     
     // 监听房间创建成功事件
     const unsubscribe = roomStore.$subscribe((_, state) => {
