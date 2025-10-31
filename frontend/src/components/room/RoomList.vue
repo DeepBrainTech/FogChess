@@ -18,17 +18,18 @@
         <label for="playerName">{{ t('room.join.name') }}</label>
         <input
           id="playerName"
-          v-model="playerName"
+          :value="playerName"
           type="text"
           :placeholder="t('room.join.name.ph')"
-          required
+          readonly
           maxlength="15"
         />
+        <p v-if="!hasPlayerName" class="readonly-hint">{{ t('room.create.nameReadonlyHint') }}</p>
       </div>
       
       <button 
         @click="handleJoinRoom"
-        :disabled="!roomId.trim() || !playerName.trim() || isJoining"
+        :disabled="!roomId.trim() || !hasPlayerName || isJoining"
         class="join-button"
       >
         {{ isJoining ? t('room.join.joining') : t('room.join.button') }}
@@ -38,29 +39,6 @@
     <div v-if="error" class="error-message">
       {{ error }}
     </div>
-    
-    <div class="available-rooms" v-if="availableRooms.length > 0">
-      <h3>{{ t('room.join.availableRooms') }}</h3>
-      <div class="rooms-grid">
-        <div 
-          v-for="room in availableRooms" 
-          :key="room.id"
-          class="room-card"
-          @click="joinRoomById(room.id)"
-        >
-          <div class="room-name">{{ room.name }}</div>
-          <div class="room-info">
-            <span class="player-count">{{ room.players.length }}/2 {{ t('room.join.players') }}</span>
-            <span class="room-status" :class="getRoomStatusClass(room)">
-              {{ getRoomStatusText(room) }}
-            </span>
-          </div>
-          <div v-if="room.gameMode === 'ai'" class="ai-indicator">
-            🤖 {{ t('room.join.ai') }}
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -68,40 +46,28 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../../stores/room';
+import { useAuthStore } from '../../stores/auth';
 import { t } from '../../services/i18n';
 
 const router = useRouter();
 const roomStore = useRoomStore();
+const authStore = useAuthStore();
 
 const roomId = ref('');
-const playerName = ref('');
+const playerName = computed(() => authStore.user?.username ?? '');
+const hasPlayerName = computed(() => playerName.value.trim().length > 0);
 const isJoining = ref(false);
 const error = ref('');
 
-const availableRooms = computed(() => roomStore.availableRooms);
-
-const getRoomStatusClass = (room: any) => {
-  if (room.gameMode === 'ai') {
-    return 'ai-full';
-  }
-  return room.isFull ? 'full' : 'available';
-};
-
-const getRoomStatusText = (room: any) => {
-  if (room.gameMode === 'ai') {
-    return t('room.join.aiFull');
-  }
-  return room.isFull ? t('room.join.full') : t('room.join.available');
-};
-
 const handleJoinRoom = async () => {
-  if (!roomId.value.trim() || !playerName.value.trim()) return;
+  const name = playerName.value.trim();
+  if (!roomId.value.trim() || !name) return;
   
   isJoining.value = true;
   error.value = '';
   
   try {
-    roomStore.joinRoom(roomId.value.trim(), playerName.value.trim());
+    roomStore.joinRoom(roomId.value.trim(), name);
     
     // 监听加入成功事件
     const unsubscribe = roomStore.$subscribe((_, state) => {
@@ -122,13 +88,6 @@ const handleJoinRoom = async () => {
   } catch (err) {
     error.value = t('room.join.error');
     isJoining.value = false;
-  }
-};
-
-const joinRoomById = (id: string) => {
-  roomId.value = id;
-  if (playerName.value.trim()) {
-    handleJoinRoom();
   }
 };
 
@@ -221,77 +180,9 @@ input:focus {
   text-align: center;
 }
 
-.available-rooms {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.rooms-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.room-card {
-  padding: 15px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.room-card:hover {
-  border-color: #4CAF50;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.room-name {
-  font-weight: bold;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.room-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 14px;
-}
-
-.player-count {
-  color: #666;
-}
-
-.room-status {
-  padding: 4px 8px;
-  border-radius: 4px;
+.readonly-hint {
+  margin-top: 6px;
   font-size: 12px;
-  font-weight: bold;
-}
-
-.room-status.available {
-  background-color: #E8F5E8;
-  color: #2E7D32;
-}
-
-.room-status.full {
-  background-color: #FFEBEE;
-  color: #C62828;
-}
-
-.room-status.ai-full {
-  background-color: #E3F2FD;
-  color: #1976D2;
-}
-
-.ai-indicator {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #666;
-  text-align: center;
+  color: #777;
 }
 </style>

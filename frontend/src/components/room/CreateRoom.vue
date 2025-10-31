@@ -18,12 +18,13 @@
         <label for="playerName">{{ t('room.create.name') }}</label>
         <input
           id="playerName"
-          v-model="playerName"
+          :value="playerName"
           type="text"
-          :placeholder="t('room.create.name.ph')"
-          required
+          readonly
           maxlength="15"
+          :placeholder="t('room.create.name.ph')"
         />
+        <p v-if="!hasPlayerName" class="readonly-hint">{{ t('room.create.nameReadonlyHint') }}</p>
       </div>
       
       <div class="form-group">
@@ -54,7 +55,7 @@
       
       <button 
         type="submit" 
-        :disabled="!roomName.trim() || !playerName.trim() || isCreating"
+        :disabled="!roomName.trim() || !hasPlayerName || isCreating"
         class="create-button"
       >
         {{ isCreating ? t('room.create.creating') : t('room.create.button') }}
@@ -68,29 +69,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../../stores/room';
 import { t } from '../../services/i18n';
+import { useAuthStore } from '../../stores/auth';
 
 const router = useRouter();
 const roomStore = useRoomStore();
+const authStore = useAuthStore();
 
 const roomName = ref('');
-const playerName = ref('');
+const playerName = computed(() => authStore.user?.username ?? '');
+const hasPlayerName = computed(() => playerName.value.trim().length > 0);
 const timerMode = ref('unlimited');
 const gameMode = ref('normal');
 const isCreating = ref(false);
 const error = ref('');
 
 const handleCreateRoom = async () => {
-  if (!roomName.value.trim() || !playerName.value.trim()) return;
+  const name = playerName.value.trim();
+  if (!roomName.value.trim() || !name) return;
   
   isCreating.value = true;
   error.value = '';
   
   try {
-    roomStore.createRoom(roomName.value.trim(), playerName.value.trim(), timerMode.value, gameMode.value);
+    roomStore.createRoom(roomName.value.trim(), name, timerMode.value, gameMode.value);
     
     // 监听房间创建成功事件
     const unsubscribe = roomStore.$subscribe((_, state) => {
@@ -154,6 +159,12 @@ input {
 input:focus, select:focus {
   outline: none;
   border-color: #4CAF50;
+}
+
+.readonly-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #777;
 }
 
 select {

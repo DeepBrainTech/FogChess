@@ -12,7 +12,9 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // In docker-compose, the backend is reachable by service name 'backend'
+        // Fallback to localhost for non-docker local runs
+        target: process.env.BACKEND_URL || 'http://backend:3001',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

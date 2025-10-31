@@ -23,7 +23,7 @@ export class RoomService {
   /**
    * 创建新房间
    */
-  createRoom(roomName: string, playerName: string, socketId: string, timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited', gameMode: 'normal' | 'ai' = 'normal'): Room {
+  createRoom(roomName: string, playerName: string, socketId: string, timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited', gameMode: 'normal' | 'ai' = 'normal', mainUserId?: number): Room {
     // 清理该socketId的旧房间（强制删除只包含该玩家的房间）
     this.cleanupPlayerRooms(socketId, true);
     
@@ -32,7 +32,8 @@ export class RoomService {
       id: uuidv4(),
       name: playerName,
       color: 'white', // 创建者默认为白方
-      socketId
+      socketId,
+      mainUserId
     };
 
     const chess = new ChessService();
@@ -66,7 +67,7 @@ export class RoomService {
   /**
    * 加入房间
    */
-  joinRoom(roomId: string, playerName: string, socketId: string): { success: boolean; room?: Room; player?: Player; error?: string } {
+  joinRoom(roomId: string, playerName: string, socketId: string, mainUserId?: number): { success: boolean; room?: Room; player?: Player; error?: string } {
     const room = this.rooms.get(roomId);
     
     if (!room) {
@@ -98,7 +99,8 @@ export class RoomService {
       id: uuidv4(),
       name: playerName,
       color: assignedColor,
-      socketId
+      socketId,
+      mainUserId
     };
 
     // 去重同一socket或同一颜色的旧占位

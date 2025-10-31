@@ -2,6 +2,8 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import jwt from 'jsonwebtoken';
 import { RoomService } from './services/RoomService';
 import type { SocketEvents } from './types';
 import { RedisRoomRepository } from './repositories/RedisRoomRepository';
@@ -11,8 +13,12 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:8080",
-    methods: ["GET", "POST"]
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:8080",
+      process.env.MAIN_PORTAL_URL || "http://localhost:3000"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -35,12 +41,89 @@ async function initializeDatabase() {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:8080',
+    process.env.MAIN_PORTAL_URL || 'http://localhost:3000'
+  ],
+  credentials: true
+}));
 app.use(express.json());
+// Do not require a signing secret; we are not using signed cookies here
+app.use(cookieParser());
+
+const SESSION_COOKIE = 'fogchess.sid';
+const SESSION_AUD = 'fogchess-session';
+const SESSION_ISS = 'fogchess-backend';
+const SESSION_TTL_SEC = 7 * 24 * 3600;
+
+function signSession(user: { mainUserId: number; username: string }) {
+  return jwt.sign(
+    { sub: String(user.username), mainUserId: user.mainUserId, username: user.username },
+    process.env.SESSION_SECRET as string,
+    { algorithm: 'HS256', audience: SESSION_AUD, issuer: SESSION_ISS, expiresIn: SESSION_TTL_SEC }
+  );
+}
+
+function verifyPortalToken(token: string) {
+  return jwt.verify(token, process.env.FOG_CHESS_JWT_SECRET as string, {
+    algorithms: ['HS256'],
+    audience: process.env.FOG_CHESS_JWT_AUD,
+    issuer: process.env.FOG_CHESS_JWT_ISS
+  }) as { user_id: number; username: string; sub: string; iss: string; aud: string; exp: number };
+}
+
+function setSessionCookie(res: express.Response, jwtToken: string) {
+  res.cookie(SESSION_COOKIE, jwtToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: SESSION_TTL_SEC * 1000,
+    path: '/'
+  });
+}
+
+function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const token = (req as any).cookies?.[SESSION_COOKIE];
+  if (!token) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  try {
+    const payload = jwt.verify(token, process.env.SESSION_SECRET as string, {
+      algorithms: ['HS256'],
+      audience: SESSION_AUD,
+      issuer: SESSION_ISS
+    }) as any;
+    (req as any).user = { id: payload.mainUserId, username: payload.username };
+    next();
+    return;
+  } catch {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+}
 
 // Routes
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.post('/auth/fogchess/exchange', (req, res) => {
+  const token = (req as any).body?.token as string | undefined;
+  if (!token) return res.status(400).json({ error: 'token required' });
+  try {
+    const claims = verifyPortalToken(token);
+    const session = signSession({ mainUserId: claims.user_id, username: claims.username });
+    setSessionCookie(res, session);
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(401).json({ error: 'invalid token' });
+  }
+});
+
+app.get('/me', requireAuth, (req, res) => {
+  res.json({ user: (req as any).user });
 });
 
 app.get('/rooms', (req, res) => {
@@ -49,11 +132,34 @@ app.get('/rooms', (req, res) => {
 });
 
 // Socket.io 连接处理
+io.use((socket, next) => {
+  try {
+    const cookieHeader = socket.request.headers.cookie || '';
+    const match = cookieHeader.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`));
+    const token = match ? decodeURIComponent(match[1]) : '';
+    if (!token) return next();
+    const payload = jwt.verify(token, process.env.SESSION_SECRET as string, {
+      algorithms: ['HS256'], audience: SESSION_AUD, issuer: SESSION_ISS
+    }) as any;
+    (socket as any).data.user = { id: payload.mainUserId, username: payload.username };
+  } catch {}
+  next();
+});
+
 io.on('connection', (socket) => {
   // 创建房间
   socket.on('create-room', (data: SocketEvents['create-room']) => {
     try {
-      const room = roomService.createRoom(data.roomName, data.playerName, socket.id, data.timerMode, data.gameMode);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const playerName = sessionUser?.username || data.playerName;
+      const room = roomService.createRoom(
+        data.roomName,
+        playerName,
+        socket.id,
+        data.timerMode,
+        data.gameMode,
+        sessionUser?.id
+      );
       socket.join(room.id);
       socket.emit('room-created', { room });
       
@@ -73,7 +179,14 @@ io.on('connection', (socket) => {
   // 加入房间
   socket.on('join-room', (data: SocketEvents['join-room']) => {
     try {
-      const result = roomService.joinRoom(data.roomId, data.playerName, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const playerName = sessionUser?.username || data.playerName;
+      const result = roomService.joinRoom(
+        data.roomId,
+        playerName,
+        socket.id,
+        sessionUser?.id
+      );
       
       if (result.success && result.room && result.player) {
         socket.join(data.roomId);

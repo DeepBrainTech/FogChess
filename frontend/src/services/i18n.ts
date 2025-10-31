@@ -133,7 +133,8 @@ const dict: Dict = {
   'room.create.roomName': { zh: '房间名称:', en: 'Room Name:' },
   'room.create.roomName.ph': { zh: '输入房间名称', en: 'Enter room name' },
   'room.create.name': { zh: '你的昵称:', en: 'Your name:' },
-  'room.create.name.ph': { zh: '输入你的昵称', en: 'Enter your name' },
+  'room.create.name.ph': { zh: '使用主页用户名', en: 'Using username' },
+  'room.create.nameReadonlyHint': { zh: '自动使用主站用户名，无需填写', en: 'Using your username automatically' },
   'room.create.timer': { zh: '计时模式:', en: 'Timer Mode:' },
   'room.create.timer.unlimited': { zh: '无限时练习', en: 'Unlimited practice' },
   'room.create.timer.classical': { zh: '慢棋30分钟+30秒增秒', en: 'Classical 30m + 30s' },
@@ -192,7 +193,7 @@ const dict: Dict = {
   // Lobby
   'lobby.title': { zh: '大厅', en: 'Lobby' },
   'lobby.playerName': { zh: '你的昵称', en: 'Your name' },
-  'lobby.playerNamePlaceholder': { zh: '输入昵称以便加入房间', en: 'Enter name to join rooms' },
+  'lobby.playerNamePlaceholder': { zh: '已使用主页用户名', en: 'Using homepage username' },
   'lobby.search': { zh: '搜索', en: 'Search' },
   'lobby.searchPlaceholder': { zh: '搜索房间名称、ID或玩家', en: 'Search room name, ID or players' },
   'lobby.refresh': { zh: '刷新', en: 'Refresh' },

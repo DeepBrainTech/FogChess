@@ -31,11 +31,17 @@ export class PostgresArchiver implements GameArchiver {
         created_on TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
 
+      -- Add new columns if the table already existed before
+      ALTER TABLE games ADD COLUMN IF NOT EXISTS white_user_id BIGINT;
+      ALTER TABLE games ADD COLUMN IF NOT EXISTS black_user_id BIGINT;
+
       CREATE INDEX IF NOT EXISTS idx_games_room_id ON games(room_id);
       CREATE INDEX IF NOT EXISTS idx_games_result ON games(result);
       CREATE INDEX IF NOT EXISTS idx_games_finished_at ON games(finished_at);
       CREATE INDEX IF NOT EXISTS idx_games_timer_mode ON games(timer_mode);
       CREATE INDEX IF NOT EXISTS idx_games_players ON games(white_name, black_name);
+      CREATE INDEX IF NOT EXISTS idx_games_white_user_id ON games(white_user_id);
+      CREATE INDEX IF NOT EXISTS idx_games_black_user_id ON games(black_user_id);
     `;
     await client.query(initSql);
   }
@@ -59,19 +65,25 @@ export class PostgresArchiver implements GameArchiver {
       
       const text = `
         INSERT INTO games (
-          id, room_id, white_name, black_name, timer_mode, created_at,
-          started_at, finished_at, result, starting_fen, final_fen, pgn, moves
+          id, room_id, white_name, black_name, white_user_id, black_user_id,
+          timer_mode, created_at, started_at, finished_at, result,
+          starting_fen, final_fen, pgn, moves
         ) VALUES (
           gen_random_uuid(), $1, $2, $3, $4, $5,
-          $6, $7, $8, $9, $10, $11, $12
+          $6, $7, $8, $9, $10,
+          $11, $12, $13, $14
         )`;
 
       const white = room.players.find(p => p.color === 'white')?.name || 'White';
       const black = room.players.find(p => p.color === 'black')?.name || 'Black';
+      const whiteUserId = (room.players.find(p => p.color === 'white') as any)?.mainUserId || null;
+      const blackUserId = (room.players.find(p => p.color === 'black') as any)?.mainUserId || null;
       const params = [
         room.id,
         white,
         black,
+        whiteUserId,
+        blackUserId,
         room.timerMode || 'unlimited',
         room.createdAt,
         room.gameState.gameStatus === 'playing' ? new Date() : room.createdAt,

@@ -3,6 +3,7 @@ export interface Player {
   name: string;
   color: 'white' | 'black';
   socketId: string;
+  mainUserId?: number; // optional: linked user id from main portal
 }
 
 export interface Room {

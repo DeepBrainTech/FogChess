@@ -9,7 +9,10 @@
     <div class="toolbar">
       <div class="input-group">
         <label>{{ t('lobby.playerName') }}:</label>
-        <input v-model="playerName" :placeholder="t('lobby.playerNamePlaceholder')" />
+        <div class="readonly-wrapper">
+          <input :value="playerName" :placeholder="t('lobby.playerNamePlaceholder')" readonly />
+          <span v-if="!hasPlayerName" class="readonly-hint">{{ t('room.create.nameReadonlyHint') }}</span>
+        </div>
       </div>
       <div class="input-group">
         <label>{{ t('lobby.search') }}:</label>
@@ -44,7 +47,7 @@
               </div>
             </div>
           </div>
-          <button class="join" :disabled="room.isFull" @click="join(room.id)">
+          <button class="join" :disabled="room.isFull || !hasPlayerName" @click="join(room.id)">
             {{ room.isFull ? t('lobby.full') : t('lobby.join') }}
           </button>
         </li>
@@ -57,12 +60,15 @@
 import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
+import { useAuthStore } from '../stores/auth';
 import { t } from '../services/i18n';
 
 const router = useRouter();
 const roomStore = useRoomStore();
 const loading = ref(false);
-const playerName = ref('');
+const authStore = useAuthStore();
+const playerName = computed(() => authStore.user?.username ?? '');
+const hasPlayerName = computed(() => playerName.value.trim().length > 0);
 const searchQuery = ref('');
 const rooms = computed(() => {
   const allRooms = roomStore.availableRooms;
@@ -98,8 +104,9 @@ const goHome = () => {
 };
 
 const join = (roomId: string) => {
-  if (!playerName.value.trim()) return;
-  roomStore.joinRoom(roomId, playerName.value.trim());
+  const name = playerName.value.trim();
+  if (!name) return;
+  roomStore.joinRoom(roomId, name);
   const un = roomStore.$subscribe((_, state) => {
     if (state.currentRoom) {
       un();
@@ -170,7 +177,9 @@ onUnmounted(() => {
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; }
 .input-group { display: flex; align-items: center; gap: 10px; }
 .input-group label { font-weight: 600; color: #333; white-space: nowrap; }
-.input-group input { padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; min-width: 200px; }
+.readonly-wrapper { display: flex; flex-direction: column; }
+.input-group input { padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; min-width: 200px; background-color: #f7f7f7; color: #555; }
+.readonly-hint { margin-top: 4px; font-size: 12px; color: #888; }
 .button-group { display: flex; gap: 10px; }
 button { padding: 12px 20px; border: none; background: #1976D2; color: #fff; border-radius: 6px; cursor: pointer; font-size: 16px; }
 .list ul { list-style: none; padding: 0; margin: 0; }
