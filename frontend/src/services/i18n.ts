@@ -41,6 +41,8 @@ const dict: Dict = {
   'home.lobby.title': { zh: '大厅', en: 'Lobby' },
   'home.lobby.desc': { zh: '查看所有可加入的房间', en: 'View all available rooms' },
   'home.lobby.button': { zh: '进入大厅', en: 'Enter Lobby' },
+  'home.profile.title': { zh: '个人资料', en: 'Profile' },
+  'home.profile.desc': { zh: '查看你的个人资料', en: 'View your profile' },
 
   'dialog.notStarted.title': { zh: '游戏未开始', en: 'Game Not Started' },
   'dialog.notStarted.message': { zh: '等待对手加入', en: 'Waiting for the opponent to join' },
@@ -133,8 +135,8 @@ const dict: Dict = {
   'room.create.roomName': { zh: '房间名称:', en: 'Room Name:' },
   'room.create.roomName.ph': { zh: '输入房间名称', en: 'Enter room name' },
   'room.create.name': { zh: '你的昵称:', en: 'Your name:' },
-  'room.create.name.ph': { zh: '使用主页用户名', en: 'Using username' },
-  'room.create.nameReadonlyHint': { zh: '自动使用主站用户名，无需填写', en: 'Using your username automatically' },
+  'room.create.name.ph': { zh: '使用主页用户名', en: 'Using homepage username' },
+  'room.create.nameReadonlyHint': { zh: '自动使用主页用户名，无需填写', en: 'Using your username automatically' },
   'room.create.timer': { zh: '计时模式:', en: 'Timer Mode:' },
   'room.create.timer.unlimited': { zh: '无限时练习', en: 'Unlimited practice' },
   'room.create.timer.classical': { zh: '慢棋30分钟+30秒增秒', en: 'Classical 30m + 30s' },
@@ -211,6 +213,9 @@ const dict: Dict = {
   'lobby.join': { zh: '加入', en: 'Join' },
   'lobby.full': { zh: '已满', en: 'Full' },
   'lobby.backToHome': { zh: '返回主界面', en: 'Back to Home' },
+
+  // Game view
+  'home.backToPortal': { zh: '返回游戏总主页', en: 'Back to Main Portal' },
 };
 
 export function t(key: keyof typeof dict): string {

@@ -1,5 +1,6 @@
 <template>
   <div class="home">
+    <button class="portal-back" @click="goPortal">{{ t('home.backToPortal') }}</button>
 
     <!-- 主要内容区域 -->
     <div class="main-content">
@@ -10,9 +11,6 @@
           <p class="hero-description">
             {{ t('home.hero.description') }}
           </p>
-          <button class="start-game-btn" @click="showCreateRoom = true">
-            {{ t('home.hero.startButton') }}
-          </button>
         </div>
         
         <!-- 操作按钮区域 -->
@@ -38,6 +36,14 @@
             <div class="btn-content">
               <h4>{{ t('home.lobby.title') }}</h4>
               <p>{{ t('home.lobby.desc') }}</p>
+            </div>
+          </button>
+
+          <button @click="goProfile" class="action-btn profile-btn">
+            <span class="btn-icon">🧑</span>
+            <div class="btn-content">
+              <h4>{{ t('home.profile.title') }}</h4>
+              <p>{{ t('home.profile.desc') }}</p>
             </div>
           </button>
         </div>
@@ -93,8 +99,21 @@ const router = useRouter();
 const showCreateRoom = ref(false);
 const showJoinRoom = ref(false);
 
+const portalUrl = import.meta.env.VITE_MAIN_PORTAL_URL || '/';
+
+const goPortal = () => {
+  if (!portalUrl) return;
+  window.location.href = portalUrl;
+};
+
 const goLobby = () => {
   router.push('/lobby');
+};
+
+const goProfile = () => {
+  router.push('/profile').catch(() => {
+    // 目标路由尚未实现时静默忽略
+  });
 };
 
 onMounted(() => {
@@ -115,6 +134,26 @@ onMounted(() => {
   min-height: 100vh;
   background: #fef6ec; /* 淡米黄色背景 */
   font-family: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', '幼圆', 'YouYuan', 'Georgia', 'Times New Roman', serif;
+}
+
+.portal-back {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1500;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.portal-back:hover {
+  background: rgba(255, 255, 255, 1);
 }
 
 
@@ -154,25 +193,6 @@ onMounted(() => {
   line-height: 1.5;
   margin-bottom: 25px;
   max-width: 500px;
-}
-
-.start-game-btn {
-  background: #77A9B8;
-  color: white;
-  border: none;
-  padding: 16px 32px;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(119, 169, 184, 0.3);
-}
-
-.start-game-btn:hover {
-  background: #6B9BA8;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(119, 169, 184, 0.4);
 }
 
 /* 操作按钮区域 */
