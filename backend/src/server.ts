@@ -77,7 +77,7 @@ function setSessionCookie(res: express.Response, jwtToken: string) {
   res.cookie(SESSION_COOKIE, jwtToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: SESSION_TTL_SEC * 1000,
     path: '/'
   });
