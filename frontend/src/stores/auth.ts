@@ -10,12 +10,14 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const apiBase = (import.meta as any).env?.VITE_API_URL || '';
 
   const fetchCurrentUser = async (): Promise<void> => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await fetch('/api/me', { method: 'GET' });
+      const url = apiBase ? `${apiBase}/me` : '/api/me';
+      const response = await fetch(url, { method: 'GET' });
       if (!response.ok) {
         throw new Error(`Failed to load user: ${response.status}`);
       }

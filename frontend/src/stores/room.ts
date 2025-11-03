@@ -45,8 +45,9 @@ export const useRoomStore = defineStore('room', () => {
   // 从后端获取房间列表
   const fetchRooms = async () => {
     try {
-      const base = (import.meta as any).env?.VITE_API_HTTP || window.location.origin.replace(/:\d+$/, ':3001');
-      const res = await fetch(`${base}/rooms`);
+      const base = (import.meta as any).env?.VITE_API_URL || '';
+      const url = base ? `${base}/rooms` : '/api/rooms';
+      const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
       setAvailableRooms(data as Room[]);

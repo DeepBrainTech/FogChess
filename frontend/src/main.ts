@@ -21,6 +21,7 @@ app.use(pinia);
 app.use(router);
 
 const authStore = useAuthStore(pinia);
+const apiBase = (import.meta as any).env?.VITE_API_URL || '';
 
 async function exchangeTokenIfPresent() {
   try {
@@ -30,7 +31,8 @@ async function exchangeTokenIfPresent() {
     const token = hashParams.get('token') || searchParams.get('token');
     const redirect = hashParams.get('redirect') || searchParams.get('redirect');
     if (!token) return;
-    await fetch('/api/auth/fogchess/exchange', {
+    const url = apiBase ? `${apiBase}/auth/fogchess/exchange` : '/api/auth/fogchess/exchange';
+    await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token })
