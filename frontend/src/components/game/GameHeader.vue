@@ -20,7 +20,7 @@
       </div>
       <div class="players">
         <div 
-          v-for="player in room?.players" 
+          v-for="player in playersToRender" 
           :key="player.id"
           class="player-row"
           :class="{ 
@@ -31,8 +31,11 @@
         >
           <div class="player-info">
             <span class="player-color" :class="player.color"></span>
-            {{ player.color === currentPlayerColor ? t('header.you') : t('header.opponent') }}
-            <span v-if="player.color === gameState?.currentPlayer && gameState?.gameStatus !== 'finished'" class="turn-indicator">{{ t('header.currentTurn') }}</span>
+            {{ getPlayerLabel(player) }}
+            <span
+              v-if="player.color === gameState?.currentPlayer && gameState?.gameStatus !== 'finished'"
+              class="turn-indicator"
+            >{{ getTurnIndicator(player) }}</span>
           </div>
           <div class="captured-pieces">
             <img 
@@ -54,8 +57,14 @@
 </template>
 
 <script setup lang="ts">
-import type { Room, GameState } from '../../types';
+import { computed } from 'vue';
+import type { Player, Room, GameState } from '../../types';
 import { t } from '../../services/i18n';
+
+interface DisplayPlayer extends Player {
+  isAi?: boolean;
+  label?: string;
+}
 
 interface Props {
   room: Room | null;
@@ -63,13 +72,39 @@ interface Props {
   currentPlayerColor?: 'white' | 'black' | null;
   getCapturedPieces: (color: 'white' | 'black') => string[];
   getPieceImage: (symbol: string) => string;
+  players?: DisplayPlayer[];
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   room: null,
   gameState: null,
   currentPlayerColor: null
 });
+
+const playersToRender = computed<DisplayPlayer[]>(() => {
+  if (props.players && props.players.length) {
+    return props.players.map(player => ({ ...player }));
+  }
+
+  return (props.room?.players || []).map(player => ({ ...player })) as DisplayPlayer[];
+});
+
+const getPlayerLabel = (player: DisplayPlayer) => {
+  if (player.label) return player.label;
+  if (player.isAi) return t('header.aiOpponent');
+  if (props.currentPlayerColor && player.color === props.currentPlayerColor) {
+    return t('header.you');
+  }
+  if (props.currentPlayerColor && player.color !== props.currentPlayerColor) {
+    return t('header.opponent');
+  }
+  return player.name || t('header.opponent');
+};
+
+const getTurnIndicator = (player: DisplayPlayer) => {
+  if (player.isAi) return t('header.aiTurn');
+  return t('header.currentTurn');
+};
 </script>
 
 <style scoped>

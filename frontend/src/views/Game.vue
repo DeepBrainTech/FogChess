@@ -19,7 +19,6 @@
           :total-moves="totalMoves"
           :current-move-index="currentMoveIndex"
           :has-new-move="hasNewMove"
-          :sound-enabled="soundEnabled"
           @goToStart="goToStart"
           @stepBackward="stepBackward"
           @stepForward="stepForward"
@@ -41,6 +40,7 @@
         :current-player-color="roomStore.currentPlayer?.color || null"
         :get-captured-pieces="getCapturedPieces"
         :get-piece-image="getPieceImage"
+        :players="playersForHeader"
         @copy-invite="copyInviteLink"
         @copy-roomid="copyRoomIdOnly"
       >
@@ -134,11 +134,23 @@ import { t } from '../services/i18n';
 import { useGameDialogs } from '../composables/useGameDialogs';
 import { copyText } from '../utils/clipboard';
 import { getCapturedPiecesForColor, getPieceImageBySymbol } from '../utils/captured';
+import type { Player } from '../types';
 
 const router = useRouter();
 const roomStore = useRoomStore();
 const gameStore = useGameStore();
 
+interface DisplayPlayer extends Player {
+  isAi?: boolean;
+  label?: string;
+}
+
+const sortPlayersByColor = (list: DisplayPlayer[]) => {
+  return [...list].sort((a, b) => {
+    if (a.color === b.color) return 0;
+    return a.color === 'white' ? -1 : 1;
+  });
+};
 
 const room = computed(() => roomStore.currentRoom);
 const gameState = computed(() => gameStore.gameState);
@@ -173,6 +185,56 @@ const isMyTurn = computed(() => {
   return gameState.value.currentPlayer === roomStore.currentPlayer.color;
 });
 
+const playersForHeader = computed<DisplayPlayer[]>(() => {
+  const currentRoom = room.value;
+  if (!currentRoom) return [];
+
+  const basePlayers = (currentRoom.players || []).map(player => ({ ...player })) as DisplayPlayer[];
+
+  if (currentRoom.gameMode === 'ai') {
+    const localPlayerId = roomStore.currentPlayer?.id;
+    const playersWithFlags = basePlayers.map(player => ({
+      ...player,
+      isAi: localPlayerId ? player.id !== localPlayerId : false,
+    }));
+
+    if (playersWithFlags.length >= 2) {
+      return sortPlayersByColor(playersWithFlags);
+    }
+
+    const humanCandidate =
+      playersWithFlags.find(p => !p.isAi) ||
+      basePlayers.find(p => p.id === localPlayerId) ||
+      (roomStore.currentPlayer ? { ...roomStore.currentPlayer } : null);
+
+    const humanColor = (humanCandidate?.color as 'white' | 'black') || roomStore.currentPlayer?.color || 'white';
+
+    const humanPlayer: DisplayPlayer = humanCandidate
+      ? { ...humanCandidate, color: humanColor, isAi: false }
+      : {
+          id: 'human-player',
+          name: roomStore.currentPlayer?.name || t('header.you'),
+          color: humanColor,
+          socketId: roomStore.currentPlayer?.socketId || 'human-player',
+          isAi: false,
+        };
+
+    const aiColor: 'white' | 'black' = humanColor === 'white' ? 'black' : 'white';
+
+    const aiPlayer: DisplayPlayer = {
+      id: 'ai-player',
+      name: t('header.aiOpponent'),
+      color: aiColor,
+      socketId: 'ai-player',
+      isAi: true,
+    };
+
+    return sortPlayersByColor([humanPlayer, aiPlayer]);
+  }
+
+  return sortPlayersByColor(basePlayers);
+});
+
 // 获取被吃棋子列表（根据当前FEN与初始数量对比推断）
 const getCapturedPieces = (playerColor: 'white' | 'black') => {
   const fen = gameState.value?.board;
@@ -195,6 +257,7 @@ const timer = reactive({
   mode: 'unlimited' as string,
   increment: 0
 });
+
 
 function pieceImage(type: 'queen' | 'rook' | 'bishop' | 'knight') {
   const color = promotion.color;
@@ -227,7 +290,8 @@ function formatTime(seconds: number): string {
 
 function startTimer() {
   if (timer.mode === 'unlimited' || !timer.visible) return;
-  
+  stopTimer();
+
   const interval = setInterval(() => {
     if (timer.timeLeft <= 0) {
       clearInterval(interval);
@@ -260,7 +324,11 @@ function handleTimeout() {
   // 停止本地倒计时
   stopTimer();
   // 通知后端进行权威结算，服务端会通过 game-updated 广播到双方
-  if (room.value?.id && currentPlayerColor.value) {
+  if (
+    room.value?.id &&
+    currentPlayerColor.value &&
+    gameState.value?.gameStatus === 'playing'
+  ) {
     socketService.reportTimeout(room.value.id, currentPlayerColor.value);
   }
 }
@@ -397,6 +465,38 @@ function updateTimerFromBackend(clocks: any) {
   timer.warning = false;
   timer.danger = false;
 }
+
+// 当房间中的自身身份发生变化时（如重新随机颜色），同步到游戏存储并重置计时
+watch(
+  () => roomStore.currentPlayer,
+  (player, previousPlayer) => {
+    if (
+      player?.id === previousPlayer?.id &&
+      player?.color === previousPlayer?.color
+    ) {
+      return;
+    }
+
+    stopTimer();
+
+    if (!player) {
+      return;
+    }
+
+    gameStore.setCurrentPlayer(player);
+
+    if (gameState.value?.clocks) {
+      updateTimerFromBackend(gameState.value.clocks);
+    }
+
+    if (
+      gameState.value?.gameStatus === 'playing' &&
+      gameState.value.currentPlayer === player.color
+    ) {
+      startTimer();
+    }
+  }
+);
 
 });
 

@@ -338,85 +338,93 @@ export const useGameStore = defineStore('game', () => {
     socketService.respondToDraw(roomId, accepted);
   };
 
+  const handleMoveMade = (data: any) => {
+    const prevFen = gameState.value?.board;
+    const next = data.gameState as GameState;
+    playMoveSoundByBoardDiff(prevFen, next.board);
+    setGameState(next);
+  };
+
+  const handleGameUpdated = (data: any) => {
+    setGameState(data.gameState);
+  };
+
+  const handleUndoRequested = (data: any) => {
+    window.dispatchEvent(new CustomEvent('show-undo-request', { 
+      detail: { 
+        fromPlayer: data.fromPlayer,
+        attemptsLeft: data.attemptsLeft 
+      } 
+    }));
+  };
+
+  const handleUndoResponse = (data: any) => {
+    window.dispatchEvent(new CustomEvent('show-undo-result', { 
+      detail: { accepted: data.accepted } 
+    }));
+  };
+
+  const handleUndoExecuted = (data: any) => {
+    setGameState(data.gameState);
+  };
+
+  const handleDrawRequested = (data: any) => {
+    window.dispatchEvent(new CustomEvent('show-draw-request', { 
+      detail: { fromPlayer: data.fromPlayer } 
+    }));
+  };
+
+  const handleDrawResponse = (data: any) => {
+    window.dispatchEvent(new CustomEvent('show-draw-result', { 
+      detail: { accepted: data.accepted } 
+    }));
+  };
+
+  const handleSocketError = (data: any) => {
+    console.error('Socket error:', data);
+    if (data && (
+      data.message === 'Invalid move' || 
+      data.message === 'Failed to make move' ||
+      data.message === 'Not your turn'
+    )) {
+      return;
+    }
+    if (data.message && (
+      data.message.includes('对局已结束') || 
+      data.message.includes('game has ended') ||
+      data.message.includes('game finished') ||
+      data.message.includes('请开始新游戏') ||
+      data.message.includes('please start a new game')
+    )) {
+      window.dispatchEvent(new CustomEvent('show-game-over', {
+        detail: { message: data.message }
+      }));
+    } else {
+      window.dispatchEvent(new CustomEvent('show-undo-error', {
+        detail: { message: data.message }
+      }));
+    }
+  };
+
   // 监听Socket事件
   const setupSocketListeners = () => {
-    socketService.on('move-made', (data: any) => {
-      const prevFen = gameState.value?.board;
-      const next = data.gameState as GameState;
-      // 基于 FEN 差异播放音效（无论是己方还是对手走子），确保在移动完成后播放
-      playMoveSoundByBoardDiff(prevFen, next.board);
-      setGameState(next);
-    });
+    socketService.off('move-made', handleMoveMade);
+    socketService.off('game-updated', handleGameUpdated);
+    socketService.off('undo-requested', handleUndoRequested);
+    socketService.off('undo-response', handleUndoResponse);
+    socketService.off('undo-executed', handleUndoExecuted);
+    socketService.off('draw-requested', handleDrawRequested);
+    socketService.off('draw-response', handleDrawResponse);
+    socketService.off('error', handleSocketError);
 
-    socketService.on('game-updated', (data: any) => {
-      // 通常用于悔棋等同步更新，不播放音效
-      setGameState(data.gameState);
-    });
-
-    socketService.on('undo-requested', (data: any) => {
-      // 这里需要通知Game.vue显示弹窗
-      // 可以通过事件总线或者直接调用方法
-      window.dispatchEvent(new CustomEvent('show-undo-request', { 
-        detail: { 
-          fromPlayer: data.fromPlayer,
-          attemptsLeft: data.attemptsLeft 
-        } 
-      }));
-    });
-
-    socketService.on('undo-response', (data: any) => {
-      // 这里需要通知Game.vue显示结果弹窗
-      window.dispatchEvent(new CustomEvent('show-undo-result', { 
-        detail: { accepted: data.accepted } 
-      }));
-    });
-
-    socketService.on('undo-executed', (data: any) => {
-      setGameState(data.gameState);
-    });
-
-    socketService.on('draw-requested', (data: any) => {
-      window.dispatchEvent(new CustomEvent('show-draw-request', { 
-        detail: { fromPlayer: data.fromPlayer } 
-      }));
-    });
-
-    socketService.on('draw-response', (data: any) => {
-      window.dispatchEvent(new CustomEvent('show-draw-result', { 
-        detail: { accepted: data.accepted } 
-      }));
-    });
-
-    // 监听错误事件
-    socketService.on('error', (data: any) => {
-      console.error('Socket error:', data);
-      // 走子不合法或不是你的回合时，静默处理（不弹窗）
-      if (data && (
-        data.message === 'Invalid move' || 
-        data.message === 'Failed to make move' ||
-        data.message === 'Not your turn'
-      )) {
-        return;
-      }
-      // 检查是否是游戏结束相关的错误
-      if (data.message && (
-        data.message.includes('对局已结束') || 
-        data.message.includes('game has ended') ||
-        data.message.includes('game finished') ||
-        data.message.includes('请开始新游戏') ||
-        data.message.includes('please start a new game')
-      )) {
-        // 游戏结束错误，显示游戏结束对话框
-        window.dispatchEvent(new CustomEvent('show-game-over', {
-          detail: { message: data.message }
-        }));
-      } else {
-        // 其他错误，显示悔棋错误对话框
-        window.dispatchEvent(new CustomEvent('show-undo-error', {
-          detail: { message: data.message }
-        }));
-      }
-    });
+    socketService.on('move-made', handleMoveMade);
+    socketService.on('game-updated', handleGameUpdated);
+    socketService.on('undo-requested', handleUndoRequested);
+    socketService.on('undo-response', handleUndoResponse);
+    socketService.on('undo-executed', handleUndoExecuted);
+    socketService.on('draw-requested', handleDrawRequested);
+    socketService.on('draw-response', handleDrawResponse);
+    socketService.on('error', handleSocketError);
   };
 
   return {

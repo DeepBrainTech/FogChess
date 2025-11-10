@@ -86,6 +86,18 @@ export const useRoomStore = defineStore('room', () => {
     });
 
     socketService.on('player-joined', (data: SocketEvents['player-joined']) => {
+      if (data.room) {
+        setCurrentRoom(data.room);
+        // 如果自己在房间内，更新自身的颜色信息
+        if (currentPlayer.value) {
+          const updatedSelf = data.room.players.find(p => p.id === currentPlayer.value?.id || p.socketId === currentPlayer.value?.socketId);
+          if (updatedSelf) {
+            setCurrentPlayer(updatedSelf);
+          }
+        }
+        return;
+      }
+
       if (currentRoom.value) {
         const updatedRoom = { ...currentRoom.value };
         // 去重：按 id 或 socketId 去重，优先使用 id

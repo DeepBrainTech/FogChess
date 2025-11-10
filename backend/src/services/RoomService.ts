@@ -23,11 +23,19 @@ export class RoomService {
   /**
    * 创建新房间
    */
-  createRoom(roomName: string, playerName: string, socketId: string, timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited', gameMode: 'normal' | 'ai' = 'normal', mainUserId?: number): Room {
+  createRoom(
+    roomName: string,
+    playerName: string,
+    socketId: string,
+    timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited',
+    gameMode: 'normal' | 'ai' = 'normal',
+    mainUserId?: number
+  ): Room {
     // 清理该socketId的旧房间（强制删除只包含该玩家的房间）
     this.cleanupPlayerRooms(socketId, true);
     
     const roomId = uuidv4();
+    const effectiveTimerMode = gameMode === 'ai' ? 'unlimited' : timerMode;
     const player: Player = {
       id: uuidv4(),
       name: playerName,
@@ -38,6 +46,15 @@ export class RoomService {
 
     const chess = new ChessService();
     this.roomIdToChess.set(roomId, chess);
+    const gameState = chess.createNewGame();
+    if (gameMode === 'ai') {
+      gameState.clocks = {
+        white: 0,
+        black: 0,
+        increment: 0,
+        mode: 'unlimited'
+      };
+    }
 
     // 如果是AI模式，创建AI实例
     if (gameMode === 'ai') {
@@ -49,10 +66,10 @@ export class RoomService {
       id: roomId,
       name: roomName,
       players: [player],
-      gameState: chess.createNewGame(),
+      gameState,
       createdAt: new Date(),
       isFull: gameMode === 'ai', // AI模式房间创建时就是满的
-      timerMode: timerMode,
+      timerMode: effectiveTimerMode,
       gameMode: gameMode
     };
 
@@ -87,25 +104,52 @@ export class RoomService {
       return { success: false, error: 'Player already in room' };
     }
 
-    // 根据当前房间内已有的颜色分配缺失的一方
-    const hasWhite = room.players.some(p => p.color === 'white');
-    const hasBlack = room.players.some(p => p.color === 'black');
-    let assignedColor: 'white' | 'black' = 'black';
-    if (!hasWhite) assignedColor = 'white';
-    else if (!hasBlack) assignedColor = 'black';
-    else return { success: false, error: 'Room already has 2 players' };
+    // 当第二个玩家加入时，随机分配黑白颜色
+    let player: Player;
 
-    const player: Player = {
-      id: uuidv4(),
-      name: playerName,
-      color: assignedColor,
-      socketId,
-      mainUserId
-    };
+    if (room.players.length === 1) {
+      const existingPlayer = room.players[0];
 
-    // 去重同一socket或同一颜色的旧占位
-    room.players = room.players.filter(p => p.socketId !== socketId && p.color !== player.color);
-    room.players.push(player);
+      // 随机决定颜色分配：false -> 创建者白 / 新玩家黑，true -> 创建者黑 / 新玩家白
+      const swapColors = Math.random() < 0.5;
+      const colorForExisting: 'white' | 'black' = swapColors ? 'black' : 'white';
+      const colorForNew: 'white' | 'black' = swapColors ? 'white' : 'black';
+
+      const updatedExistingPlayer: Player = {
+        ...existingPlayer,
+        color: colorForExisting
+      };
+
+      player = {
+        id: uuidv4(),
+        name: playerName,
+        color: colorForNew,
+        socketId,
+        mainUserId
+      };
+
+      room.players = [updatedExistingPlayer, player];
+    } else {
+      // 如果已经有2个玩家，使用原有逻辑（理论上不应该到达这里，因为前面已经检查了）
+      const hasWhite = room.players.some(p => p.color === 'white');
+      const hasBlack = room.players.some(p => p.color === 'black');
+      let assignedColor: 'white' | 'black' = 'black';
+      if (!hasWhite) assignedColor = 'white';
+      else if (!hasBlack) assignedColor = 'black';
+      else return { success: false, error: 'Room already has 2 players' };
+
+      player = {
+        id: uuidv4(),
+        name: playerName,
+        color: assignedColor,
+        socketId,
+        mainUserId
+      };
+
+      // 去重同一socket或同一颜色的旧占位
+      room.players = room.players.filter(p => p.socketId !== socketId && p.color !== player.color);
+      room.players.push(player);
+    }
     room.isFull = true;
     // 重置为标准初始局并开始（使用该房间现有实例）
     const chess = this.roomIdToChess.get(roomId) || new ChessService();
@@ -114,6 +158,7 @@ export class RoomService {
     room.gameState.gameStatus = 'playing';
     
     // 游戏开始时初始化计时器
+    this.timerService.cleanupTimer(roomId);
     if (room.timerMode && room.timerMode !== 'unlimited') {
       this.timerService.initializeTimer(roomId, room.timerMode);
       const timerState = this.timerService.getCurrentTimes(roomId);
@@ -125,6 +170,13 @@ export class RoomService {
           mode: timerState.mode
         };
       }
+    } else {
+      room.gameState.clocks = {
+        white: 0,
+        black: 0,
+        increment: 0,
+        mode: 'unlimited'
+      };
     }
     // Game started with two players
     // persist updated room and players
@@ -151,6 +203,14 @@ export class RoomService {
     room.players.splice(playerIndex, 1);
     room.isFull = false;
     room.gameState.gameStatus = 'waiting';
+    room.gameState.currentPlayer = 'white';
+    room.gameState.clocks = {
+      white: 0,
+      black: 0,
+      increment: 0,
+      mode: 'unlimited'
+    };
+    this.timerService.cleanupTimer(roomId);
 
     // 如果房间空了，删除房间
     if (room.players.length === 0) {

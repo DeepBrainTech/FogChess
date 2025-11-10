@@ -221,9 +221,12 @@ export class ReplayService {
 
   /**
    * 从历史移动重建指定手数的棋盘
+   * @param moves 移动历史数组
+   * @param upToMoveIndex 应用到第几步（不包含这一步，即应用前 upToMoveIndex 步）
+   * @param initialBoardPart 可选的初始棋盘（如果不提供则使用标准初始棋盘）
    */
-  static reconstructBoardFromMoves(moves: any[], upToMoveIndex: number): string {
-    const initial = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+  static reconstructBoardFromMoves(moves: any[], upToMoveIndex: number, initialBoardPart?: string): string {
+    const initial = initialBoardPart || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
     const matrix = this.parseBoardPartToMatrix(initial);
     
     const movesToApply = moves.slice(0, upToMoveIndex);
@@ -313,6 +316,7 @@ export class ReplayService {
     // 处理王车易位
     const isKing = moving && (moving === 'K' || moving === 'k');
     const isCastling = isKing && Math.abs(tc - fc) === 2 && fr === tr;
+    const isPawn = moving && (moving === 'P' || moving === 'p');
 
     // 执行移动
     let placed = moving;
@@ -324,8 +328,23 @@ export class ReplayService {
       placed = isWhite ? promoSym.toUpperCase() : promoSym;
     }
 
-    // 清空起点，放置到终点
+    // 处理过路兵：兵斜走到空格，需要清除后方的兵
+    const fileChanged = fc !== tc;
+    const targetOccupied = matrix[tr][tc] !== null;
+    const isEnPassantCapture = isPawn && fileChanged && !targetOccupied;
+
+    // 清空起点
     matrix[fr][fc] = null;
+
+    if (isEnPassantCapture) {
+      const direction = moving === 'P' ? 1 : -1; // 白兵向上，黑兵向下
+      const capturedRow = tr + direction;
+      if (capturedRow >= 0 && capturedRow < 8) {
+        matrix[capturedRow][tc] = null;
+      }
+    }
+
+    // 放置到终点
     matrix[tr][tc] = placed || null;
 
     // 处理王车易位

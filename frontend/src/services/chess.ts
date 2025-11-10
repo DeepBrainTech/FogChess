@@ -96,6 +96,22 @@ export class ChessService {
   }
 
   /**
+   * 清除迷雾：显示所有格子（上帝视野）
+   * 注意：此方法应该在调用 setBoardFromFen 之后调用，以确保所有棋子都已正确放置
+   */
+  clearFog(): void {
+    // 设置所有格子为可见，并恢复所有被隐藏的棋子
+    // 由于 applyFogFor 可能会隐藏对手的棋子，我们需要重新从 FEN 解析
+    // 但 clearFog 只负责设置可见性，实际的棋子恢复应该在 setBoardFromFen 中完成
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const square = this.board[row][col];
+        square.isVisible = true;
+      }
+    }
+  }
+
+  /**
    * 将字符转换为棋子对象
    */
   private charToPiece(char: string, row: number, col: number): ChessPiece | null {

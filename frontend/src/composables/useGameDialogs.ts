@@ -39,7 +39,7 @@ export function useGameDialogs(params: {
   const directLeave = () => {
     roomStore.leaveRoom();
     gameStore.resetGame();
-    router.push('/');
+    router.push('/lobby');
   };
 
   const showLeaveDialog = async () => {

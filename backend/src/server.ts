@@ -8,6 +8,7 @@ import { RoomService } from './services/RoomService';
 import type { SocketEvents } from './types';
 import { RedisRoomRepository } from './repositories/RedisRoomRepository';
 import { PostgresArchiver } from './services/ArchiverService';
+import { UserService } from './services/UserService';
 
 const app = express();
 const server = createServer(app);
@@ -26,6 +27,7 @@ const redisUrl = process.env.REDIS_URL;
 const dbUrl = process.env.DATABASE_URL;
 const repository = redisUrl ? new RedisRoomRepository(redisUrl) : undefined;
 const archiver = dbUrl ? new PostgresArchiver(dbUrl) : undefined;
+const userService = dbUrl ? new UserService(dbUrl) : undefined;
 const roomService = new RoomService(repository, archiver);
 
 // 初始化数据库表
@@ -109,13 +111,21 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-app.post('/auth/fogchess/exchange', (req, res) => {
+app.post('/auth/fogchess/exchange', async (req, res) => {
   const token = (req as any).body?.token as string | undefined;
   if (!token) return res.status(400).json({ error: 'token required' });
   try {
     const claims = verifyPortalToken(token);
     const session = signSession({ mainUserId: claims.user_id, username: claims.username });
     setSessionCookie(res, session);
+    
+    // 确保用户记录存在
+    if (userService) {
+      await userService.ensureUserExists(claims.user_id, claims.username).catch(err => {
+        console.error('Failed to ensure user exists:', err);
+      });
+    }
+    
     return res.json({ ok: true });
   } catch (e) {
     return res.status(401).json({ error: 'invalid token' });
@@ -126,13 +136,65 @@ app.get('/me', requireAuth, (req, res) => {
   res.json({ user: (req as any).user });
 });
 
+// 获取用户资料
+app.get('/user/profile', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    if (!userService) {
+      return res.status(503).json({ error: 'User service not available' });
+    }
+    const profile = await userService.getUserProfile(userId);
+    if (!profile) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    return res.json({ profile });
+  } catch (error) {
+    console.error('Failed to get user profile:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 获取用户对局记录
+app.get('/user/games', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    if (!userService) {
+      return res.status(503).json({ error: 'User service not available' });
+    }
+    const games = await userService.getUserGames(userId);
+    return res.json({ games });
+  } catch (error) {
+    console.error('Failed to get user games:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 获取单个游戏详情（用于回放）
+app.get('/game/:gameId', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const gameId = req.params.gameId;
+    if (!userService) {
+      return res.status(503).json({ error: 'User service not available' });
+    }
+    const game = await userService.getGameDetails(gameId, userId);
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    return res.json({ game });
+  } catch (error) {
+    console.error('Failed to get game details:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/rooms', (req, res) => {
   const rooms = roomService.getAllRooms();
   res.json(rooms);
 });
 
 // Socket.io 连接处理
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   try {
     const cookieHeader = socket.request.headers.cookie || '';
     const match = cookieHeader.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`));
@@ -142,6 +204,13 @@ io.use((socket, next) => {
       algorithms: ['HS256'], audience: SESSION_AUD, issuer: SESSION_ISS
     }) as any;
     (socket as any).data.user = { id: payload.mainUserId, username: payload.username };
+    
+    // 确保用户记录存在
+    if (userService && payload.mainUserId && payload.username) {
+      await userService.ensureUserExists(payload.mainUserId, payload.username).catch(err => {
+        console.error('Failed to ensure user exists in socket:', err);
+      });
+    }
   } catch {}
   next();
 });
@@ -192,8 +261,8 @@ io.on('connection', (socket) => {
         socket.join(data.roomId);
         socket.emit('room-joined', { room: result.room, player: result.player });
         
-        // 通知房间内其他玩家
-        socket.to(data.roomId).emit('player-joined', { player: result.player });
+        // 通知房间内所有玩家，包括最新的房间信息（以便同步颜色等状态）
+        io.to(data.roomId).emit('player-joined', { player: result.player, room: result.room });
         // 广播当前游戏状态（可能仍为waiting或已变为playing）
         io.to(data.roomId).emit('game-updated', { gameState: result.room.gameState });
         
@@ -418,6 +487,7 @@ io.on('connection', (socket) => {
         if (result.room) {
           // 通知房间内其他玩家
           socket.to(data.roomId).emit('player-left', { playerId: player.id });
+          io.to(data.roomId).emit('game-updated', { gameState: result.room.gameState });
         }
         
       }
@@ -435,6 +505,7 @@ io.on('connection', (socket) => {
         const result = roomService.leaveRoom(room.id, player.id);
         if (result.room) {
           socket.to(room.id).emit('player-left', { playerId: player.id });
+          io.to(room.id).emit('game-updated', { gameState: result.room.gameState });
         }
         // 不要break，继续清理其他房间中的该玩家
       }

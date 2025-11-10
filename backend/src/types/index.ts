@@ -69,7 +69,7 @@ export interface SocketEvents {
   // 服务端发送的事件
   'room-created': { room: Room };
   'room-joined': { room: Room; player: Player };
-  'player-joined': { player: Player };
+  'player-joined': { player: Player; room: Room };
   'player-left': { playerId: string };
   'game-updated': { gameState: GameState };
   'move-made': { move: Move; gameState: GameState };

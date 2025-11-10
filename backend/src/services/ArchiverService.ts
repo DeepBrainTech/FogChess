@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import type { Room } from '../types';
+import { UserService } from './UserService';
 
 export interface GameArchiver {
   archiveFinishedGame(room: Room, moves: any[]): Promise<void>;
@@ -8,8 +9,10 @@ export interface GameArchiver {
 
 export class PostgresArchiver implements GameArchiver {
   private pool: Pool;
+  private userService?: UserService;
   constructor(databaseUrl: string) {
     this.pool = new Pool({ connectionString: databaseUrl });
+    this.userService = new UserService(databaseUrl);
   }
 
   private async ensureTableExists(client: any): Promise<void> {
@@ -42,6 +45,21 @@ export class PostgresArchiver implements GameArchiver {
       CREATE INDEX IF NOT EXISTS idx_games_players ON games(white_name, black_name);
       CREATE INDEX IF NOT EXISTS idx_games_white_user_id ON games(white_user_id);
       CREATE INDEX IF NOT EXISTS idx_games_black_user_id ON games(black_user_id);
+
+      -- 用户表
+      CREATE TABLE IF NOT EXISTS users (
+        id BIGINT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        total_games INTEGER NOT NULL DEFAULT 0,
+        wins INTEGER NOT NULL DEFAULT 0,
+        losses INTEGER NOT NULL DEFAULT 0,
+        draws INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- 创建用户表索引
+      CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     `;
     await client.query(initSql);
   }
@@ -74,10 +92,22 @@ export class PostgresArchiver implements GameArchiver {
           $11, $12, $13, $14
         )`;
 
-      const white = room.players.find(p => p.color === 'white')?.name || 'White';
-      const black = room.players.find(p => p.color === 'black')?.name || 'Black';
-      const whiteUserId = (room.players.find(p => p.color === 'white') as any)?.mainUserId || null;
-      const blackUserId = (room.players.find(p => p.color === 'black') as any)?.mainUserId || null;
+      const AI_NAME = 'Computer';
+      const AI_USER_ID = 0;
+      const isAiGame = room.gameMode === 'ai';
+
+      const whitePlayer = room.players.find(p => p.color === 'white');
+      const blackPlayer = room.players.find(p => p.color === 'black');
+
+      const white = whitePlayer?.name || (isAiGame && !whitePlayer ? AI_NAME : 'White');
+      const black = blackPlayer?.name || (isAiGame && !blackPlayer ? AI_NAME : 'Black');
+
+      const whiteUserId =
+        whitePlayer?.mainUserId ??
+        (isAiGame && !whitePlayer ? AI_USER_ID : null);
+      const blackUserId =
+        blackPlayer?.mainUserId ??
+        (isAiGame && !blackPlayer ? AI_USER_ID : null);
       const params = [
         room.id,
         white,
@@ -95,6 +125,47 @@ export class PostgresArchiver implements GameArchiver {
         JSON.stringify(moves)
       ];
       await client.query(text, params);
+      
+      // 更新用户统计
+      if (this.userService) {
+        const whiteUserId = (room.players.find(p => p.color === 'white') as any)?.mainUserId;
+        const blackUserId = (room.players.find(p => p.color === 'black') as any)?.mainUserId;
+        const result = room.gameState.timeout ? 'timeout' : (room.gameState.winner || 'draw');
+        
+        // 更新白方统计
+        if (whiteUserId) {
+          if (result === 'white') {
+            await this.userService.updateUserStats(whiteUserId, 'win').catch(err => {
+              console.error('Failed to update white user stats:', err);
+            });
+          } else if (result === 'black' || result === 'timeout') {
+            await this.userService.updateUserStats(whiteUserId, 'loss').catch(err => {
+              console.error('Failed to update white user stats:', err);
+            });
+          } else if (result === 'draw') {
+            await this.userService.updateUserStats(whiteUserId, 'draw').catch(err => {
+              console.error('Failed to update white user stats:', err);
+            });
+          }
+        }
+        
+        // 更新黑方统计
+        if (blackUserId) {
+          if (result === 'black') {
+            await this.userService.updateUserStats(blackUserId, 'win').catch(err => {
+              console.error('Failed to update black user stats:', err);
+            });
+          } else if (result === 'white' || result === 'timeout') {
+            await this.userService.updateUserStats(blackUserId, 'loss').catch(err => {
+              console.error('Failed to update black user stats:', err);
+            });
+          } else if (result === 'draw') {
+            await this.userService.updateUserStats(blackUserId, 'draw').catch(err => {
+              console.error('Failed to update black user stats:', err);
+            });
+          }
+        }
+      }
     } finally {
       client.release();
     }

@@ -42,7 +42,7 @@ const dict: Dict = {
   'home.lobby.desc': { zh: '查看所有可加入的房间', en: 'View all available rooms' },
   'home.lobby.button': { zh: '进入大厅', en: 'Enter Lobby' },
   'home.profile.title': { zh: '个人资料', en: 'Profile' },
-  'home.profile.desc': { zh: '查看你的个人资料', en: 'View your profile' },
+  'home.profile.desc': { zh: '查看你的个人资料，回看对局记录', en: 'View your profile, review game history' },
 
   'dialog.notStarted.title': { zh: '游戏未开始', en: 'Game Not Started' },
   'dialog.notStarted.message': { zh: '等待对手加入', en: 'Waiting for the opponent to join' },
@@ -142,6 +142,7 @@ const dict: Dict = {
   'room.create.timer.classical': { zh: '慢棋30分钟+30秒增秒', en: 'Classical 30m + 30s' },
   'room.create.timer.rapid': { zh: '快棋10分钟+10秒增秒', en: 'Rapid 10m + 10s' },
   'room.create.timer.bullet': { zh: '超快2分钟+5秒增秒', en: 'Bullet 2m + 5s' },
+  'room.create.timer.aiOnlyUnlimited': { zh: 'AI对战是不限时的', en: 'AI matches are unlimited time' },
   'room.create.gameMode': { zh: '游戏模式:', en: 'Game Mode:' },
   'room.create.gameMode.normal': { zh: '正常对战', en: 'Normal Game' },
   'room.create.gameMode.ai': { zh: 'AI对战', en: 'AI Game' },
@@ -159,6 +160,8 @@ const dict: Dict = {
   'header.roomTooltip': { zh: '从主菜单加入房间！', en: 'Join from the main menu!' },
   'header.you': { zh: '你', en: 'You' },
   'header.opponent': { zh: '对方', en: 'Opponent' },
+  'header.aiOpponent': { zh: '电脑', en: 'Computer' },
+  'header.aiTurn': { zh: '轮到AI移动', en: 'AI to move' },
   'header.currentTurn': { zh: '(当前回合)', en: '(Current turn)' },
 
   // Draw & undo dialogs (titles/messages)
@@ -216,6 +219,25 @@ const dict: Dict = {
 
   // Game view
   'home.backToPortal': { zh: '返回游戏总主页', en: 'Back to Main Portal' },
+
+  // Profile
+  'profile.username': { zh: '用户名', en: 'Username' },
+  'profile.totalGames': { zh: '总对局数', en: 'Total Games' },
+  'profile.winRate': { zh: '胜率', en: 'Win Rate' },
+  'profile.gameHistory': { zh: '对局记录', en: 'Game History' },
+  'profile.loading': { zh: '加载中...', en: 'Loading...' },
+  'profile.noGames': { zh: '暂无对局记录', en: 'No games yet' },
+  'profile.win': { zh: '胜利', en: 'Win' },
+  'profile.loss': { zh: '失败', en: 'Loss' },
+  'profile.draw': { zh: '平局', en: 'Draw' },
+  'profile.timeout': { zh: '超时', en: 'Timeout' },
+
+  // Review
+  'review.title': { zh: '对局回顾', en: 'Game Review' },
+  'review.viewMode.white': { zh: '白方视野', en: 'White View' },
+  'review.viewMode.black': { zh: '黑方视野', en: 'Black View' },
+  'review.viewMode.alternating': { zh: '交替视野', en: 'Alternating View' },
+  'review.viewMode.god': { zh: '上帝视野', en: 'God View' },
 };
 
 export function t(key: keyof typeof dict): string {

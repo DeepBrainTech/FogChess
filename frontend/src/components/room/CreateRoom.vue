@@ -27,18 +27,20 @@
         <p v-if="!hasPlayerName" class="readonly-hint">{{ t('room.create.nameReadonlyHint') }}</p>
       </div>
       
-      <div class="form-group">
+      <div class="form-group timer-group" :class="{ 'ai-mode': isAiMode }">
         <label for="timerMode">{{ t('room.create.timer') }}</label>
         <select
           id="timerMode"
           v-model="timerMode"
           required
+          :title="isAiMode ? aiTimerTooltip : ''"
         >
           <option value="unlimited">{{ t('room.create.timer.unlimited') }}</option>
-          <option value="classical">{{ t('room.create.timer.classical') }}</option>
-          <option value="rapid">{{ t('room.create.timer.rapid') }}</option>
-          <option value="bullet">{{ t('room.create.timer.bullet') }}</option>
+          <option value="classical" :disabled="isAiMode">{{ t('room.create.timer.classical') }}</option>
+          <option value="rapid" :disabled="isAiMode">{{ t('room.create.timer.rapid') }}</option>
+          <option value="bullet" :disabled="isAiMode">{{ t('room.create.timer.bullet') }}</option>
         </select>
+        <span v-if="isAiMode" class="timer-hint">{{ aiTimerTooltip }}</span>
       </div>
       
       <div class="form-group">
@@ -69,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../../stores/room';
 import { t } from '../../services/i18n';
@@ -86,6 +88,27 @@ const timerMode = ref('unlimited');
 const gameMode = ref('normal');
 const isCreating = ref(false);
 const error = ref('');
+const previousTimerMode = ref('classical');
+const aiTimerTooltip = computed(() => t('room.create.timer.aiOnlyUnlimited'));
+
+const isAiMode = computed(() => gameMode.value === 'ai');
+
+watch(gameMode, (mode, prevMode) => {
+  if (mode === 'ai') {
+    if (timerMode.value !== 'unlimited') {
+      previousTimerMode.value = timerMode.value;
+    }
+    timerMode.value = 'unlimited';
+  } else if (prevMode === 'ai') {
+    timerMode.value = previousTimerMode.value || 'classical';
+  }
+});
+
+watch(timerMode, (mode) => {
+  if (!isAiMode.value && mode !== 'unlimited') {
+    previousTimerMode.value = mode;
+  }
+});
 
 const handleCreateRoom = async () => {
   const name = playerName.value.trim();
@@ -175,6 +198,21 @@ select {
   font-size: 16px;
   background: white;
   transition: border-color 0.3s ease;
+}
+
+.timer-group.ai-mode select {
+  cursor: not-allowed;
+}
+
+.timer-group option[disabled] {
+  color: #999;
+}
+
+.timer-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #777;
 }
 
 .create-button {

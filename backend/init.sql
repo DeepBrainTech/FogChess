@@ -26,3 +26,18 @@ CREATE INDEX IF NOT EXISTS idx_games_timer_mode ON games(timer_mode);
 
 -- 创建复合索引
 CREATE INDEX IF NOT EXISTS idx_games_players ON games(white_name, black_name);
+
+-- 用户表
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    total_games INTEGER NOT NULL DEFAULT 0,
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    draws INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 创建用户表索引
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);

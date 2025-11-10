@@ -8,7 +8,7 @@
       <img src="/src/assets/replay/step-backward.svg" :alt="t('replay.stepBack')" class="replay-icon" />
     </button>
 
-    <NewMoveNotice :hasNewMove="hasNewMove" />
+    <NewMoveNotice :has-new-move="hasNewMove" />
 
     <button class="replay-btn" :title="t('replay.stepForward')" :disabled="disabledForward" @click="onClick('stepForward')">
       <img src="/src/assets/replay/step-forward.svg" :alt="t('replay.stepForward')" class="replay-icon" />
@@ -22,21 +22,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import NewMoveNotice from './NewMoveNotice.vue';
 import { t } from '../../services/i18n';
+import NewMoveNotice from './NewMoveNotice.vue';
 
 interface Props {
   totalMoves: number;
   currentMoveIndex: number;
-  hasNewMove: boolean;
-  soundEnabled: boolean;
+  hasNewMove?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   totalMoves: 0,
   currentMoveIndex: 0,
-  hasNewMove: false,
-  soundEnabled: true
+  hasNewMove: false
 });
 
 const emit = defineEmits<{
@@ -51,26 +49,7 @@ const disabledBackward = computed(() => props.totalMoves === 0 || props.currentM
 const disabledForward = computed(() => props.totalMoves === 0 || props.currentMoveIndex === props.totalMoves);
 const disabledEnd = computed(() => props.totalMoves === 0 || props.currentMoveIndex === props.totalMoves);
 
-// 仅用于回放控制按钮的点击提示音，不修改现有移动/吃子音效服务
-const clickAudio = new Audio('/sounds/notice.m4a');
-clickAudio.preload = 'auto';
-clickAudio.volume = 0.6;
-
-function playClickSound() {
-  // 只有在全局音量开启时才播放声音
-  if (!props.soundEnabled) return;
-  
-  try {
-    clickAudio.currentTime = 0;
-    const p = clickAudio.play();
-    if (p && typeof p.catch === 'function') {
-      p.catch(() => {});
-    }
-  } catch {}
-}
-
 function onClick(action: 'goToStart' | 'stepBackward' | 'stepForward' | 'goToEnd') {
-  playClickSound();
   switch (action) {
     case 'goToStart':
       emit('goToStart');

@@ -69,6 +69,9 @@ export class ChessService {
       try {
         const result = this.applyGeometricMove(move.from, move.to, move.piece, promotion);
         capturedKingColor = result.capturedKingColor;
+        if (result.capturedPieceSymbol) {
+          (move as any).captured = result.capturedPieceSymbol;
+        }
       } catch (error) {
         return { success: false, error: 'Failed to execute move' };
       }
@@ -85,6 +88,7 @@ export class ChessService {
       // 添加到移动历史（保留前端传入的 promotion）
       const moveRecord: Move = {
         ...move,
+        captured: (move as any).captured,
         timestamp: new Date(),
         player: this.chess.turn() === 'w' ? 'black' : 'white' // 刚移动完的玩家
       };
@@ -116,7 +120,7 @@ export class ChessService {
    * - 手动更新 FEN 的 active color / castling / en passant / clocks
    */
   private applyGeometricMove(from: string, to: string, piece: string, promotion?: 'q'|'r'|'b'|'n'):
-    { capturedKingColor?: 'white'|'black' } {
+    { capturedKingColor?: 'white'|'black'; capturedPieceSymbol?: string } {
     const isWhite = piece === piece.toUpperCase();
     const color: 'w'|'b' = isWhite ? 'w' : 'b';
 
@@ -141,6 +145,8 @@ export class ChessService {
 
     // 过路兵判定（兵斜走到空格，且 en passant 目标等于落点）
     let isEnPassant = false;
+    let capturedPieceSymbol: string | undefined;
+
     if (pieceOnFrom.type === 'p') {
       const fileChanged = from[0] !== to[0];
       const toEmpty = !targetPiece;
@@ -157,9 +163,13 @@ export class ChessService {
       const capturedSq = `${to[0]}${capturedRank}` as any;
       const epPawn = this.chess.get(capturedSq) as any;
       if (epPawn && epPawn.type === 'p') {
+        capturedPieceSymbol = epPawn.color === 'w' ? 'P' : 'p';
         this.chess.remove(capturedSq);
       }
     } else if (targetPiece) {
+      capturedPieceSymbol = targetPiece.color === 'w'
+        ? targetPiece.type.toUpperCase()
+        : targetPiece.type;
       this.chess.remove(toSquare);
       // 捕获起始位车会影响对方的易位权
       if (targetPiece.type === 'r') {
@@ -251,7 +261,7 @@ export class ChessService {
       this.chess.load(afterParts.join(' '));
     }
 
-    return { capturedKingColor };
+    return { capturedKingColor, capturedPieceSymbol };
   }
 
   /**
