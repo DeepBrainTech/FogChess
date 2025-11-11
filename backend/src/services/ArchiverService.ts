@@ -12,10 +12,19 @@ export class PostgresArchiver implements GameArchiver {
   private userService?: UserService;
   constructor(databaseUrl: string) {
     const poolConfig: any = { connectionString: databaseUrl };
-    const pgSslMode = process.env.PGSSLMODE?.toLowerCase().trim();
+    const rawSslMode = process.env.PGSSLMODE
+      ? process.env.PGSSLMODE.toLowerCase().trim()
+      : undefined;
     const isRailwayHost = /railway\.internal|proxy\.rlwy\.net/i.test(databaseUrl);
+    const shouldRelaxSsl =
+      rawSslMode === 'no-verify' ||
+      rawSslMode === 'allow' ||
+      rawSslMode === 'prefer' ||
+      rawSslMode === 'require' ||
+      isRailwayHost ||
+      process.env.NODE_ENV === 'production';
 
-    if (pgSslMode === 'no-verify' || isRailwayHost) {
+    if (shouldRelaxSsl) {
       poolConfig.ssl = { rejectUnauthorized: false };
     }
 
