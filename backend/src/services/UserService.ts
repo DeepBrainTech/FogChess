@@ -23,7 +23,14 @@ export class UserService {
   private pool: Pool;
   
   constructor(databaseUrl: string) {
-    this.pool = new Pool({ connectionString: databaseUrl });
+    const poolConfig: any = { connectionString: databaseUrl };
+    const pgSslMode = process.env.PGSSLMODE?.toLowerCase();
+
+    if (pgSslMode === 'no-verify') {
+      poolConfig.ssl = { rejectUnauthorized: false };
+    }
+
+    this.pool = new Pool(poolConfig);
   }
 
   /**
