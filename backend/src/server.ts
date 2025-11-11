@@ -25,6 +25,14 @@ const io = new Server(server, {
 
 const redisUrl = process.env.REDIS_URL;
 const dbUrl = process.env.DATABASE_URL;
+
+if (
+  dbUrl &&
+  /railway\.internal|proxy\.rlwy\.net/i.test(dbUrl) &&
+  !process.env.NODE_TLS_REJECT_UNAUTHORIZED
+) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 const repository = redisUrl ? new RedisRoomRepository(redisUrl) : undefined;
 const archiver = dbUrl ? new PostgresArchiver(dbUrl) : undefined;
 const userService = dbUrl ? new UserService(dbUrl) : undefined;
