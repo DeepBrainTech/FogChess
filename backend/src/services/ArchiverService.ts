@@ -12,9 +12,10 @@ export class PostgresArchiver implements GameArchiver {
   private userService?: UserService;
   constructor(databaseUrl: string) {
     const poolConfig: any = { connectionString: databaseUrl };
-    const pgSslMode = process.env.PGSSLMODE?.toLowerCase();
+    const pgSslMode = process.env.PGSSLMODE?.toLowerCase().trim();
+    const isRailwayHost = /railway\.internal|proxy\.rlwy\.net/i.test(databaseUrl);
 
-    if (pgSslMode === 'no-verify') {
+    if (pgSslMode === 'no-verify' || isRailwayHost) {
       poolConfig.ssl = { rejectUnauthorized: false };
     }
 
