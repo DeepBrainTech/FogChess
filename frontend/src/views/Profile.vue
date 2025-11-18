@@ -23,6 +23,10 @@
           <div class="stat-label">{{ t('profile.winRate') || '胜率' }}</div>
           <div class="stat-value">{{ winRate }}%</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-label">{{ t('profile.rating') || '评分' }}</div>
+          <div class="stat-value">{{ profile?.rating ?? 1500 }}</div>
+        </div>
       </div>
 
       <!-- 错误提示 -->
@@ -89,6 +93,7 @@ interface UserProfile {
   wins: number;
   losses: number;
   draws: number;
+  rating: number;
 }
 
 interface GameRecord {

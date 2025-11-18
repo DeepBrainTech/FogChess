@@ -46,9 +46,9 @@ const statusText = computed(() => {
 </script>
 
 <style scoped>
-.game-status { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
-.game-status h3 { margin: 0 0 15px 0; color: #333; font-size: 20px; }
-.status-item { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 15px; }
+.game-status { background: white; padding: 14px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+.game-status h3 { margin: 0 0 12px 0; color: #333; font-size: 18px; }
+.status-item { display: flex; justify-content: space-between; margin-bottom: 8px; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
 .status-item:last-child { border-bottom: none; margin-bottom: 0; }
 .label { font-weight: bold; color: #666; }
 .value { color: #333; }

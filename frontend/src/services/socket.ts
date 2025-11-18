@@ -89,6 +89,11 @@ class SocketService {
     this.socket?.emit('leave-room', { roomId });
   }
 
+  // 发送聊天消息
+  sendChat(roomId: string, message: string): void {
+    this.socket?.emit('send-chat', { roomId, message });
+  }
+
   // 监听事件
   on<K extends keyof SocketEvents | string>(event: K, callback: any): void {
     // 这里放宽类型以便前后端扩展自定义事件（如临时的legal-moves）

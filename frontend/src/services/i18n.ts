@@ -44,6 +44,10 @@ const dict: Dict = {
   'home.profile.title': { zh: '个人资料', en: 'Profile' },
   'home.profile.desc': { zh: '查看你的个人资料，回看对局记录', en: 'View your profile, review game history' },
 
+  'login.required.title': { zh: '尚未登录', en: 'Not Logged In' },
+  'login.required.message': { zh: '尚未登录，无法进行游戏，请先从主页登录', en: 'You are not logged in and cannot play. Please return to the main site to log in first.' },
+  'login.required.button': { zh: '回到主页登录', en: 'Return to Homepage to Log In' },
+
   'dialog.notStarted.title': { zh: '游戏未开始', en: 'Game Not Started' },
   'dialog.notStarted.message': { zh: '等待对手加入', en: 'Waiting for the opponent to join' },
   'dialog.finished.title': { zh: '对局结束', en: 'Game Finished' },
@@ -224,6 +228,7 @@ const dict: Dict = {
   'profile.username': { zh: '用户名', en: 'Username' },
   'profile.totalGames': { zh: '总对局数', en: 'Total Games' },
   'profile.winRate': { zh: '胜率', en: 'Win Rate' },
+  'profile.rating': { zh: '评分', en: 'Rating' },
   'profile.gameHistory': { zh: '对局记录', en: 'Game History' },
   'profile.loading': { zh: '加载中...', en: 'Loading...' },
   'profile.noGames': { zh: '暂无对局记录', en: 'No games yet' },
@@ -238,6 +243,14 @@ const dict: Dict = {
   'review.viewMode.black': { zh: '黑方视野', en: 'Black View' },
   'review.viewMode.alternating': { zh: '交替视野', en: 'Alternating View' },
   'review.viewMode.god': { zh: '上帝视野', en: 'God View' },
+  'review.board.primary': { zh: '迷雾视角', en: 'Fog View' },
+  'review.board.god': { zh: '上帝视角', en: 'God View' },
+
+  // Chat
+  'chat.title': { zh: '聊天', en: 'Chat' },
+  'chat.placeholder': { zh: '输入', en: 'input' },
+  'chat.send': { zh: '发送', en: 'send' },
+  'chat.empty': { zh: '暂无消息', en: 'No messages yet' },
 };
 
 export function t(key: keyof typeof dict): string {

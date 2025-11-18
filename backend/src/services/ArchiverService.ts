@@ -71,12 +71,14 @@ export class PostgresArchiver implements GameArchiver {
         wins INTEGER NOT NULL DEFAULT 0,
         losses INTEGER NOT NULL DEFAULT 0,
         draws INTEGER NOT NULL DEFAULT 0,
+        rating INTEGER NOT NULL DEFAULT 1500,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
 
       -- 创建用户表索引
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS rating INTEGER NOT NULL DEFAULT 1500;
     `;
     await client.query(initSql);
   }
@@ -143,44 +145,99 @@ export class PostgresArchiver implements GameArchiver {
       ];
       await client.query(text, params);
       
-      // 更新用户统计
+      // 更新用户统计与评级
       if (this.userService) {
         const whiteUserId = (room.players.find(p => p.color === 'white') as any)?.mainUserId;
         const blackUserId = (room.players.find(p => p.color === 'black') as any)?.mainUserId;
         const result = room.gameState.timeout ? 'timeout' : (room.gameState.winner || 'draw');
-        
-        // 更新白方统计
-        if (whiteUserId) {
+        const winner = room.gameState.winner;
+
+        const determineOutcome = (color: 'white' | 'black'): 'win' | 'loss' | 'draw' => {
+          if (winner === 'draw') {
+            return 'draw';
+          }
+          if (winner === 'white') {
+            return color === 'white' ? 'win' : 'loss';
+          }
+          if (winner === 'black') {
+            return color === 'black' ? 'win' : 'loss';
+          }
+
+          if (result === 'draw' || result === null) {
+            return 'draw';
+          }
           if (result === 'white') {
-            await this.userService.updateUserStats(whiteUserId, 'win').catch(err => {
-              console.error('Failed to update white user stats:', err);
-            });
-          } else if (result === 'black' || result === 'timeout') {
-            await this.userService.updateUserStats(whiteUserId, 'loss').catch(err => {
-              console.error('Failed to update white user stats:', err);
-            });
-          } else if (result === 'draw') {
-            await this.userService.updateUserStats(whiteUserId, 'draw').catch(err => {
-              console.error('Failed to update white user stats:', err);
-            });
+            return color === 'white' ? 'win' : 'loss';
+          }
+          if (result === 'black') {
+            return color === 'black' ? 'win' : 'loss';
+          }
+          return 'draw';
+        };
+
+        const whiteOutcome = determineOutcome('white');
+        const blackOutcome = determineOutcome('black');
+
+        const computeWhiteScore = (): number | null => {
+          if (winner === 'white') return 1;
+          if (winner === 'black') return 0;
+          if (winner === 'draw') return 0.5;
+          if (result === 'white') return 1;
+          if (result === 'black') return 0;
+          if (result === 'draw' || result === null) return 0.5;
+          return null;
+        };
+
+        const whiteScore = computeWhiteScore();
+        const blackScore = whiteScore !== null ? 1 - whiteScore : null;
+
+        const whiteHasUser = typeof whiteUserId === 'number' && whiteUserId > 0;
+        const blackHasUser = typeof blackUserId === 'number' && blackUserId > 0;
+
+        let whiteNewRating: number | undefined;
+        let blackNewRating: number | undefined;
+
+        if (whiteHasUser && blackHasUser && whiteScore !== null && blackScore !== null) {
+          try {
+            const [whiteProfile, blackProfile] = await Promise.all([
+              this.userService.getUserProfile(whiteUserId),
+              this.userService.getUserProfile(blackUserId)
+            ]);
+
+            if (whiteProfile && blackProfile) {
+              const currentWhiteRating = Number.isFinite(whiteProfile.rating)
+                ? whiteProfile.rating
+                : 1500;
+              const currentBlackRating = Number.isFinite(blackProfile.rating)
+                ? blackProfile.rating
+                : 1500;
+
+              const K = 24;
+              const expectedWhite = 1 / (1 + Math.pow(10, (currentBlackRating - currentWhiteRating) / 400));
+              const expectedBlack = 1 / (1 + Math.pow(10, (currentWhiteRating - currentBlackRating) / 400));
+
+              whiteNewRating = Math.round(currentWhiteRating + K * (whiteScore - expectedWhite));
+              blackNewRating = Math.round(currentBlackRating + K * (blackScore - expectedBlack));
+            }
+          } catch (err) {
+            console.error('Failed to compute rating updates:', err);
           }
         }
+
+        if (whiteUserId) {
+          await this.userService
+            .updateUserStats(whiteUserId, whiteOutcome, whiteNewRating)
+            .catch(err => {
+              console.error('Failed to update white user stats:', err);
+            });
+        }
         
-        // 更新黑方统计
         if (blackUserId) {
-          if (result === 'black') {
-            await this.userService.updateUserStats(blackUserId, 'win').catch(err => {
+          await this.userService
+            .updateUserStats(blackUserId, blackOutcome, blackNewRating)
+            .catch(err => {
               console.error('Failed to update black user stats:', err);
             });
-          } else if (result === 'white' || result === 'timeout') {
-            await this.userService.updateUserStats(blackUserId, 'loss').catch(err => {
-              console.error('Failed to update black user stats:', err);
-            });
-          } else if (result === 'draw') {
-            await this.userService.updateUserStats(blackUserId, 'draw').catch(err => {
-              console.error('Failed to update black user stats:', err);
-            });
-          }
         }
       }
     } finally {

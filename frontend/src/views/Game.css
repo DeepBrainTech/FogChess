@@ -21,6 +21,9 @@
   order: 2; /* 确保标题栏在底部 */
   flex-shrink: 0; /* 防止被压缩 */
   box-sizing: border-box;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
 }
 .room-info h2 { margin: 0 0 8px 0; color: #333; font-size: 20px; }
 .room-info-container { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
@@ -68,7 +71,7 @@
   display: flex; 
   gap: 10px; 
   padding: 10px; 
-  max-width: 1200px; 
+  max-width: 1600px; 
   margin: 0 auto; 
   width: 100%;
   min-height: 0; /* 确保 flex 子元素不会超出 */
@@ -84,11 +87,19 @@
   min-height: 0; /* 确保 flex 子元素不会超出 */
 }
 .game-sidebar { 
-  width: 320px; 
+  width: 280px; 
   display: flex; 
   flex-direction: column; 
   gap: 10px; 
   overflow: hidden;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.chat-sidebar {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
   box-sizing: border-box;
 }
 .game-status, .move-history { 
@@ -149,6 +160,9 @@
   .game-sidebar { 
     width: 100%; 
   } 
+  .chat-sidebar {
+    width: 100%;
+  }
   .game-header { 
     flex-direction: column; 
     gap: 20px; 

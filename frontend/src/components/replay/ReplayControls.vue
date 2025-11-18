@@ -8,7 +8,7 @@
       <img src="/src/assets/replay/step-backward.svg" :alt="t('replay.stepBack')" class="replay-icon" />
     </button>
 
-    <NewMoveNotice :has-new-move="hasNewMove" />
+    <NewMoveNotice v-if="props.showNotice" :has-new-move="hasNewMove" />
 
     <button class="replay-btn" :title="t('replay.stepForward')" :disabled="disabledForward" @click="onClick('stepForward')">
       <img src="/src/assets/replay/step-forward.svg" :alt="t('replay.stepForward')" class="replay-icon" />
@@ -29,12 +29,14 @@ interface Props {
   totalMoves: number;
   currentMoveIndex: number;
   hasNewMove?: boolean;
+  showNotice?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   totalMoves: 0,
   currentMoveIndex: 0,
-  hasNewMove: false
+  hasNewMove: false,
+  showNotice: true
 });
 
 const emit = defineEmits<{
@@ -71,17 +73,17 @@ function onClick(action: 'goToStart' | 'stepBackward' | 'stepForward' | 'goToEnd
 .replay-controls {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px;
   background: #f8f9fa;
   border-top: 1px solid #ddd;
   border-radius: 0 0 8px 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .replay-btn {
-  width: 50px;
-  height: 50px;
+  width: 42px;
+  height: 42px;
   border: none;
   border-radius: 50%;
   background: #6c757d;
@@ -106,8 +108,8 @@ function onClick(action: 'goToStart' | 'stepBackward' | 'stepForward' | 'goToEnd
 }
 
 .replay-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   filter: brightness(0) invert(1);
   transition: all 0.2s ease;
 }

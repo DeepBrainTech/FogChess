@@ -99,7 +99,11 @@ const router = useRouter();
 const showCreateRoom = ref(false);
 const showJoinRoom = ref(false);
 
-const portalUrl = import.meta.env.VITE_MAIN_PORTAL_URL || '/';
+const env = import.meta.env || {};
+const portalUrl =
+  env.VITE_MAIN_PORTAL_URL ||
+  (env as any).MAIN_PORTAL_URL ||
+  'https://game.deepbraintechnology.com/';
 
 const goPortal = () => {
   if (!portalUrl) return;

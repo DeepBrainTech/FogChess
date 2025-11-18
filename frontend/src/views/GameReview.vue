@@ -2,8 +2,25 @@
   <div>
     <div class="game-container">
       <div class="game-content">
-        <div class="chess-container">
-          <ChessBoard />
+        <div class="dual-board-wrapper" :style="{ '--review-board-size': reviewBoardSize }">
+          <div class="board-section primary-board">
+            <div class="board-header">
+              <h3>{{ t('review.board.primary') }}</h3>
+              <span class="board-subtitle">{{ viewModeLabel }}</span>
+            </div>
+            <ChessBoard />
+          </div>
+          <div class="board-section god-board">
+            <div class="board-header">
+              <h3>{{ t('review.board.god') }}</h3>
+              <span class="board-subtitle">{{ t('review.viewMode.god') }}</span>
+            </div>
+            <StaticChessBoard
+              :fen="godViewFen"
+              :last-move-squares="lastMoveSquares"
+              :size="reviewBoardSize"
+            />
+          </div>
         </div>
         
         <div class="game-sidebar">
@@ -12,12 +29,14 @@
           <MoveHistory 
             :moves="gameState?.moveHistory || []" 
             :current-player-color="viewingPlayerColor" 
+            reveal-all 
           />
 
           <!-- 回放控制按钮 -->
           <ReplayControls 
             :total-moves="totalMoves"
             :current-move-index="currentMoveIndex"
+            :show-notice="false"
             @goToStart="goToStart"
             @stepBackward="stepBackward"
             @stepForward="stepForward"
@@ -32,6 +51,7 @@
         :current-player-color="viewingPlayerColor"
         :get-captured-pieces="getCapturedPieces"
         :get-piece-image="getPieceImage"
+        :players="playersForHeader"
       >
         <div class="review-actions">
           <!-- 视野切换按钮组 -->
@@ -60,14 +80,6 @@
             >
               🔄
             </button>
-            <button 
-              @click="setViewMode('god')" 
-              class="view-mode-btn"
-              :class="{ active: viewMode === 'god' }"
-              :title="t('review.viewMode.god')"
-            >
-              👁️
-            </button>
           </div>
 
           <div class="review-action-buttons">
@@ -91,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useGameStore } from '../stores/game';
 import { useAuthStore } from '../stores/auth';
@@ -100,12 +112,13 @@ import { ReplayService } from '../services/replay';
 import { animationService } from '../services/animation';
 import { audioService } from '../services/audio';
 import ChessBoard from '../components/chess/ChessBoard.vue';
+import StaticChessBoard from '../components/chess/StaticChessBoard.vue';
 import ReplayControls from '../components/replay/ReplayControls.vue';
 import MoveHistory from '../components/history/MoveHistory.vue';
 import GameStatusCard from '../components/status/GameStatusCard.vue';
 import GameHeader from '../components/game/GameHeader.vue';
 import { t } from '../services/i18n';
-import type { GameState, Move, Room } from '../types';
+import type { GameState, Move, Room, Player } from '../types';
 import { getCapturedPiecesForColor, getPieceImageBySymbol } from '../utils/captured';
 import './Game.css';
 
@@ -113,6 +126,15 @@ const router = useRouter();
 const route = useRoute();
 const gameStore = useGameStore();
 const authStore = useAuthStore();
+
+interface DisplayPlayer extends Player {
+  label?: string;
+  rating?: number;
+  isAi?: boolean;
+}
+
+// 标准开局 FEN（所有已完成的对局都从标准开局开始）
+const STANDARD_STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 const gameId = computed(() => route.params.gameId as string);
 const gameData = ref<any>(null);
@@ -123,16 +145,84 @@ const currentMoveIndex = ref(0);
 const hasProgressChanged = ref(false);
 const soundEnabled = ref(true);
 const loading = ref(true);
-const viewMode = ref<'white' | 'black' | 'alternating' | 'god'>('alternating');
+const viewMode = ref<'white' | 'black' | 'alternating'>(gameStore.viewModePreference === 'auto' ? 'alternating' : gameStore.viewModePreference);
+gameStore.setViewModePreference(viewMode.value);
+const godViewFen = ref(STANDARD_STARTING_FEN);
+const reviewBoardSize = 'min(60vh, 36vw, 420px)';
 
 const apiBase = (import.meta as any).env?.VITE_API_URL || '';
+const playerRatings = ref<Record<number, number>>({});
 
-// 标准开局 FEN（所有已完成的对局都从标准开局开始）
-const STANDARD_STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
+const fetchPlayerRatings = async (ids: number[]) => {
+  if (!ids.length) return;
+  try {
+    const uniqueIds = Array.from(new Set(ids.filter(id => id > 0)));
+    const query = uniqueIds.join(',');
+    const url = apiBase ? `${apiBase}/user/ratings?ids=${query}` : `/api/user/ratings?ids=${query}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load ratings: ${response.status}`);
+    }
+    const data = await response.json();
+    const nextRatings: Record<number, number> = { ...playerRatings.value };
+    const rows: Array<{ id: number | string; rating: number }> = data.ratings || [];
+    rows.forEach(row => {
+      const userId =
+        typeof row.id === 'string' ? parseInt(row.id, 10) : row.id;
+      if (Number.isFinite(userId) && typeof row.rating === 'number' && Number.isFinite(row.rating)) {
+        nextRatings[userId] = row.rating;
+      }
+    });
+    playerRatings.value = nextRatings;
+  } catch (error) {
+    console.error('Failed to fetch review player ratings:', error);
+  }
+};
 const totalMoves = computed(() => {
   return gameState.value?.moveHistory?.length || 0;
 });
+
+const lastMoveSquares = computed(() => {
+  const moves = gameState.value?.moveHistory || [];
+  if (!moves.length || currentMoveIndex.value === 0) return [];
+  const index = Math.min(currentMoveIndex.value, moves.length);
+  const lastMove = moves[index - 1];
+  if (!lastMove) return [];
+  const squares: string[] = [];
+  if (lastMove.from) squares.push(lastMove.from);
+  if (lastMove.to) squares.push(lastMove.to);
+  return squares;
+});
+
+const viewModeLabel = computed(() => {
+  switch (viewMode.value) {
+    case 'white':
+      return t('review.viewMode.white');
+    case 'black':
+      return t('review.viewMode.black');
+    default:
+      return t('review.viewMode.alternating');
+  }
+});
+
+const getViewerColor = (): 'white' | 'black' => {
+  if (viewMode.value === 'white') return 'white';
+  if (viewMode.value === 'black') return 'black';
+  return (gameState.value?.currentPlayer || 'white') as 'white' | 'black';
+};
+
+const applyPerspective = (color: 'white' | 'black') => {
+  gameStore.setCurrentPlayer({
+    id: `review-${color}`,
+    name: color,
+    color,
+    socketId: ''
+  });
+  gameStore.setViewModePreference(viewMode.value);
+};
 
 const getCapturedPieces = (playerColor: 'white' | 'black') => {
   if (!gameState.value) return [];
@@ -142,6 +232,21 @@ const getCapturedPieces = (playerColor: 'white' | 'black') => {
 const getPieceImage = (pieceSymbol: string) => {
   return getPieceImageBySymbol(pieceSymbol);
 };
+
+const playersForHeader = computed<DisplayPlayer[]>(() => {
+  if (!reviewRoom.value) return [];
+  return reviewRoom.value.players.map(player => {
+    const isAi = !player.mainUserId || player.mainUserId <= 0;
+    const rating =
+      !isAi && typeof player.mainUserId === 'number'
+        ? playerRatings.value[player.mainUserId] 
+        : undefined;
+    const isViewer = player.mainUserId && player.mainUserId === authStore.user?.id;
+    const name = player.name || (isViewer ? authStore.user?.username : '') || t('header.opponent');
+    const label = !isAi && typeof rating === 'number' ? `${name}: ${rating}` : name;
+    return { ...player, isAi, rating, label };
+  });
+});
 
 const goBack = () => {
   router.push('/profile');
@@ -153,9 +258,9 @@ const toggleSound = () => {
   soundEnabled.value = newState;
 };
 
-const setViewMode = (mode: 'white' | 'black' | 'alternating' | 'god') => {
+const setViewMode = (mode: 'white' | 'black' | 'alternating') => {
   viewMode.value = mode;
-  // 重新应用当前视野
+  gameStore.setViewModePreference(mode);
   if (gameState.value) {
     applyFogForCurrentView();
   }
@@ -163,36 +268,19 @@ const setViewMode = (mode: 'white' | 'black' | 'alternating' | 'god') => {
 
 const applyFogForCurrentView = () => {
   if (!gameState.value) return;
-  
+
   const boardPart = gameState.value.board.split(' ')[0];
+  const viewerColor = getViewerColor();
+
   let fog: { whiteVisible: string[]; blackVisible: string[] };
-  
-  if (viewMode.value === 'god') {
-    // 上帝视野：所有格子都可见
-    const allSquares: string[] = [];
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const notation = chessService.getSquareNotation(row, col);
-        allSquares.push(notation);
-      }
-    }
-    fog = {
-      whiteVisible: allSquares,
-      blackVisible: allSquares
-    };
-  } else if (viewMode.value === 'white') {
-    // 白方恒定视野
+  if (viewMode.value === 'white') {
     fog = ReplayService.calculateBasicVisibility(boardPart, 'white');
   } else if (viewMode.value === 'black') {
-    // 黑方恒定视野
     fog = ReplayService.calculateBasicVisibility(boardPart, 'black');
   } else {
-    // 交替行进视野：根据当前轮到谁显示谁的视野
-    const currentPlayer = gameState.value.currentPlayer || 'white';
-    fog = ReplayService.calculateBasicVisibility(boardPart, currentPlayer);
+    fog = ReplayService.calculateBasicVisibility(boardPart, viewerColor);
   }
-  
-  // 更新游戏状态的迷雾
+
   const updatedGameState: GameState = {
     ...gameState.value,
     fogOfWar: {
@@ -200,21 +288,12 @@ const applyFogForCurrentView = () => {
       lastKnownPositions: { white: {}, black: {} }
     }
   };
+
   gameState.value = updatedGameState;
   gameStore.setGameState(updatedGameState);
-  
-  // 应用迷雾到棋盘（使用白方或黑方的视角，但上帝视野需要特殊处理）
-  if (viewMode.value === 'god') {
-    // 上帝视野：重新从 FEN 设置棋盘以恢复所有棋子，然后清除迷雾
-    chessService.setBoardFromFen(gameState.value.board);
-    chessService.clearFog();
-  } else {
-    // 根据视野模式应用迷雾
-    const viewingColor = viewMode.value === 'white' ? 'white' : 
-                        viewMode.value === 'black' ? 'black' : 
-                        gameState.value.currentPlayer || 'white';
-    chessService.applyFogFor(viewingColor, fog);
-  }
+  godViewFen.value = updatedGameState.board;
+  applyPerspective(viewerColor);
+  gameStore.setViewModePreference(viewMode.value);
 };
 
 const goToStart = async () => {
@@ -522,8 +601,8 @@ const fetchGameDetails = async () => {
       id: gameData.value.id,
       name: `${t('review.title')}: ${gameData.value.white_name} VS ${gameData.value.black_name}`,
       players: [
-        { id: 'white', name: gameData.value.white_name, color: 'white', socketId: '' },
-        { id: 'black', name: gameData.value.black_name, color: 'black', socketId: '' }
+        { id: 'white', name: gameData.value.white_name, color: 'white', socketId: '', mainUserId: gameData.value.white_user_id ?? undefined },
+        { id: 'black', name: gameData.value.black_name, color: 'black', socketId: '', mainUserId: gameData.value.black_user_id ?? undefined }
       ],
       gameState: {
         board: gameData.value.final_fen || STANDARD_STARTING_FEN,
@@ -550,6 +629,17 @@ const fetchGameDetails = async () => {
       color: viewingPlayerColor.value,
       socketId: ''
     });
+
+    const ratingIds: number[] = [];
+    if (typeof gameData.value.white_user_id === 'number' && gameData.value.white_user_id > 0) {
+      ratingIds.push(gameData.value.white_user_id);
+    }
+    if (typeof gameData.value.black_user_id === 'number' && gameData.value.black_user_id > 0) {
+      ratingIds.push(gameData.value.black_user_id);
+    }
+    if (ratingIds.length) {
+      await fetchPlayerRatings(ratingIds);
+    }
     
     // 初始化游戏状态（所有已完成的对局都从标准开局开始）
     gameState.value = {
@@ -589,6 +679,10 @@ onMounted(() => {
   }
   fetchGameDetails();
 });
+
+onUnmounted(() => {
+  gameStore.setViewModePreference('auto');
+});
 </script>
 
 <style scoped>
@@ -608,6 +702,61 @@ onMounted(() => {
 .view-mode-buttons {
   display: flex;
   gap: 8px;
+}
+
+.game-content {
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.dual-board-wrapper {
+  flex: 0 0 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, max-content);
+  gap: 28px;
+  justify-content: center;
+  align-items: start;
+  padding-right: 10px;
+}
+
+.board-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: var(--review-board-size);
+}
+
+.board-header {
+  text-align: center;
+}
+
+.board-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.board-subtitle {
+  font-size: 14px;
+  color: #666;
+}
+
+.primary-board :deep(.chess-board) {
+  padding: 12px;
+}
+
+.primary-board :deep(.board-container) {
+  width: var(--review-board-size);
+  height: var(--review-board-size);
+  max-width: 420px;
+  max-height: 420px;
+}
+
+.god-board :deep(.board-wrapper) {
+  width: var(--review-board-size);
+  height: var(--review-board-size);
 }
 
 .view-mode-btn {
@@ -634,6 +783,32 @@ onMounted(() => {
 .view-mode-btn.active {
   background: #F9992C;
   box-shadow: 0 2px 8px rgba(249, 153, 44, 0.4);
+}
+
+@media (max-width: 1280px) {
+  .dual-board-wrapper {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(1, minmax(0, max-content));
+    justify-content: center;
+    padding-right: 0;
+  }
+
+  .primary-board :deep(.board-container) {
+    width: min(60vh, 75vw, 360px);
+    height: min(60vh, 75vw, 360px);
+  }
+
+  .god-board :deep(.board-wrapper) {
+    width: min(60vh, 75vw, 360px);
+    height: min(60vh, 75vw, 360px);
+  }
+}
+
+@media (max-width: 768px) {
+  .dual-board-wrapper {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(1, minmax(0, max-content));
+  }
 }
 
 .back-button {

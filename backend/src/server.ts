@@ -177,6 +177,31 @@ app.get('/user/games', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/user/ratings', requireAuth, async (req, res) => {
+  try {
+    if (!userService) {
+      return res.status(503).json({ error: 'User service not available' });
+    }
+    const idsParam = req.query.ids;
+    if (!idsParam) {
+      return res.status(400).json({ error: 'ids query parameter required' });
+    }
+    const rawIds = Array.isArray(idsParam) ? idsParam.join(',') : String(idsParam);
+    const parsedIds = rawIds
+      .split(',')
+      .map(id => parseInt(id, 10))
+      .filter(id => Number.isFinite(id) && id > 0);
+    if (!parsedIds.length) {
+      return res.status(400).json({ error: 'No valid user ids provided' });
+    }
+    const ratings = await userService.getUserRatingsByIds(parsedIds);
+    return res.json({ ratings });
+  } catch (error) {
+    console.error('Failed to get user ratings:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // 获取单个游戏详情（用于回放）
 app.get('/game/:gameId', requireAuth, async (req, res) => {
   try {
@@ -481,6 +506,38 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       socket.emit('error', { message: 'Failed to respond to draw' });
+    }
+  });
+
+  // 发送聊天消息
+  socket.on('send-chat', (data: SocketEvents['send-chat']) => {
+    try {
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Player not found in room' });
+        return;
+      }
+
+      // 验证消息内容
+      if (!data.message || !data.message.trim()) {
+        socket.emit('error', { message: 'Message cannot be empty' });
+        return;
+      }
+
+      // 限制消息长度
+      if (data.message.length > 500) {
+        socket.emit('error', { message: 'Message too long (max 500 characters)' });
+        return;
+      }
+
+      // 广播消息给房间内所有玩家（包括发送者）
+      io.to(data.roomId).emit('chat-message', {
+        fromPlayer: player.name,
+        message: data.message.trim(),
+        timestamp: new Date()
+      });
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to send chat message' });
     }
   });
 
