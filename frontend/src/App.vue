@@ -2,11 +2,42 @@
   <div id="app">
     <button class="lang-toggle" @click="toggleLang">{{ currentLang === 'zh' ? 'EN' : '中' }}</button>
     <router-view />
+
+    <div v-if="showLoginRequired" class="login-required-overlay">
+      <div class="login-required-dialog">
+        <h2>{{ t('login.required.title') }}</h2>
+        <p>{{ t('login.required.message') }}</p>
+        <button class="login-required-btn" @click="goPortal">
+          {{ t('login.required.button') }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { currentLang, toggleLang } from './services/i18n';
+import { computed } from 'vue';
+import { currentLang, toggleLang, t } from './services/i18n';
+import { useAuthStore } from './stores/auth';
+
+const authStore = useAuthStore();
+const env = (import.meta as any).env || {};
+const portalUrl =
+  env.VITE_MAIN_PORTAL_URL ||
+  env.MAIN_PORTAL_URL ||
+  'https://game.deepbraintechnology.com/';
+
+const hasUsername = computed(() => {
+  const user = authStore.user;
+  if (!user) return false;
+  return user.username.trim().length > 0;
+});
+
+const showLoginRequired = computed(() => !authStore.loading && !hasUsername.value);
+
+const goPortal = () => {
+  window.location.href = portalUrl;
+};
 </script>
 
 <style>
@@ -22,7 +53,7 @@ import { currentLang, toggleLang } from './services/i18n';
   position: fixed;
   top: 16px;
   right: 16px;
-  z-index: 2000;
+  z-index: 4000;
   border: none;
   background: rgba(255,255,255,0.9);
   color: #333;
@@ -30,6 +61,61 @@ import { currentLang, toggleLang } from './services/i18n';
   border-radius: 20px;
   cursor: pointer;
   box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+
+.login-required-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 3000;
+}
+
+.login-required-dialog {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.login-required-dialog h2 {
+  margin: 0 0 16px;
+  font-size: 24px;
+  color: #333333;
+}
+
+.login-required-dialog p {
+  margin: 0 0 32px;
+  color: #555555;
+  line-height: 1.5;
+  font-size: 16px;
+}
+
+.login-required-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  background: #4CAF50;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  min-width: 200px;
+}
+
+.login-required-btn:hover {
+  background: #45a049;
 }
 
 * {

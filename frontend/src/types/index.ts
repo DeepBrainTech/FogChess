@@ -3,6 +3,7 @@ export interface Player {
   name: string;
   color: 'white' | 'black';
   socketId: string;
+  mainUserId?: number;
 }
 
 export interface Room {
@@ -64,6 +65,10 @@ export interface SocketEvents {
   'request-undo': { roomId: string };
   'respond-undo': { roomId: string; accepted: boolean };
   'surrender': { roomId: string };
+  'report-timeout': { roomId: string; player: 'white' | 'black' };
+  'request-draw': { roomId: string };
+  'respond-draw': { roomId: string; accepted: boolean };
+  'send-chat': { roomId: string; message: string };
   
   // 服务端发送的事件
   'room-created': { room: Room };
@@ -76,5 +81,8 @@ export interface SocketEvents {
   'undo-requested': { fromPlayer: string; attemptsLeft?: number };
   'undo-response': { accepted: boolean };
   'undo-executed': { gameState: GameState };
+  'draw-requested': { fromPlayer: string };
+  'draw-response': { accepted: boolean };
+  'chat-message': { fromPlayer: string; message: string; timestamp: Date };
   'error': { message: string };
 }

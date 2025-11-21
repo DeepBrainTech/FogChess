@@ -65,6 +65,7 @@ export interface SocketEvents {
   'report-timeout': { roomId: string; player: 'white' | 'black' };
   'request-draw': { roomId: string };
   'respond-draw': { roomId: string; accepted: boolean };
+  'send-chat': { roomId: string; message: string };
   
   // 服务端发送的事件
   'room-created': { room: Room };
@@ -79,5 +80,6 @@ export interface SocketEvents {
   'undo-executed': { gameState: GameState };
   'draw-requested': { fromPlayer: string };
   'draw-response': { accepted: boolean };
+  'chat-message': { fromPlayer: string; message: string; timestamp: Date };
   'error': { message: string };
 }

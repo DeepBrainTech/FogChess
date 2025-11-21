@@ -32,10 +32,6 @@
           <div class="player-info">
             <span class="player-color" :class="player.color"></span>
             {{ getPlayerLabel(player) }}
-            <span
-              v-if="player.color === gameState?.currentPlayer && gameState?.gameStatus !== 'finished'"
-              class="turn-indicator"
-            >{{ getTurnIndicator(player) }}</span>
           </div>
           <div class="captured-pieces">
             <img 
@@ -64,6 +60,7 @@ import { t } from '../../services/i18n';
 interface DisplayPlayer extends Player {
   isAi?: boolean;
   label?: string;
+  rating?: number;
 }
 
 interface Props {
@@ -92,23 +89,27 @@ const playersToRender = computed<DisplayPlayer[]>(() => {
 const getPlayerLabel = (player: DisplayPlayer) => {
   if (player.label) return player.label;
   if (player.isAi) return t('header.aiOpponent');
-  if (props.currentPlayerColor && player.color === props.currentPlayerColor) {
-    return t('header.you');
+  const name = player.name || t('header.opponent');
+  if (typeof player.rating === 'number') {
+    return `${name}: ${player.rating}`;
   }
-  if (props.currentPlayerColor && player.color !== props.currentPlayerColor) {
-    return t('header.opponent');
-  }
-  return player.name || t('header.opponent');
-};
-
-const getTurnIndicator = (player: DisplayPlayer) => {
-  if (player.isAi) return t('header.aiTurn');
-  return t('header.currentTurn');
+  return name;
 };
 </script>
 
 <style scoped>
-.game-header { background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: flex; justify-content: space-between; align-items: center; }
+.game-header { 
+  background: white; 
+  padding: 20px; 
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
 .room-info h2 { margin: 0 0 15px 0; color: #333; font-size: 26px; }
 .room-info-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
 .room-id, .invite-link { display: flex; align-items: center; justify-content: space-between; font-size: 17px; gap: 20px; }
@@ -133,6 +134,5 @@ const getTurnIndicator = (player: DisplayPlayer) => {
 .player-color { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #333; }
 .player-color.white { background: white; }
 .player-color.black { background: black; }
-.turn-indicator { font-size: 15px; color: #2196F3; font-weight: bold; }
 .actions-slot { display: flex; align-items: center; }
 </style>

@@ -2,7 +2,7 @@
   <div class="chess-board">
     <div 
       class="board-container" 
-      :class="{ 'board-rotated': isBlackPlayer }"
+      :class="{ 'board-rotated': rotateBoard }"
       :key="boardRenderKey"
     >
       <div 
@@ -21,7 +21,7 @@
             v-if="getSquarePiece(row - 1, col - 1)"
             :piece="getSquarePiece(row - 1, col - 1)!"
             :is-visible="isSquareVisible(row - 1, col - 1)"
-            :is-rotated="isBlackPlayer"
+            :is-rotated="rotateBoard"
           />
         </div>
       </div>
@@ -37,8 +37,10 @@ import ChessPiece from './ChessPiece.vue';
 
 const gameStore = useGameStore();
 
-// 判断当前玩家是否是黑方
-const isBlackPlayer = computed(() => {
+const rotateBoard = computed(() => {
+  if (gameStore.viewModePreference !== 'auto') {
+    return false;
+  }
   return gameStore.currentPlayer?.color === 'black';
 });
 
@@ -158,7 +160,7 @@ const clientPointToSquare = (clientX: number, clientY: number): string | null =>
   let row = Math.floor(((clientY - rect.top) / rect.height) * 8);
   
   // 如果棋盘旋转了（黑方视角），需要反转坐标
-  if (isBlackPlayer.value) {
+  if (rotateBoard.value) {
     row = 7 - row;
     col = 7 - col;
   }
@@ -325,10 +327,11 @@ const onSquareClick = (row: number, col: number) => {
   border: 2px solid #7a8a9a;
   box-shadow: 0 4px 8px rgba(156, 168, 184, 0.3);
   /* 使用更小的固定尺寸或视口单位，确保在各种屏幕下都能完整显示 */
-  width: min(70vh, 90vw, 600px);
-  height: min(70vh, 90vw, 600px);
-  max-width: 600px;
-  max-height: 600px;
+  /* 缩小10%：从600px到540px，从70vh到63vh，从90vw到81vw */
+  width: min(63vh, 81vw, 540px);
+  height: min(63vh, 81vw, 540px);
+  max-width: 540px;
+  max-height: 540px;
   transition: transform 0.6s ease;
 }
 
@@ -430,9 +433,9 @@ const onSquareClick = (row: number, col: number) => {
   }
   
   .board-container {
-    /* 移动端使用更小的尺寸 */
-    width: min(80vh, 95vw, 500px);
-    height: min(80vh, 95vw, 500px);
+    /* 移动端使用更小的尺寸（缩小10%） */
+    width: min(72vh, 85.5vw, 450px);
+    height: min(72vh, 85.5vw, 450px);
   }
 }
 </style>

@@ -7,6 +7,7 @@ export interface User {
   wins: number;
   losses: number;
   draws: number;
+  rating: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -65,27 +66,36 @@ export class UserService {
    */
   async updateUserStats(
     userId: number,
-    result: 'win' | 'loss' | 'draw'
+    result: 'win' | 'loss' | 'draw',
+    newRating?: number
   ): Promise<void> {
     const client = await this.pool.connect();
     try {
-      let updateField = '';
+      const setClauses: string[] = ['total_games = total_games + 1'];
+
       if (result === 'win') {
-        updateField = 'wins = wins + 1';
+        setClauses.push('wins = wins + 1');
       } else if (result === 'loss') {
-        updateField = 'losses = losses + 1';
+        setClauses.push('losses = losses + 1');
       } else if (result === 'draw') {
-        updateField = 'draws = draws + 1';
+        setClauses.push('draws = draws + 1');
       }
 
-      await client.query(
-        `UPDATE users 
-         SET total_games = total_games + 1,
-             ${updateField},
-             updated_at = NOW()
-         WHERE id = $1`,
-        [userId]
-      );
+      const params: Array<number> = [userId];
+      let paramIndex = 2;
+
+      if (typeof newRating === 'number' && Number.isFinite(newRating)) {
+        setClauses.push(`rating = $${paramIndex}`);
+        params.push(Math.round(newRating));
+        paramIndex += 1;
+      }
+
+      setClauses.push('updated_at = NOW()');
+
+      const query = `UPDATE users 
+         SET ${setClauses.join(', ')}
+         WHERE id = $1`;
+      await client.query(query, params);
     } finally {
       client.release();
     }
@@ -102,6 +112,22 @@ export class UserService {
         [userId]
       );
       return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getUserRatingsByIds(userIds: number[]): Promise<Array<{ id: number; username: string; rating: number }>> {
+    if (!userIds.length) return [];
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT id, username, rating 
+         FROM users 
+         WHERE id = ANY($1::bigint[])`,
+        [userIds]
+      );
+      return result.rows;
     } finally {
       client.release();
     }

@@ -26,6 +26,11 @@
         />
       </div>
       
+      <!-- 侧边聊天区 -->
+      <div class="chat-sidebar">
+        <SideChat />
+      </div>
+      
       <!-- 计时器显示 -->
       <div v-if="timer.visible" class="timer-display">
         <div class="timer-circle" :class="{ 'timer-warning': timer.warning, 'timer-danger': timer.danger, 'timer-finished': gameState?.gameStatus === 'finished' }">
@@ -117,6 +122,7 @@ import './Game.css';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
+import { useAuthStore } from '../stores/auth';
 import { useGameStore } from '../stores/game';
 import { audioService } from '../services/audio';
 import ChessBoard from '../components/chess/ChessBoard.vue';
@@ -127,6 +133,7 @@ import GameActionsBar from '../components/actions/GameActionsBar.vue';
 import GameStatusCard from '../components/status/GameStatusCard.vue';
 import GameHeader from '../components/game/GameHeader.vue';
 import GameOverOverlay from '../components/game/GameOverOverlay.vue';
+import SideChat from '../components/chat/SideChat.vue';
 import { useGameOver } from '../composables/useGameOver';
 import { useReplay } from '../composables/useReplay';
 import { useNewMoveNotice } from '../composables/useNewMoveNotice';
@@ -139,6 +146,7 @@ import type { Player } from '../types';
 const router = useRouter();
 const roomStore = useRoomStore();
 const gameStore = useGameStore();
+const authStore = useAuthStore();
 
 interface DisplayPlayer extends Player {
   isAi?: boolean;
@@ -155,6 +163,37 @@ const sortPlayersByColor = (list: DisplayPlayer[]) => {
 const room = computed(() => roomStore.currentRoom);
 const gameState = computed(() => gameStore.gameState);
 const currentPlayerColor = computed(() => roomStore.currentPlayer?.color || null);
+const apiBase = (import.meta as any).env?.VITE_API_URL || '';
+const playerRatings = ref<Record<number, number>>({});
+
+const fetchPlayerRatings = async (ids: number[]) => {
+  if (!ids.length) return;
+  try {
+    const uniqueIds = Array.from(new Set(ids.filter(id => id > 0)));
+    const query = uniqueIds.join(',');
+    const url = apiBase ? `${apiBase}/user/ratings?ids=${query}` : `/api/user/ratings?ids=${query}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load ratings: ${response.status}`);
+    }
+    const data = await response.json();
+    const nextRatings: Record<number, number> = { ...playerRatings.value };
+    const rows: Array<{ id: number | string; rating: number }> = data.ratings || [];
+    rows.forEach(row => {
+      const userId =
+        typeof row.id === 'string' ? parseInt(row.id, 10) : row.id;
+      if (Number.isFinite(userId) && typeof row.rating === 'number' && Number.isFinite(row.rating)) {
+        nextRatings[userId] = row.rating;
+      }
+    });
+    playerRatings.value = nextRatings;
+  } catch (error) {
+    console.error('Failed to fetch player ratings:', error);
+  }
+};
 
 // 弹窗相关状态由 useGameDialogs 管理
 const {
@@ -185,7 +224,7 @@ const isMyTurn = computed(() => {
   return gameState.value.currentPlayer === roomStore.currentPlayer.color;
 });
 
-const playersForHeader = computed<DisplayPlayer[]>(() => {
+const basePlayersForHeader = computed<DisplayPlayer[]>(() => {
   const currentRoom = room.value;
   if (!currentRoom) return [];
 
@@ -213,9 +252,10 @@ const playersForHeader = computed<DisplayPlayer[]>(() => {
       ? { ...humanCandidate, color: humanColor, isAi: false }
       : {
           id: 'human-player',
-          name: roomStore.currentPlayer?.name || t('header.you'),
+          name: roomStore.currentPlayer?.name || authStore.user?.username || t('header.you'),
           color: humanColor,
           socketId: roomStore.currentPlayer?.socketId || 'human-player',
+          mainUserId: roomStore.currentPlayer?.mainUserId,
           isAi: false,
         };
 
@@ -234,6 +274,48 @@ const playersForHeader = computed<DisplayPlayer[]>(() => {
 
   return sortPlayersByColor(basePlayers);
 });
+
+const playersForHeader = computed<DisplayPlayer[]>(() => {
+  return basePlayersForHeader.value.map(player => {
+    const rating =
+      typeof player.mainUserId === 'number'
+        ? playerRatings.value[player.mainUserId]
+        : undefined;
+
+    const isAi = Boolean(player.isAi);
+    const nameFallback =
+      player.name ||
+      (player.mainUserId === roomStore.currentPlayer?.mainUserId
+        ? roomStore.currentPlayer?.name || authStore.user?.username
+        : undefined) ||
+      (player.mainUserId === authStore.user?.id ? authStore.user?.username : undefined) ||
+      t('header.opponent');
+
+    const label = !isAi && typeof rating === 'number'
+      ? `${nameFallback}: ${rating}`
+      : nameFallback;
+
+    return {
+      ...player,
+      rating,
+      label
+    };
+  });
+});
+
+watch(
+  () =>
+    basePlayersForHeader.value
+      .map(player => player.mainUserId)
+      .filter((id): id is number => typeof id === 'number' && Number.isFinite(id) && id > 0),
+  ids => {
+    const missing = ids.filter(id => playerRatings.value[id] === undefined);
+    if (missing.length) {
+      fetchPlayerRatings(missing);
+    }
+  },
+  { immediate: true }
+);
 
 // 获取被吃棋子列表（根据当前FEN与初始数量对比推断）
 const getCapturedPieces = (playerColor: 'white' | 'black') => {

@@ -16,6 +16,7 @@ export const useGameStore = defineStore('game', () => {
   const currentPlayer = ref<Player | null>(null);
   const selectedSquare = ref<string | null>(null);
   const possibleMoves = ref<string[]>([]);
+  const viewModePreference = ref<'auto' | 'white' | 'black' | 'alternating'>('auto');
   const isMyTurn = computed(() => {
     return currentPlayer.value && gameState.value && 
            currentPlayer.value.color === gameState.value.currentPlayer;
@@ -434,6 +435,7 @@ export const useGameStore = defineStore('game', () => {
     selectedSquare,
     possibleMoves,
     isMyTurn,
+    viewModePreference,
     replayState,
     
     // 动作
@@ -449,6 +451,9 @@ export const useGameStore = defineStore('game', () => {
     surrender,
     requestDraw,
     respondToDraw,
-    setReplayState
+    setReplayState,
+    setViewModePreference: (mode: 'auto' | 'white' | 'black' | 'alternating') => {
+      viewModePreference.value = mode;
+    }
   };
 });
