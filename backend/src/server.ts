@@ -119,6 +119,50 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// 仅用于本地开发的登录接口
+app.post('/auth/dev-login', async (req, res) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return res.status(403).json({ error: 'not allowed in production' });
+  }
+
+  const { username, userId } = req.body;
+  if (!username || !userId) {
+    return res.status(400).json({ error: 'username and userId required' });
+  }
+  try {
+    // 模拟主站发来的Token
+    const token = jwt.sign(
+      { user_id: userId, username, sub: String(username), iss: process.env.FOG_CHESS_JWT_ISS, aud: process.env.FOG_CHESS_JWT_AUD },
+      process.env.FOG_CHESS_JWT_SECRET as string,
+      { algorithm: 'HS256', expiresIn: '1h' }
+    );
+    
+    // 使用现有的逻辑生成Session
+    const session = signSession({ mainUserId: userId, username });
+    
+    // 明确设置 Cookie
+    res.cookie('fogchess.sid', session, {
+      httpOnly: false, // 允许前端访问（临时）
+      secure: false, 
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 3600 * 1000,
+      path: '/'
+    });
+    
+    // 确保用户记录存在
+    if (userService) {
+      await userService.ensureUserExists(userId, username).catch(err => {
+        console.error('Failed to ensure user exists:', err);
+      });
+    }
+    
+    return res.json({ ok: true, user: { id: userId, username } });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'dev login failed' });
+  }
+});
+
 app.post('/auth/fogchess/exchange', async (req, res) => {
   const token = (req as any).body?.token as string | undefined;
   if (!token) return res.status(400).json({ error: 'token required' });

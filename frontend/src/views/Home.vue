@@ -46,6 +46,14 @@
               <p>{{ t('home.profile.desc') }}</p>
             </div>
           </button>
+
+          <button @click="goRules" class="action-btn rules-btn">
+            <span class="btn-icon">📜</span>
+            <div class="btn-content">
+              <h4>{{ t('home.rules.title') }}</h4>
+              <p>{{ t('home.rules.desc') }}</p>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -83,6 +91,13 @@
         <RoomList @close="showJoinRoom = false" />
       </div>
     </div>
+
+    <!-- Dev Only: Login Helper -->
+    <div v-if="isDev" class="dev-login-panel">
+      <h4>Dev Login</h4>
+      <button @click="devLogin(1, 'wzy')" class="dev-btn">Login as wzy</button>
+      <button @click="devLogin(2, 'AAA')" class="dev-btn">Login as AAA</button>
+    </div>
   </div>
 </template>
 
@@ -90,14 +105,38 @@
 import { ref, onMounted } from 'vue';
 import { t } from '../services/i18n';
 import { useRoomStore } from '../stores/room';
+import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
 import CreateRoom from '../components/room/CreateRoom.vue';
 import RoomList from '../components/room/RoomList.vue';
 
 const roomStore = useRoomStore();
+const authStore = useAuthStore();
 const router = useRouter();
 const showCreateRoom = ref(false);
 const showJoinRoom = ref(false);
+
+const isDev = import.meta.env.DEV;
+
+const devLogin = async (id: number, username: string) => {
+  try {
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    const res = await fetch(`${apiBase}/auth/dev-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: id, username }),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      const err = await res.json();
+      alert('Dev login failed: ' + (err.error || res.statusText));
+    }
+  } catch (e: any) {
+    alert('Error during dev login: ' + e.message);
+  }
+};
 
 const env = import.meta.env || {};
 const portalUrl =
@@ -120,6 +159,10 @@ const goProfile = () => {
   });
 };
 
+const goRules = () => {
+  router.push('/rules');
+};
+
 onMounted(() => {
   roomStore.connect();
   // 如果地址栏包含 ?room= 则自动弹出“加入房间”
@@ -133,6 +176,36 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 临时开发登录面板 */
+.dev-login-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0,0,0,0.8);
+  padding: 15px;
+  border-radius: 8px;
+  z-index: 9999;
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+}
+.dev-login-panel h4 {
+  color: #fff;
+  margin: 0;
+  font-size: 14px;
+}
+.dev-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.dev-btn:hover {
+  background: #45a049;
+}
+
 /* 整体布局 - 采用量子围棋风格 */
 .home {
   min-height: 100vh;
