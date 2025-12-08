@@ -27,7 +27,7 @@ export function toggleLang() {
 type Dict = Record<string, { zh: string; en: string }>
 
 const dict: Dict = {
-  'app.title': { zh: '迷雾国际象棋', en: 'FogChess' },
+  'app.title': { zh: '迷雾国际象棋', en: 'Fog of War Chess' },
   'home.subtitle': { zh: '体验全新的迷雾战争模式', en: 'Experience Fog of War Chess' },
   'home.hero.title': { zh: '在线迷雾战争象棋', en: 'Play Fog of War Chess Online' },
   'home.hero.description': { zh: '体验古代策略与现代智能的融合。与对手对战，掌握象棋艺术，每一步都训练你的思维。', en: 'Experience the fusion of ancient strategy and modern intelligence. Play against opponents, master the art of chess, and train your mind with every move.' },
