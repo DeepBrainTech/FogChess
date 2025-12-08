@@ -161,8 +161,8 @@
     width: 100%; 
   } 
   .chat-sidebar {
-    width: 100%;
-  }
+    width: 100%; 
+  } 
   .game-header { 
     flex-direction: column; 
     gap: 20px; 
