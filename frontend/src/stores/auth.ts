@@ -17,7 +17,10 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     try {
       const url = apiBase ? `${apiBase}/me` : '/api/me';
-      const response = await fetch(url, { method: 'GET' });
+      const response = await fetch(url, { 
+        method: 'GET',
+        credentials: 'include' // 确保携带 Cookie
+      });
       if (!response.ok) {
         throw new Error(`Failed to load user: ${response.status}`);
       }

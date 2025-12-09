@@ -4,6 +4,7 @@ import Game from '../views/Game.vue';
 import Lobby from '../views/Lobby.vue';
 import Profile from '../views/Profile.vue';
 import GameReview from '../views/GameReview.vue';
+import Rules from '../views/Rules.vue';
 
 const routes = [
   {
@@ -31,6 +32,11 @@ const routes = [
     path: '/game-review/:gameId',
     name: 'GameReview',
     component: GameReview
+  },
+  {
+    path: '/rules',
+    name: 'Rules',
+    component: Rules
   }
 ];
 

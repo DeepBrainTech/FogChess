@@ -27,7 +27,7 @@ export function toggleLang() {
 type Dict = Record<string, { zh: string; en: string }>
 
 const dict: Dict = {
-  'app.title': { zh: '迷雾国际象棋', en: 'FogChess' },
+  'app.title': { zh: '迷雾国际象棋', en: 'Fog of War Chess' },
   'home.subtitle': { zh: '体验全新的迷雾战争模式', en: 'Experience Fog of War Chess' },
   'home.hero.title': { zh: '在线迷雾战争象棋', en: 'Play Fog of War Chess Online' },
   'home.hero.description': { zh: '体验古代策略与现代智能的融合。与对手对战，掌握象棋艺术，每一步都训练你的思维。', en: 'Experience the fusion of ancient strategy and modern intelligence. Play against opponents, master the art of chess, and train your mind with every move.' },
@@ -43,6 +43,55 @@ const dict: Dict = {
   'home.lobby.button': { zh: '进入大厅', en: 'Enter Lobby' },
   'home.profile.title': { zh: '个人资料', en: 'Profile' },
   'home.profile.desc': { zh: '查看你的个人资料，回看对局记录', en: 'View your profile, review game history' },
+  'home.rules.title': { zh: '规则', en: 'Rules' },
+  'home.rules.desc': { zh: '学习迷雾象棋的玩法', en: 'Learn how to play Fog of War Chess' },
+
+  // Rules Page
+  'rules.title': { zh: '游戏规则', en: 'Game Rules' },
+  'rules.tab.standard': { zh: '标准国际象棋', en: 'Standard Chess' },
+  'rules.tab.fog': { zh: '迷雾象棋', en: 'Fog Chess' },
+  
+  // Standard Rules
+  'rules.std.basic.title': { zh: '基本规则', en: 'Basic Rules' },
+  'rules.std.basic.desc': { zh: '双人对弈（白方先手，黑方后手），在8x8的棋盘上进行。目标是将死对方的国王。', en: 'Two players (White first, then Black) play on an 8x8 board. The goal is to checkmate the opponent\'s King.' },
+  
+  'rules.std.move.title': { zh: '棋子移动', en: 'Movement' },
+  'rules.std.move.desc': { zh: '兵向前走；马走"日"字；象走斜线；车走直线；后走米字（直线+斜线）；王走周围一格。', en: 'Pawns move forward; Knights move in an "L" shape; Bishops diagonally; Rooks horizontally/vertically; Queens in all directions; Kings move one square in any direction.' },
+  
+  'rules.std.capture.title': { zh: '吃子', en: 'Capture' },
+  'rules.std.capture.desc': { zh: '当你的棋子移动到对手棋子所在的格子时，对手棋子被吃掉并移出棋盘。兵是唯一吃子方向（斜前方）与移动方向不同的棋子。', en: 'When you move to a square occupied by an opponent\'s piece, that piece is captured and removed. Pawns capture diagonally forward, unlike their movement.' },
+  
+  'rules.std.special.title': { zh: '特殊规则', en: 'Special Moves' },
+  'rules.std.special.desc': { zh: '过路兵：敌方兵刚好从起始位置前进两格经过你的兵时，你可以斜吃它（仅限当回合）。\n王车易位：国王和车都未移动过且之间无棋子、国王不在被将军状态且经过和到达的格子都不被攻击时，国王向车方向移动两格，车跳过国王到其旁边。\n升变：兵走到对方底线时，可以升变为后、车、象或马。', en: 'En Passant: If an enemy pawn advances 2 squares from start and lands beside your pawn, you may capture it diagonally (only on the next turn).\nCastling: If King and Rook haven\'t moved, no pieces between them, King is not in check and doesn\'t pass through or land on an attacked square, King moves 2 squares toward Rook, and Rook jumps to the other side of the King.\nPromotion: When a pawn reaches the opponent\'s back rank, it can be promoted to a Queen, Rook, Bishop, or Knight.' },
+  
+  'rules.std.check.title': { zh: '将军与将死', en: 'Check & Checkmate' },
+  'rules.std.check.desc': { zh: '如果国王受到攻击（将军），必须立即解围。国王不可以走到直接受攻击的格子。如果无法解围，则是"将死"，游戏结束。', en: 'If the King is under attack (Check), you must save it immediately. The King cannot move to a square under attack. If you cannot save it, it is "Checkmate" and the game ends.' },
+  
+  'rules.std.end.title': { zh: '游戏结束', en: 'Ending' },
+  'rules.std.end.desc': { zh: '游戏通过将死、认输或超时结束。', en: 'Game ends by Checkmate, Resignation, or Timeout.' },
+  
+  // Fog Chess Rules
+  'rules.fog.basic.title': { zh: '基本规则', en: 'Basic Rules' },
+  'rules.fog.basic.desc': { zh: '迷雾象棋遵循标准国际象棋的所有基本规则，包括棋子移动、吃子和特殊规则。唯一的区别是：棋盘上有迷雾遮挡视野，你无法看到所有格子和对手棋子。', en: 'Fog Chess follows all standard chess rules for piece movement, capture, and special moves. The only difference: the board has fog of war obscuring your vision - you cannot see all squares and opponent pieces.' },
+  
+  'rules.fog.vision.title': { zh: '视野与迷雾', en: 'Vision & Fog' },
+  'rules.fog.vision.desc': { zh: '你只能看到自己所有棋子可以走到的位置。\n具体来说：你能看到每个己方棋子移动范围内的空地，以及该方向上遇到的第一个棋子（无论敌我）。被挡住的格子会被迷雾覆盖，你无法看到其中的内容。', en: 'You can only see squares where your pieces can move.\nSpecifically: you see empty squares in each piece\'s movement range, plus the first piece (friend or foe) encountered in that direction. Blocked squares are covered by fog, and you cannot see their contents.' },
+  
+  'rules.fog.capture.title': { zh: '吃子与特殊规则', en: 'Capture & Special Moves' },
+  'rules.fog.capture.desc': { zh: '所有吃子规则与标准象棋一致。过路兵、王车易位、升变等特殊规则仍然有效。\n注意：你只能吃掉你看得见的棋子。', en: 'All capture rules follow standard chess. En Passant, Castling, Promotion and other special moves still apply.\nNote: you can only capture pieces you can see.' },
+  
+  'rules.fog.checkmate.title': { zh: '将军与胜利', en: 'Check & Victory' },
+  'rules.fog.checkmate.desc': { zh: '由于迷雾的存在，你不会收到"将军"的提示。游戏通过吃掉对方国王来获胜。如果你的国王被吃掉，游戏立即结束，你输掉比赛。因此，时刻注意保护你的国王！', en: 'Due to fog of war, you will NOT receive check warnings. Victory is achieved by capturing the opponent\'s King. If your King is captured, the game ends immediately and you lose. Therefore, always protect your King!' },
+  
+  // Rules Demo
+  'rules.demo.title': { zh: '试试看', en: 'Try it out' },
+  'rules.demo.reset': { zh: '重置棋盘', en: 'Reset Board' },
+  'rules.demo.currentMove': { zh: '当前回合', en: 'Current move' },
+  'rules.demo.white': { zh: '白方', en: 'White' },
+  'rules.demo.black': { zh: '黑方', en: 'Black' },
+  'rules.demo.whiteWins': { zh: '白方获胜', en: 'White wins' },
+  'rules.demo.blackWins': { zh: '黑方获胜', en: 'Black wins' },
+  'rules.demo.promotion': { zh: '选择升变棋子', en: 'Choose Promotion' },
 
   'login.required.title': { zh: '尚未登录', en: 'Not Logged In' },
   'login.required.message': { zh: '尚未登录，无法进行游戏，请先从主页登录', en: 'You are not logged in and cannot play. Please return to the main site to log in first.' },

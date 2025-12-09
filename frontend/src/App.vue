@@ -3,7 +3,9 @@
     <button class="lang-toggle" @click="toggleLang">{{ currentLang === 'zh' ? 'EN' : '中' }}</button>
     <router-view />
 
-    <div v-if="showLoginRequired" class="login-required-overlay">
+    <!-- 临时注释掉登录遮罩层，以便开发调试 -->
+    <!--
+    <div v-if="showLoginRequired && !isDev" class="login-required-overlay">
       <div class="login-required-dialog">
         <h2>{{ t('login.required.title') }}</h2>
         <p>{{ t('login.required.message') }}</p>
@@ -12,6 +14,7 @@
         </button>
       </div>
     </div>
+    -->
   </div>
 </template>
 
@@ -22,6 +25,7 @@ import { useAuthStore } from './stores/auth';
 
 const authStore = useAuthStore();
 const env = (import.meta as any).env || {};
+const isDev = import.meta.env.DEV; // 直接从 import.meta.env 获取
 const portalUrl =
   env.VITE_MAIN_PORTAL_URL ||
   env.MAIN_PORTAL_URL ||
