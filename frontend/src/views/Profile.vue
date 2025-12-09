@@ -13,7 +13,7 @@
       <div class="stats-section">
         <div class="stat-card">
           <div class="stat-label">{{ t('profile.username') || '用户名' }}</div>
-          <div class="stat-value">{{ profile?.username || '加载中...' }}</div>
+          <div class="stat-value username-value">{{ profile?.username || t('profile.loading') }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">{{ t('profile.totalGames') || '总对局数' }}</div>
@@ -237,7 +237,7 @@ const fetchProfile = async () => {
     error.value = null;
   } catch (err) {
     console.error('Failed to fetch profile:', err);
-    error.value = `无法加载用户资料: ${(err as Error).message}`;
+    error.value = `${t('profile.errorLoadProfile')}: ${(err as Error).message}`;
     // 即使失败也设置 loading 为 false，避免一直显示加载中
   }
 };
@@ -267,14 +267,14 @@ const fetchGames = async () => {
     const data = await response.json();
     console.log('Games data received:', data);
     games.value = data.games || [];
-    if (error.value && error.value.includes('用户资料')) {
+    if (error.value && error.value.includes(t('profile.errorLoadProfile'))) {
       // 如果之前有用户资料错误，清除它（因为游戏可能加载成功）
       error.value = null;
     }
   } catch (err) {
     console.error('Failed to fetch games:', err);
     if (!error.value) {
-      error.value = `无法加载对局记录: ${(err as Error).message}`;
+      error.value = `${t('profile.errorLoadGames')}: ${(err as Error).message}`;
     }
   }
 };
@@ -351,11 +351,13 @@ onMounted(async () => {
 .stat-card {
   flex: 1;
   min-width: 200px;
+  max-width: 280px; /* 限制最大宽度，防止在大屏上过宽 */
   background: white;
   border: 2px solid #E8E8E8;
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden; /* 防止内容溢出 */
 }
 
 .stat-label {
@@ -370,6 +372,18 @@ onMounted(async () => {
   font-weight: 700;
   color: #2C3E50;
   font-family: 'Georgia', serif;
+}
+
+.username-value {
+  font-size: 1.5rem; /* 用户名字体稍小 */
+  word-break: break-all; /* 强制在任意字符处断行，即使是连续字母 */
+  overflow-wrap: anywhere; /* 在任何位置换行，避免溢出 */
+  line-height: 1.4; /* 多行时的行高 */
+  max-height: 6em; /* 限制最大高度约4行 */
+  overflow-y: auto; /* 超出时可滚动 */
+  overflow-x: hidden; /* 禁止水平滚动 */
+  min-height: 2em; /* 最小高度确保有足够空间 */
+  display: block; /* 确保是块级元素 */
 }
 
 .games-section {
@@ -535,6 +549,14 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .stats-section {
     flex-direction: column;
+  }
+  
+  .stat-card {
+    max-width: 100%; /* 移动端不限制最大宽度 */
+  }
+  
+  .username-value {
+    font-size: 1.3rem; /* 移动端字体更小 */
   }
 
   .game-record {
