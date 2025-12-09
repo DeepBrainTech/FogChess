@@ -19,29 +19,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { currentLang, toggleLang, t } from './services/i18n';
-import { useAuthStore } from './stores/auth';
+import { currentLang, toggleLang } from './services/i18n';
 
-const authStore = useAuthStore();
-const env = (import.meta as any).env || {};
-const isDev = import.meta.env.DEV; // 直接从 import.meta.env 获取
-const portalUrl =
-  env.VITE_MAIN_PORTAL_URL ||
-  env.MAIN_PORTAL_URL ||
-  'https://game.deepbraintechnology.com/';
 
-const hasUsername = computed(() => {
-  const user = authStore.user;
-  if (!user) return false;
-  return user.username.trim().length > 0;
-});
-
-const showLoginRequired = computed(() => !authStore.loading && !hasUsername.value);
-
-const goPortal = () => {
-  window.location.href = portalUrl;
-};
 </script>
 
 <style>
