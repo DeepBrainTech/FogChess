@@ -105,13 +105,11 @@
 import { ref, onMounted } from 'vue';
 import { t } from '../services/i18n';
 import { useRoomStore } from '../stores/room';
-import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
 import CreateRoom from '../components/room/CreateRoom.vue';
 import RoomList from '../components/room/RoomList.vue';
 
 const roomStore = useRoomStore();
-const authStore = useAuthStore();
 const router = useRouter();
 const showCreateRoom = ref(false);
 const showJoinRoom = ref(false);
