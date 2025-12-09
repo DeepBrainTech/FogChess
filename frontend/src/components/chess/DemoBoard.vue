@@ -400,7 +400,8 @@ const getSquareClass = (row: number, col: number) => {
 };
 
 const onSquareClick = (row: number, col: number) => {
-  if (isDragging.value || gameWinner.value) return;
+  // 如果刚刚完成了拖拽，忽略这次点击
+  if (gameWinner.value) return;
   
   const notation = toNotation(row, col);
   
@@ -560,14 +561,12 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
   if (!piece || piece.color !== currentTurn.value) return;
   
   dragStartSquare.value = { row, col };
-  selectedSquare.value = { row, col };
-  legalMoves.value = calculateLegalMoves(row, col);
   
   startX = e.clientX;
   startY = e.clientY;
   isDragging.value = false;
   
-  e.preventDefault();
+  // 不要在这里 preventDefault，以免阻止 click 事件
 };
 
 const onBoardPointerMove = (e: PointerEvent) => {
@@ -579,10 +578,15 @@ const onBoardPointerMove = (e: PointerEvent) => {
   if (!isDragging.value && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
     isDragging.value = true;
     createDragGhost(dragStartSquare.value.row, dragStartSquare.value.col);
+    // 选中棋子并显示合法移动
+    selectedSquare.value = dragStartSquare.value;
+    legalMoves.value = calculateLegalMoves(dragStartSquare.value.row, dragStartSquare.value.col);
+    e.preventDefault(); // 只在开始拖拽时阻止默认行为
   }
   
   if (isDragging.value && dragGhost.value) {
     updateGhostPosition(e.clientX, e.clientY);
+    e.preventDefault();
   }
 };
 
@@ -594,6 +598,7 @@ const onBoardPointerUp = (e: PointerEvent) => {
   const fromCol = dragStartSquare.value.col;
   
   if (wasDragging && dragGhost.value) {
+    // 拖拽模式：查找落点并执行移动
     const target = getSquareFromPoint(e.clientX, e.clientY);
     cleanupDrag();
     
@@ -607,7 +612,9 @@ const onBoardPointerUp = (e: PointerEvent) => {
     selectedSquare.value = null;
     legalMoves.value = [];
     dragStartSquare.value = null;
+    e.preventDefault(); // 阻止后续的 click 事件
   } else {
+    // 未触发拖拽，重置并让 click 事件处理
     dragStartSquare.value = null;
   }
 };

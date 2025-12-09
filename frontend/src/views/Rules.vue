@@ -41,11 +41,14 @@
         <DemoBoard />
       </div>
 
-      <!-- 迷雾规则内容 (占位) -->
+      <!-- 迷雾规则内容 -->
       <div v-if="activeTab === 'fog'" class="rules-content fade-in">
-        <div class="rule-card coming-soon">
-          <h3>{{ t('home.rules.desc') }}</h3>
-          <p>Coming Soon...</p>
+        <div v-for="(rule, index) in fogRules" :key="index" class="rule-card">
+          <div class="rule-number">{{ index + 1 }}</div>
+          <div class="rule-text">
+            <h3>{{ t(rule.titleKey) }}</h3>
+            <p>{{ t(rule.descKey) }}</p>
+          </div>
         </div>
       </div>
 
@@ -76,6 +79,13 @@ const standardRules = [
   { titleKey: 'rules.std.special.title', descKey: 'rules.std.special.desc' },
   { titleKey: 'rules.std.check.title', descKey: 'rules.std.check.desc' },
   { titleKey: 'rules.std.end.title', descKey: 'rules.std.end.desc' },
+];
+
+const fogRules = [
+  { titleKey: 'rules.fog.basic.title', descKey: 'rules.fog.basic.desc' },
+  { titleKey: 'rules.fog.vision.title', descKey: 'rules.fog.vision.desc' },
+  { titleKey: 'rules.fog.capture.title', descKey: 'rules.fog.capture.desc' },
+  { titleKey: 'rules.fog.checkmate.title', descKey: 'rules.fog.checkmate.desc' },
 ];
 </script>
 
