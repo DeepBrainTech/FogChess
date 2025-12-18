@@ -22,9 +22,15 @@
           type="text"
           readonly
           maxlength="15"
-          :placeholder="t('room.create.name.ph')"
+          :placeholder="isFetchingUser ? (t('common.loading') || 'Loading...') : t('room.create.name.ph')"
         />
-        <p v-if="!hasPlayerName" class="readonly-hint">{{ t('room.create.nameReadonlyHint') }}</p>
+        <p v-if="!hasPlayerName && !isFetchingUser && !fetchUserError" class="readonly-hint">{{ t('room.create.nameReadonlyHint') }}</p>
+        <div v-if="fetchUserError && !hasPlayerName && !isFetchingUser" class="error-hint">
+          <p>{{ t('room.create.nameError') || '无法获取用户信息' }}</p>
+          <button type="button" @click="goToHomePage" class="go-login-button">
+            {{ t('room.create.goLogin') || '返回主页登录' }}
+          </button>
+        </div>
       </div>
       
       <div class="form-group timer-group" :class="{ 'ai-mode': isAiMode }">
@@ -71,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../../stores/room';
 import { t } from '../../services/i18n';
@@ -82,6 +88,9 @@ const roomStore = useRoomStore();
 const authStore = useAuthStore();
 
 const roomName = ref('');
+const isFetchingUser = ref(false); // 是否正在获取用户信息
+const fetchUserError = ref(false); // 获取用户信息失败标志
+
 const playerName = computed(() => authStore.user?.username ?? '');
 const hasPlayerName = computed(() => playerName.value.trim().length > 0);
 const timerMode = ref('unlimited');
@@ -92,6 +101,39 @@ const previousTimerMode = ref('classical');
 const aiTimerTooltip = computed(() => t('room.create.timer.aiOnlyUnlimited'));
 
 const isAiMode = computed(() => gameMode.value === 'ai');
+
+// 组件挂载时尝试获取用户信息
+onMounted(async () => {
+  // 如果已经有用户信息，无需重新获取
+  if (authStore.user?.username) {
+    console.log('User already loaded:', authStore.user.username);
+    return;
+  }
+
+  // 尝试获取用户信息
+  console.log('Attempting to fetch user info...');
+  isFetchingUser.value = true;
+  
+  try {
+    await authStore.fetchCurrentUser();
+    if (authStore.user?.username) {
+      console.log('User fetched successfully:', authStore.user.username);
+      fetchUserError.value = false;
+    } else {
+      console.warn('Failed to fetch user');
+      fetchUserError.value = true;
+    }
+  } catch (err) {
+    console.error('Error fetching user:', err);
+    fetchUserError.value = true;
+  } finally {
+    isFetchingUser.value = false;
+  }
+});
+
+const goToHomePage = () => {
+  router.push('/');
+};
 
 watch(gameMode, (mode, prevMode) => {
   if (mode === 'ai') {
@@ -188,6 +230,38 @@ input:focus, select:focus {
   margin-top: 6px;
   font-size: 12px;
   color: #777;
+}
+
+.error-hint {
+  margin-top: 10px;
+  padding: 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+}
+
+.error-hint p {
+  margin: 0 0 10px 0;
+  color: #856404;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.go-login-button {
+  width: 100%;
+  padding: 8px 16px;
+  background-color: #ffc107;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.go-login-button:hover {
+  background-color: #ffb300;
 }
 
 select {

@@ -20,11 +20,17 @@
           id="playerName"
           :value="playerName"
           type="text"
-          :placeholder="t('room.join.name.ph')"
+          :placeholder="isFetchingUser ? (t('common.loading') || 'Loading...') : t('room.join.name.ph')"
           readonly
           maxlength="15"
         />
-        <p v-if="!hasPlayerName" class="readonly-hint">{{ t('room.create.nameReadonlyHint') }}</p>
+        <p v-if="!hasPlayerName && !isFetchingUser && !fetchUserError" class="readonly-hint">{{ t('room.create.nameReadonlyHint') }}</p>
+        <div v-if="fetchUserError && !hasPlayerName && !isFetchingUser" class="error-hint">
+          <p>{{ t('room.create.nameError') || '无法获取用户信息' }}</p>
+          <button type="button" @click="goToHomePage" class="go-login-button">
+            {{ t('room.create.goLogin') || '返回主页登录' }}
+          </button>
+        </div>
       </div>
       
       <button 
@@ -54,6 +60,9 @@ const roomStore = useRoomStore();
 const authStore = useAuthStore();
 
 const roomId = ref('');
+const isFetchingUser = ref(false); // 是否正在获取用户信息
+const fetchUserError = ref(false); // 获取用户信息失败标志
+
 const playerName = computed(() => authStore.user?.username ?? '');
 const hasPlayerName = computed(() => playerName.value.trim().length > 0);
 const isJoining = ref(false);
@@ -91,7 +100,11 @@ const handleJoinRoom = async () => {
   }
 };
 
-onMounted(() => {
+const goToHomePage = () => {
+  router.push('/');
+};
+
+onMounted(async () => {
   // 自动从邀请链接读取 ?room=xxx 预填房间ID
   try {
     const params = new URLSearchParams(window.location.search);
@@ -100,6 +113,32 @@ onMounted(() => {
       roomId.value = idFromUrl;
     }
   } catch (e) {}
+
+  // 如果已经有用户信息，无需重新获取
+  if (authStore.user?.username) {
+    console.log('User already loaded:', authStore.user.username);
+    return;
+  }
+
+  // 尝试获取用户信息
+  console.log('Attempting to fetch user info...');
+  isFetchingUser.value = true;
+  
+  try {
+    await authStore.fetchCurrentUser();
+    if (authStore.user?.username) {
+      console.log('User fetched successfully:', authStore.user.username);
+      fetchUserError.value = false;
+    } else {
+      console.warn('Failed to fetch user');
+      fetchUserError.value = true;
+    }
+  } catch (err) {
+    console.error('Error fetching user:', err);
+    fetchUserError.value = true;
+  } finally {
+    isFetchingUser.value = false;
+  }
 });
 </script>
 
@@ -184,5 +223,37 @@ input:focus {
   margin-top: 6px;
   font-size: 12px;
   color: #777;
+}
+
+.error-hint {
+  margin-top: 10px;
+  padding: 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+}
+
+.error-hint p {
+  margin: 0 0 10px 0;
+  color: #856404;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.go-login-button {
+  width: 100%;
+  padding: 8px 16px;
+  background-color: #ffc107;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.go-login-button:hover {
+  background-color: #ffb300;
 }
 </style>
