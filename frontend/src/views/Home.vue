@@ -62,7 +62,14 @@
         <div class="chess-board-container">
           <!-- 象棋棋盘图片 -->
           <div class="chess-board">
-            <img src="/chessboard.png" alt="Chess Board" class="chessboard-image" />
+            <img 
+              src="/chessboard.png" 
+              alt="Chess Board" 
+              class="chessboard-image"
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+            />
           </div>
           
           <!-- 装饰元素 -->
@@ -344,6 +351,7 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
+  min-height: 400px; /* 预留空间，避免加载时抖动 */
 }
 
 .chessboard-image {
@@ -354,10 +362,13 @@ onMounted(() => {
   object-fit: contain;
   border-radius: 8px;
   transition: transform 0.3s ease;
+  /* 硬件加速 */
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .chessboard-image:hover {
-  transform: scale(1.02);
+  transform: scale(1.02) translateZ(0);
 }
 
 /* 装饰元素 */

@@ -8,6 +8,15 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  build: {
+    // 静态资源处理优化
+    assetsInlineLimit: 0, // 确保图片不被内联为 base64，使用 HTTP 缓存
+    rollupOptions: {
+      output: {
+        assetFileNames: 'assets/[name]-[hash][extname]', // 使用 hash 确保缓存
+      },
+    },
+  },
   server: {
     port: 3000,
     host: '0.0.0.0', // 允许外部访问

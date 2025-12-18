@@ -285,6 +285,8 @@ const dict: Dict = {
   'profile.loss': { zh: '失败', en: 'Loss' },
   'profile.draw': { zh: '平局', en: 'Draw' },
   'profile.timeout': { zh: '超时', en: 'Timeout' },
+  'profile.errorLoadProfile': { zh: '无法加载用户资料', en: 'Failed to load profile' },
+  'profile.errorLoadGames': { zh: '无法加载对局记录', en: 'Failed to load games' },
 
   // Review
   'review.title': { zh: '对局回顾', en: 'Game Review' },
