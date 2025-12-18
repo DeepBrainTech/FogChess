@@ -190,6 +190,8 @@ const dict: Dict = {
   'room.create.name': { zh: '你的昵称:', en: 'Your name:' },
   'room.create.name.ph': { zh: '使用主页用户名', en: 'Using homepage username' },
   'room.create.nameReadonlyHint': { zh: '自动使用主页用户名，无需填写', en: 'Using your username automatically' },
+  'room.create.nameError': { zh: '无法获取用户信息，请先登录', en: 'Unable to get user info, please login first' },
+  'room.create.goLogin': { zh: '返回主页登录', en: 'Go to login' },
   'room.create.timer': { zh: '计时模式:', en: 'Timer Mode:' },
   'room.create.timer.unlimited': { zh: '无限时练习', en: 'Unlimited practice' },
   'room.create.timer.classical': { zh: '慢棋30分钟+30秒增秒', en: 'Classical 30m + 30s' },
