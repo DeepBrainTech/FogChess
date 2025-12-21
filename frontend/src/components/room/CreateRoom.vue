@@ -104,14 +104,14 @@ const isAiMode = computed(() => gameMode.value === 'ai');
 
 // 组件挂载时尝试获取用户信息
 onMounted(async () => {
-  // 如果已经有用户信息，无需重新获取
+  // 如果已经有用户信息（从localStorage或之前的请求），无需重新获取
   if (authStore.user?.username) {
     console.log('User already loaded:', authStore.user.username);
     return;
   }
 
-  // 尝试获取用户信息
-  console.log('Attempting to fetch user info...');
+  // 尝试获取用户信息（如果main.ts没有成功获取）
+  console.log('Attempting to fetch user info in CreateRoom...');
   isFetchingUser.value = true;
   
   try {
@@ -120,7 +120,7 @@ onMounted(async () => {
       console.log('User fetched successfully:', authStore.user.username);
       fetchUserError.value = false;
     } else {
-      console.warn('Failed to fetch user');
+      console.warn('Failed to fetch user - no user returned');
       fetchUserError.value = true;
     }
   } catch (err) {
