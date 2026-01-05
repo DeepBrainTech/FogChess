@@ -84,13 +84,31 @@ function verifyPortalToken(token: string) {
 }
 
 function setSessionCookie(res: express.Response, jwtToken: string) {
-  res.cookie(SESSION_COOKIE, jwtToken, {
+  // Cookie策略：
+  // 1. 生产环境HTTPS：sameSite='none' + secure=true (支持跨域)
+  // 2. 其他情况：sameSite='lax' + secure=false (移动设备兼容)
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isHttps = process.env.USE_HTTPS === 'true' || !!process.env.RAILWAY_ENVIRONMENT;
+  
+  // 移动设备友好的Cookie设置
+  const cookieOptions: any = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: SESSION_TTL_SEC * 1000,
     path: '/'
-  });
+  };
+  
+  // 根据环境决定安全策略
+  if (isProduction && isHttps) {
+    // 生产环境HTTPS：允许跨域访问
+    cookieOptions.secure = true;
+    cookieOptions.sameSite = 'none';
+  } else {
+    // 开发环境或非HTTPS：使用宽松模式
+    cookieOptions.secure = false;
+    cookieOptions.sameSite = 'lax';
+  }
+  
+  res.cookie(SESSION_COOKIE, jwtToken, cookieOptions);
 }
 
 function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction): void {
@@ -140,14 +158,8 @@ app.post('/auth/dev-login', async (req, res) => {
     // 使用现有的逻辑生成Session
     const session = signSession({ mainUserId: userId, username });
     
-    // 明确设置 Cookie
-    res.cookie('fogchess.sid', session, {
-      httpOnly: false, // 允许前端访问（临时）
-      secure: false, 
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 3600 * 1000,
-      path: '/'
-    });
+    // 开发环境：设置Cookie（和生产环境一致，便于测试）
+    setSessionCookie(res, session);
     
     // 确保用户记录存在
     if (userService) {
@@ -178,7 +190,14 @@ app.post('/auth/fogchess/exchange', async (req, res) => {
       });
     }
     
-    return res.json({ ok: true });
+    // 返回用户信息，方便移动端直接存储到localStorage
+    return res.json({ 
+      ok: true, 
+      user: { 
+        id: claims.user_id, 
+        username: claims.username 
+      } 
+    });
   } catch (e) {
     return res.status(401).json({ error: 'invalid token' });
   }
