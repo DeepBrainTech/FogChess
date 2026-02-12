@@ -285,7 +285,7 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
     gameStore.makeMove(fromSquare, to, { animate: false });
   };
 
-  const handleCancel = (ev: PointerEvent) => {
+  const handleCancel = () => {
     cleanupDrag();
   };
 
