@@ -14,7 +14,6 @@
           v-for="col in 8" 
           :key="`col-${col}`"
           :class="getSquareClass(row - 1, col - 1)"
-          @click="onSquareClick(row - 1, col - 1)"
           @pointerdown="onPointerDown(row - 1, col - 1, $event)"
         >
           <ChessPiece 
@@ -155,7 +154,7 @@ const updateGhostPosition = (clientX: number, clientY: number) => {
   let offsetY = clientY - size / 2;
   
   if (currentPointerType.value === 'touch') {
-    offsetY = clientY - size * 1.5; // 上移 1.5 倍尺寸
+    offsetY = clientY - size * 1.2; // 上移 1.2 倍尺寸（原1.5，减小偏移）
   }
   
   dragElement.value.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
@@ -207,11 +206,15 @@ const cleanupDrag = () => {
 
 const onPointerDown = (row: number, col: number, e: PointerEvent) => {
   // 仅允许自己回合，且选中自己可见的棋子
+  if (e.button !== 0) return; // 仅左键响应
+
   const square = chessService.getSquare(row, col);
-  if (!square?.piece) return; 
-  if (!isSquareVisible(row, col)) return;
-  if (square.piece.color !== gameStore.currentPlayer?.color) return;
-  if (gameStore.gameState?.gameStatus === 'finished') return;
+  const isFinished = gameStore.gameState?.gameStatus === 'finished';
+  const isVisible = isSquareVisible(row, col);
+  const isMyPiece = square?.piece && square.piece.color === gameStore.currentPlayer?.color;
+  
+  // 只有自己的棋子且游戏未结束且可见时，才允许拖拽
+  const canDrag = isMyPiece && isVisible && !isFinished;
 
   const from = chessService.getSquareNotation(row, col);
   dragStartSquare.value = from;
@@ -221,12 +224,19 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
   isDragging.value = true;
   dragStarted.value = false;
 
-  // 选择并请求可走步，用于高亮与验证
-  gameStore.selectSquare(from);
-  gameStore.requestLegalMoves(from);
+  // 如果可以拖拽，不再立即选择，而是等到拖拽开始或点击触发时
+  // 避免 "按下即选中" -> "抬起触发点击" -> "点击逻辑判定为重复点击从而取消选中" 的问题
+  // if (canDrag) {
+  //   gameStore.selectSquare(from);
+  //   gameStore.requestLegalMoves(from);
+  // }
 
   const handleMove = (ev: PointerEvent) => {
     if (!isDragging.value) return;
+    
+    // 如果不允许拖拽（例如点击的是空位或对手棋子），则不执行拖拽逻辑
+    if (!canDrag) return;
+
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
     
@@ -235,6 +245,10 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
     const movedEnough = Math.hypot(dx, dy) > threshold;
     
     if (!dragStarted.value && movedEnough) {
+      // 拖拽真正开始时，才选中棋子
+      gameStore.selectSquare(from);
+      gameStore.requestLegalMoves(from);
+
       dragElement.value = createDragGhost(row, col);
       dragStarted.value = true;
       // 拖拽开始时，更新一下位置
@@ -251,12 +265,17 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
     const wasDragging = dragStarted.value;
     const fromSquare = dragStartSquare.value;
     cleanupDrag();
-    if (!fromSquare) return;
+    
+    if (!fromSquare) return; // Should not happen
+
     if (!wasDragging) {
-      // 未触发拖拽，交由 click 处理（不做任何事）
+      // 未触发拖拽，手动触发点击逻辑
+      // 解决了移动端点击不灵敏的问题
+      onSquareClick(row, col);
       return;
     }
-    // 标记忽略下一次点击（避免 pointerup 后的 click）
+    
+    // 标记忽略下一次点击（虽然我们已经移除了 @click，但保留此逻辑无害）
     ignoreClickOnce.value = true;
     
     let targetX = ev.clientX;
@@ -268,8 +287,8 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
        if (board) {
          const rect = board.getBoundingClientRect();
          const squareH = rect.height / 8;
-         // ghost 上移了 1.5 倍尺寸，所以中心点大致在手指上方 1 个格子高度处
-         targetY = ev.clientY - squareH;
+         // ghost 上移了 1.2 倍尺寸（原为1.5，调整为1.2），所以中心点大致在手指上方 0.7 个格子高度处
+         targetY = ev.clientY - squareH * 0.7;
        }
     }
 
