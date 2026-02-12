@@ -97,7 +97,10 @@ const dragStartSquare = ref<string | null>(null);
 const dragElement = ref<HTMLDivElement | null>(null);
 const pointerMoveHandlerRef = ref<((e: PointerEvent) => void) | null>(null);
 const pointerUpHandlerRef = ref<((e: PointerEvent) => void) | null>(null);
-const DRAG_THRESHOLD = 5; // 像素，避免误触
+const pointerCancelHandlerRef = ref<((e: PointerEvent) => void) | null>(null);
+const currentPointerType = ref<string>('mouse'); // 记录当前输入类型
+const DRAG_THRESHOLD_MOUSE = 5;
+const DRAG_THRESHOLD_TOUCH = 15; // 触摸屏防抖阈值更高
 let startX = 0;
 let startY = 0;
 const ignoreClickOnce = ref(false); // 防止拖拽结束后触发点击
@@ -138,6 +141,7 @@ const updateGhostPosition = (clientX: number, clientY: number) => {
   const squareW = rect.width / 8;
   const squareH = rect.height / 8;
   const size = Math.min(squareW, squareH) * 0.87; // 与 ChessPiece 中 87% 一致
+  
   dragElement.value.style.width = `${size}px`;
   dragElement.value.style.height = `${size}px`;
   const img = dragElement.value.querySelector('img') as HTMLImageElement | null;
@@ -145,7 +149,16 @@ const updateGhostPosition = (clientX: number, clientY: number) => {
     img.style.width = `${size}px`;
     img.style.height = `${size}px`;
   }
-  dragElement.value.style.transform = `translate(${clientX - size / 2}px, ${clientY - size / 2}px)`;
+  
+  // 对于触摸屏，将拖拽物上移，避免手指遮挡
+  let offsetX = clientX - size / 2;
+  let offsetY = clientY - size / 2;
+  
+  if (currentPointerType.value === 'touch') {
+    offsetY = clientY - size * 1.5; // 上移 1.5 倍尺寸
+  }
+  
+  dragElement.value.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
 };
 
 const clientPointToSquare = (clientX: number, clientY: number): string | null => {
@@ -177,9 +190,15 @@ const cleanupDrag = () => {
   dragElement.value = null;
   if (pointerMoveHandlerRef.value) {
     window.removeEventListener('pointermove', pointerMoveHandlerRef.value);
+    pointerMoveHandlerRef.value = null;
   }
   if (pointerUpHandlerRef.value) {
     window.removeEventListener('pointerup', pointerUpHandlerRef.value);
+    pointerUpHandlerRef.value = null;
+  }
+  if (pointerCancelHandlerRef.value) {
+    window.removeEventListener('pointercancel', pointerCancelHandlerRef.value);
+    pointerCancelHandlerRef.value = null;
   }
   isDragging.value = false;
   dragStarted.value = false;
@@ -198,6 +217,7 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
   dragStartSquare.value = from;
   startX = e.clientX;
   startY = e.clientY;
+  currentPointerType.value = e.pointerType; // 记录 pointerType
   isDragging.value = true;
   dragStarted.value = false;
 
@@ -209,10 +229,16 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
     if (!isDragging.value) return;
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
-    const movedEnough = Math.hypot(dx, dy) > DRAG_THRESHOLD;
+    
+    // 动态判断阈值
+    const threshold = currentPointerType.value === 'touch' ? DRAG_THRESHOLD_TOUCH : DRAG_THRESHOLD_MOUSE;
+    const movedEnough = Math.hypot(dx, dy) > threshold;
+    
     if (!dragStarted.value && movedEnough) {
       dragElement.value = createDragGhost(row, col);
       dragStarted.value = true;
+      // 拖拽开始时，更新一下位置
+      updateGhostPosition(ev.clientX, ev.clientY);
     }
     if (dragStarted.value) {
       updateGhostPosition(ev.clientX, ev.clientY);
@@ -232,7 +258,22 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
     }
     // 标记忽略下一次点击（避免 pointerup 后的 click）
     ignoreClickOnce.value = true;
-    const to = clientPointToSquare(ev.clientX, ev.clientY);
+    
+    let targetX = ev.clientX;
+    let targetY = ev.clientY;
+
+    // 如果是触摸拖拽，由于 ghost 被上移了，我们需要根据 ghost 的中心位置来判定落点
+    if (currentPointerType.value === 'touch') {
+       const board = document.querySelector('.board-container') as HTMLElement | null;
+       if (board) {
+         const rect = board.getBoundingClientRect();
+         const squareH = rect.height / 8;
+         // ghost 上移了 1.5 倍尺寸，所以中心点大致在手指上方 1 个格子高度处
+         targetY = ev.clientY - squareH;
+       }
+    }
+
+    const to = clientPointToSquare(targetX, targetY);
     if (!to) {
       // 放到棋盘外，取消选择
       gameStore.selectedSquare = null;
@@ -244,10 +285,16 @@ const onPointerDown = (row: number, col: number, e: PointerEvent) => {
     gameStore.makeMove(fromSquare, to, { animate: false });
   };
 
+  const handleCancel = (ev: PointerEvent) => {
+    cleanupDrag();
+  };
+
   pointerMoveHandlerRef.value = handleMove;
   pointerUpHandlerRef.value = handleUp;
+  pointerCancelHandlerRef.value = handleCancel;
   window.addEventListener('pointermove', handleMove, { passive: false });
   window.addEventListener('pointerup', handleUp, { passive: true });
+  window.addEventListener('pointercancel', handleCancel, { passive: true });
 };
 
 onBeforeUnmount(() => {
@@ -333,6 +380,7 @@ const onSquareClick = (row: number, col: number) => {
   max-width: 540px;
   max-height: 540px;
   transition: transform 0.6s ease;
+  touch-action: none; /* 禁止默认触摸动作（滚动/缩放），解决移动端拖拽冲突 */
 }
 
 /* 黑方视角：旋转棋盘180度 */
