@@ -117,6 +117,7 @@
 </template>
 
 <script setup lang="ts">
+// Game page component
 import { socketService } from '../services/socket';
 import './Game.css';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
@@ -153,6 +154,7 @@ interface DisplayPlayer extends Player {
   label?: string;
 }
 
+// Sort players by color for header
 const sortPlayersByColor = (list: DisplayPlayer[]) => {
   return [...list].sort((a, b) => {
     if (a.color === b.color) return 0;
@@ -195,7 +197,7 @@ const fetchPlayerRatings = async (ids: number[]) => {
   }
 };
 
-// 弹窗相关状态由 useGameDialogs 管理
+// Dialog state from useGameDialogs
 const {
   showDialog, dialogType, dialogTitle, dialogMessage, undoRequestPending,
   closeDialog,

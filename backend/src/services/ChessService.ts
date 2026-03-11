@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js';
 import type { GameState, Move, FogOfWarState } from '../types';
 
+/** Chess rules and fog-of-war logic service */
 export class ChessService {
   private chess: Chess;
   private moveHistory: Move[] = []; // 手动管理移动历史
@@ -10,9 +11,7 @@ export class ChessService {
     this.chess = new Chess();
   }
 
-  /**
-   * 创建新的游戏状态
-   */
+  /** Create new game state */
   createNewGame(): GameState {
     this.chess.reset();
     this.moveHistory = []; // 重置移动历史
@@ -28,9 +27,7 @@ export class ChessService {
     };
   }
 
-  /**
-   * 执行移动（迷雾棋规则）
-   */
+  /** Execute move (fog-of-war rules) */
   makeMove(move: Omit<Move, 'timestamp' | 'player'>): { success: boolean; gameState?: GameState; error?: string } {
     try {
       // 迷雾棋特殊规则：允许国王进入将军状态
