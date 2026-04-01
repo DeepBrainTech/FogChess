@@ -146,6 +146,10 @@ const dict: Dict = {
   'actions.downloadFEN': { zh: '下载FEN', en: 'Export FEN' },
   'actions.sound': { zh: '音效', en: 'Sound' },
   'actions.leave': { zh: '离开游戏', en: 'Leave Game' },
+  'actions.leaveSpectate': { zh: '退出观战', en: 'Leave Spectating' },
+  'actions.switchToPlayer': { zh: '切换为玩家', en: 'Switch to Player' },
+  'actions.switchToGodView': { zh: '切到上帝视野', en: 'Switch to God View' },
+  'actions.switchToAlternatingView': { zh: '切到轮转视野', en: 'Switch to Alternating View' },
 
   // Status card
   'status.title': { zh: '游戏状态', en: 'Game Status' },
@@ -159,6 +163,8 @@ const dict: Dict = {
   'status.playing': { zh: '游戏中', en: 'Playing' },
   'status.finished': { zh: '游戏结束', en: 'Finished' },
   'status.unknown': { zh: '未知状态', en: 'Unknown' },
+  'status.role': { zh: '身份:', en: 'Role:' },
+  'status.spectating': { zh: '观战中', en: 'Spectating' },
 
   // Replay controls titles
   'replay.toStart': { zh: '回到开始', en: 'Go to start' },
@@ -269,6 +275,8 @@ const dict: Dict = {
   'lobby.status.playing': { zh: '游戏中', en: 'Playing' },
   'lobby.status.finished': { zh: '已结束', en: 'Finished' },
   'lobby.join': { zh: '加入', en: 'Join' },
+  'lobby.spectate': { zh: '观战', en: 'Spectate' },
+  'lobby.spectators': { zh: '观战人数:', en: 'Spectators:' },
   'lobby.full': { zh: '已满', en: 'Full' },
   'lobby.backToHome': { zh: '返回主界面', en: 'Back to Home' },
 
@@ -302,6 +310,8 @@ const dict: Dict = {
   // Chat
   'chat.title': { zh: '聊天', en: 'Chat' },
   'chat.placeholder': { zh: '输入', en: 'input' },
+  'chat.readonlyPlaceholder': { zh: '观战不可发言', en: 'Spectators cannot chat' },
+  'chat.readonlyHint': { zh: '观战模式仅可查看聊天，不能发言。', en: 'Spectators can only view chat messages.' },
   'chat.send': { zh: '发送', en: 'send' },
   'chat.empty': { zh: '暂无消息', en: 'No messages yet' },
 };

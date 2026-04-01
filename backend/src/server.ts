@@ -37,6 +37,10 @@ const repository = redisUrl ? new RedisRoomRepository(redisUrl) : undefined;
 const archiver = dbUrl ? new PostgresArchiver(dbUrl) : undefined;
 const userService = dbUrl ? new UserService(dbUrl) : undefined;
 const roomService = new RoomService(repository, archiver);
+roomService.setRoomClosedHandler((roomId, reason) => {
+  io.to(roomId).emit('room-closed', { roomId, reason });
+  io.socketsLeave(roomId);
+});
 
 // 初始化数据库表
 async function initializeDatabase() {
@@ -370,9 +374,63 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 观战加入
+  socket.on('join-spectator', (data: SocketEvents['join-spectator']) => {
+    try {
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const playerName = sessionUser?.username || data.playerName;
+      const result = roomService.joinAsSpectator(
+        data.roomId,
+        playerName,
+        socket.id,
+        sessionUser?.id
+      );
+
+      if (result.success && result.room && result.spectator) {
+        socket.join(data.roomId);
+        socket.emit('room-spectated', { room: result.room, spectator: result.spectator });
+        io.to(data.roomId).emit('spectator-joined', { spectator: result.spectator, room: result.room });
+        io.to(data.roomId).emit('game-updated', { gameState: result.room.gameState });
+      } else {
+        socket.emit('error', { message: result.error || 'Failed to spectate room' });
+      }
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to spectate room' });
+    }
+  });
+
+  // 观战切换为玩家
+  socket.on('switch-to-player', (data: SocketEvents['switch-to-player']) => {
+    try {
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const playerName = sessionUser?.username || data.playerName;
+      const result = roomService.switchSpectatorToPlayer(
+        data.roomId,
+        playerName,
+        socket.id,
+        sessionUser?.id
+      );
+      if (result.success && result.room && result.player) {
+        socket.emit('switched-to-player', { room: result.room, player: result.player });
+        io.to(data.roomId).emit('player-joined', { player: result.player, room: result.room });
+        io.to(data.roomId).emit('game-updated', { gameState: result.room.gameState });
+      } else {
+        socket.emit('error', { message: result.error || 'Failed to switch role' });
+      }
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to switch role' });
+    }
+  });
+
   // 执行移动
   socket.on('make-move', (data: SocketEvents['make-move']) => {
     try {
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Spectators cannot make moves' });
+        return;
+      }
+      data.move.player = player.color;
       const result = roomService.makeMove(data.roomId, data.move);
       
       if (result.success && result.gameState) {
@@ -617,7 +675,16 @@ io.on('connection', (socket) => {
           socket.to(data.roomId).emit('player-left', { playerId: player.id });
           io.to(data.roomId).emit('game-updated', { gameState: result.room.gameState });
         }
-        
+        return;
+      }
+
+      const spectator = roomService.getSpectatorInRoom(data.roomId, socket.id);
+      if (spectator) {
+        const result = roomService.leaveSpectator(data.roomId, spectator.id);
+        socket.leave(data.roomId);
+        if (result.room) {
+          io.to(data.roomId).emit('spectator-left', { spectatorId: spectator.id, room: result.room });
+        }
       }
     } catch (error) {
     }
@@ -635,8 +702,15 @@ io.on('connection', (socket) => {
           socket.to(room.id).emit('player-left', { playerId: player.id });
           io.to(room.id).emit('game-updated', { gameState: result.room.gameState });
         }
-        // 不要break，继续清理其他房间中的该玩家
       }
+      const spectator = room.spectators.find(s => s.socketId === socket.id);
+      if (spectator) {
+        const result = roomService.leaveSpectator(room.id, spectator.id);
+        if (result.room) {
+          io.to(room.id).emit('spectator-left', { spectatorId: spectator.id, room: result.room });
+        }
+      }
+      // 不要break，继续清理其他房间中的该用户
     }
   });
 });

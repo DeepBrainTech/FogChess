@@ -44,6 +44,16 @@ class SocketService {
     this.socket?.emit('join-room', { roomId, playerName });
   }
 
+  // 加入观战
+  joinSpectator(roomId: string, playerName: string): void {
+    this.socket?.emit('join-spectator', { roomId, playerName });
+  }
+
+  // 观战切换为玩家
+  switchToPlayer(roomId: string, playerName: string): void {
+    this.socket?.emit('switch-to-player', { roomId, playerName });
+  }
+
   // 执行移动
   makeMove(roomId: string, move: any): void {
     this.socket?.emit('make-move', { roomId, move });

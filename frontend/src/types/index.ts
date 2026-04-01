@@ -6,10 +6,18 @@ export interface Player {
   mainUserId?: number;
 }
 
+export interface Spectator {
+  id: string;
+  name: string;
+  socketId: string;
+  mainUserId?: number;
+}
+
 export interface Room {
   id: string;
   name: string;
   players: Player[];
+  spectators: Spectator[];
   gameState: GameState;
   createdAt: Date;
   isFull: boolean;
@@ -58,6 +66,8 @@ export interface FogOfWarState {
 export interface SocketEvents {
   // 客户端发送的事件
   'join-room': { roomId: string; playerName: string };
+  'join-spectator': { roomId: string; playerName: string };
+  'switch-to-player': { roomId: string; playerName: string };
   'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai' };
   'make-move': { roomId: string; move: Move };
   'leave-room': { roomId: string };
@@ -73,8 +83,13 @@ export interface SocketEvents {
   // 服务端发送的事件
   'room-created': { room: Room };
   'room-joined': { room: Room; player: Player };
+  'room-spectated': { room: Room; spectator: Spectator };
   'player-joined': { player: Player; room: Room };
+  'spectator-joined': { spectator: Spectator; room: Room };
   'player-left': { playerId: string };
+  'spectator-left': { spectatorId: string; room: Room };
+  'switched-to-player': { room: Room; player: Player };
+  'room-closed': { roomId: string; reason: string };
   'game-updated': { gameState: GameState };
   'move-made': { move: Move; gameState: GameState };
   'legal-moves': { square: string; moves: string[] };
