@@ -12,6 +12,10 @@
       <span class="label">{{ t('status.gameStatus') }}</span>
       <span class="value">{{ statusText }}</span>
     </div>
+    <div v-if="isSpectating" class="status-item">
+      <span class="label">{{ t('status.role') }}</span>
+      <span class="value">{{ t('status.spectating') }}</span>
+    </div>
     <div v-if="gameState?.winner" class="status-item">
       <span class="label">{{ t('status.winner') }}</span>
       <span class="value">{{ gameState.winner === 'white' ? t('status.white') : t('status.black') }}</span>
@@ -27,11 +31,13 @@ import { t } from '../../services/i18n';
 interface Props {
   gameState: GameState | null;
   isMyTurn: boolean;
+  isSpectating?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   gameState: null,
-  isMyTurn: false
+  isMyTurn: false,
+  isSpectating: false
 });
 
 const statusText = computed(() => {

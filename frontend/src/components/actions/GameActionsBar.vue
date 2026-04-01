@@ -1,7 +1,7 @@
 <template>
   <div class="game-controls">
     <button 
-      v-if="canRequestUndo && timerMode === 'unlimited'" 
+      v-if="!isSpectating && canRequestUndo && timerMode === 'unlimited'" 
       @click="$emit('request-undo')" 
       class="undo-button"
       :disabled="undoRequestPending"
@@ -10,7 +10,7 @@
     </button>
 
     <button 
-      v-if="gameStatus === 'playing'"
+      v-if="!isSpectating && gameStatus === 'playing'"
       @click="$emit('show-surrender')" 
       class="surrender-button"
     >
@@ -18,7 +18,7 @@
     </button>
 
     <button 
-      v-if="gameStatus === 'playing'"
+      v-if="!isSpectating && gameStatus === 'playing'"
       @click="$emit('show-draw')" 
       class="draw-button"
     >
@@ -45,8 +45,24 @@
       {{ soundEnabled ? '🔊' : '🔇' }}
     </button>
 
+    <button
+      v-if="isSpectating && canSwitchToPlayer"
+      @click="$emit('switch-to-player')"
+      class="switch-button"
+    >
+      {{ t('actions.switchToPlayer') }}
+    </button>
+
+    <button
+      v-if="isSpectating"
+      @click="$emit('toggle-spectator-vision')"
+      class="vision-button"
+    >
+      {{ spectatorVisionMode === 'god' ? t('actions.switchToAlternatingView') : t('actions.switchToGodView') }}
+    </button>
+
     <button @click="$emit('leave')" class="leave-button">
-      {{ t('actions.leave') }}
+      {{ isSpectating ? t('actions.leaveSpectate') : t('actions.leave') }}
     </button>
   </div>
 </template>
@@ -59,6 +75,9 @@ interface Props {
   canDownloadFen: boolean;
   soundEnabled: boolean;
   timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet';
+  isSpectating?: boolean;
+  canSwitchToPlayer?: boolean;
+  spectatorVisionMode?: 'alternating' | 'god';
 }
 
 import { t } from '../../services/i18n';
@@ -69,7 +88,10 @@ withDefaults(defineProps<Props>(), {
   gameStatus: 'waiting',
   canDownloadFen: false,
   soundEnabled: true,
-  timerMode: 'unlimited'
+  timerMode: 'unlimited',
+  isSpectating: false,
+  canSwitchToPlayer: false,
+  spectatorVisionMode: 'alternating'
 });
 </script>
 
@@ -165,4 +187,30 @@ withDefaults(defineProps<Props>(), {
 }
 
 .leave-button:hover { background: #d32f2f; }
+
+.switch-button {
+  padding: 12px 20px;
+  background: #3949ab;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  font-size: 16px;
+}
+
+.switch-button:hover { background: #303f9f; }
+
+.vision-button {
+  padding: 12px 20px;
+  background: #6a1b9a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  font-size: 16px;
+}
+
+.vision-button:hover { background: #4a148c; }
 </style>

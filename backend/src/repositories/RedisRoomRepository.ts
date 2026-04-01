@@ -11,6 +11,7 @@ export class RedisRoomRepository implements RoomRepository {
 
   private roomKey(roomId: string) { return `room:${roomId}`; }
   private playersKey(roomId: string) { return `room:${roomId}:players`; }
+  private spectatorsKey(roomId: string) { return `room:${roomId}:spectators`; }
   private movesKey(roomId: string) { return `moves:${roomId}`; }
 
   async saveRoom(room: Room): Promise<void> {
@@ -27,17 +28,21 @@ export class RedisRoomRepository implements RoomRepository {
     } as Record<string, string>;
     await this.redis.hset(key, data);
     await this.setPlayers(room.id, room.players);
+    await this.redis.set(this.spectatorsKey(room.id), JSON.stringify(room.spectators || []));
   }
 
   async getRoom(roomId: string): Promise<Room | undefined> {
     const hash = await this.redis.hgetall(this.roomKey(roomId));
     if (!hash || Object.keys(hash).length === 0) return undefined;
     const playersJson = await this.redis.get(this.playersKey(roomId));
+    const spectatorsJson = await this.redis.get(this.spectatorsKey(roomId));
     const players = playersJson ? JSON.parse(playersJson) : [];
+    const spectators = spectatorsJson ? JSON.parse(spectatorsJson) : [];
     const room: Room = {
       id: hash.id,
       name: hash.name,
       players,
+      spectators,
       gameState: {
         board: hash.currentFEN,
         currentPlayer: hash.currentPlayer as 'white' | 'black',
@@ -66,6 +71,7 @@ export class RedisRoomRepository implements RoomRepository {
   async deleteRoom(roomId: string): Promise<void> {
     await this.redis.del(this.roomKey(roomId));
     await this.redis.del(this.playersKey(roomId));
+    await this.redis.del(this.spectatorsKey(roomId));
     await this.redis.del(this.movesKey(roomId));
   }
 

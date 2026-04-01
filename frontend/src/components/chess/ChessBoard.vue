@@ -31,16 +31,22 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount } from 'vue';
 import { useGameStore } from '../../stores/game';
+import { useRoomStore } from '../../stores/room';
 import { chessService } from '../../services/chess';
 import ChessPiece from './ChessPiece.vue';
 
 const gameStore = useGameStore();
+const roomStore = useRoomStore();
 
 const rotateBoard = computed(() => {
+  // 观战视角固定白下黑上，不旋转
+  if (roomStore.isSpectating) {
+    return false;
+  }
   if (gameStore.viewModePreference !== 'auto') {
     return false;
   }
-  return gameStore.currentPlayer?.color === 'black';
+  return gameStore.viewingColor === 'black';
 });
 
 // 当 gameState/fog 或 replayState 变化时，触发重新渲染
@@ -51,9 +57,11 @@ const boardRenderKey = computed(() => {
   const sel = gameStore.selectedSquare || '';
   const movesSig = (gameStore.possibleMoves || []).join(',');
   const replayBoard = (gameStore.replayState as any)?.board || '';
+  const spectatorVisionSig = roomStore.isSpectating ? gameStore.spectatorVisionMode : 'player';
+  const viewingColorSig = gameStore.viewingColor || 'white';
   // 优先使用回看时的棋盘快照，否则使用最新 gameState.board
   const boardSig = replayBoard || gs.board || '';
-  return `${boardSig}|${fog.whiteVisible?.length || 0}|${fog.blackVisible?.length || 0}|${sel}|${movesSig}`;
+  return `${boardSig}|${fog.whiteVisible?.length || 0}|${fog.blackVisible?.length || 0}|${sel}|${movesSig}|${spectatorVisionSig}|${viewingColorSig}`;
 });
 
 const getSquareClass = (row: number, col: number) => {

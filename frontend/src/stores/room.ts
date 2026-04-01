@@ -1,16 +1,18 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
-import type { Room, Player, SocketEvents } from '../types';
+import { computed, ref } from 'vue';
+import type { Room, Player, Spectator, SocketEvents } from '../types';
 import { socketService } from '../services/socket';
 
 export const useRoomStore = defineStore('room', () => {
   // 状态
   const currentRoom = ref<Room | null>(null);
   const currentPlayer = ref<Player | null>(null);
+  const currentSpectator = ref<Spectator | null>(null);
   const availableRooms = ref<Room[]>([]);
   const isConnected = ref(false);
   // 记录最近一次创建房间时选择的计时模式（用于前端先行展示）
   const lastTimerMode = ref<string>('unlimited');
+  const isSpectating = computed(() => !!currentSpectator.value && !currentPlayer.value);
 
   // 动作
   const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal') => {
@@ -22,11 +24,20 @@ export const useRoomStore = defineStore('room', () => {
     socketService.joinRoom(roomId, playerName);
   };
 
+  const joinSpectator = (roomId: string, playerName: string) => {
+    socketService.joinSpectator(roomId, playerName);
+  };
+
+  const switchToPlayer = (roomId: string, playerName: string) => {
+    socketService.switchToPlayer(roomId, playerName);
+  };
+
   const leaveRoom = () => {
     if (currentRoom.value) {
       socketService.leaveRoom(currentRoom.value.id);
       currentRoom.value = null;
       currentPlayer.value = null;
+      currentSpectator.value = null;
     }
   };
 
@@ -34,7 +45,7 @@ export const useRoomStore = defineStore('room', () => {
     currentRoom.value = room;
   };
 
-  const setCurrentPlayer = (player: Player) => {
+  const setCurrentPlayer = (player: Player | null) => {
     currentPlayer.value = player;
   };
 
@@ -68,6 +79,7 @@ export const useRoomStore = defineStore('room', () => {
       }
       setCurrentRoom(roomWithTimer as any);
       setCurrentPlayer(data.room.players[0]);
+      currentSpectator.value = null;
       try {
         const shareUrl = `${window.location.origin}?room=${data.room.id}`;
         window.history.replaceState(null, '', `?room=${data.room.id}`);
@@ -80,9 +92,25 @@ export const useRoomStore = defineStore('room', () => {
     socketService.on('room-joined', (data: SocketEvents['room-joined']) => {
       setCurrentRoom(data.room);
       setCurrentPlayer(data.player);
+      currentSpectator.value = null;
       try {
         window.history.replaceState(null, '', `?room=${data.room.id}`);
       } catch {}
+    });
+
+    socketService.on('room-spectated', (data: SocketEvents['room-spectated']) => {
+      setCurrentRoom(data.room);
+      setCurrentPlayer(null);
+      currentSpectator.value = data.spectator;
+      try {
+        window.history.replaceState(null, '', `?room=${data.room.id}`);
+      } catch {}
+    });
+
+    socketService.on('switched-to-player', (data: SocketEvents['switched-to-player']) => {
+      setCurrentRoom(data.room);
+      setCurrentPlayer(data.player);
+      currentSpectator.value = null;
     });
 
     socketService.on('player-joined', (data: SocketEvents['player-joined']) => {
@@ -94,6 +122,10 @@ export const useRoomStore = defineStore('room', () => {
           if (updatedSelf) {
             setCurrentPlayer(updatedSelf);
           }
+        }
+        if (currentSpectator.value) {
+          const stillSpectator = data.room.spectators?.find(s => s.id === currentSpectator.value?.id || s.socketId === currentSpectator.value?.socketId);
+          if (!stillSpectator) currentSpectator.value = null;
         }
         return;
       }
@@ -117,6 +149,19 @@ export const useRoomStore = defineStore('room', () => {
       }
     });
 
+    socketService.on('spectator-joined', (data: SocketEvents['spectator-joined']) => {
+      if (data.room) {
+        setCurrentRoom(data.room);
+        return;
+      }
+      if (currentRoom.value) {
+        const updatedRoom = { ...currentRoom.value };
+        const exists = updatedRoom.spectators.find(s => s.id === data.spectator.id || s.socketId === data.spectator.socketId);
+        if (!exists) updatedRoom.spectators.push(data.spectator);
+        setCurrentRoom(updatedRoom);
+      }
+    });
+
     socketService.on('player-left', (data: SocketEvents['player-left']) => {
       if (currentRoom.value) {
         const updatedRoom = { ...currentRoom.value };
@@ -124,6 +169,29 @@ export const useRoomStore = defineStore('room', () => {
         updatedRoom.isFull = updatedRoom.players.length >= 2;
         setCurrentRoom(updatedRoom);
       }
+    });
+
+    socketService.on('spectator-left', (data: SocketEvents['spectator-left']) => {
+      if (data.room) {
+        setCurrentRoom(data.room);
+        if (currentSpectator.value && !data.room.spectators.find(s => s.id === currentSpectator.value?.id)) {
+          currentSpectator.value = null;
+        }
+        return;
+      }
+      if (currentRoom.value) {
+        const updatedRoom = { ...currentRoom.value };
+        updatedRoom.spectators = updatedRoom.spectators.filter(s => s.id !== data.spectatorId);
+        setCurrentRoom(updatedRoom);
+      }
+    });
+
+    socketService.on('room-closed', (data: SocketEvents['room-closed']) => {
+      if (currentRoom.value?.id !== data.roomId) return;
+      currentRoom.value = null;
+      currentPlayer.value = null;
+      currentSpectator.value = null;
+      window.dispatchEvent(new CustomEvent('room-closed', { detail: data }));
     });
 
     socketService.on('error', (data: SocketEvents['error']) => {
@@ -147,12 +215,16 @@ export const useRoomStore = defineStore('room', () => {
     // 状态
     currentRoom,
     currentPlayer,
+    currentSpectator,
+    isSpectating,
     availableRooms,
     isConnected,
     
     // 动作
     createRoom,
     joinRoom,
+    joinSpectator,
+    switchToPlayer,
     leaveRoom,
     setCurrentRoom,
     setCurrentPlayer,

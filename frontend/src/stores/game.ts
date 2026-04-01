@@ -17,23 +17,35 @@ export const useGameStore = defineStore('game', () => {
   const selectedSquare = ref<string | null>(null);
   const possibleMoves = ref<string[]>([]);
   const viewModePreference = ref<'auto' | 'white' | 'black' | 'alternating'>('auto');
+  const spectatorVisionMode = ref<'alternating' | 'god'>('alternating');
   const isMyTurn = computed(() => {
     return currentPlayer.value && gameState.value && 
            currentPlayer.value.color === gameState.value.currentPlayer;
   });
+  const viewingColor = computed<'white' | 'black'>(() => {
+    if (currentPlayer.value?.color) return currentPlayer.value.color;
+    if (viewModePreference.value === 'white' || viewModePreference.value === 'black') {
+      return viewModePreference.value;
+    }
+    if (gameState.value?.currentPlayer) return gameState.value.currentPlayer;
+    return 'white';
+  });
+
+  const applyFogByCurrentView = (state: GameState) => {
+    if (!state?.fogOfWar) return;
+    // 每次切换视野前先从权威FEN重建棋盘，避免此前迷雾隐藏的棋子残留
+    chessService.setBoardFromFen(state.board);
+    if (roomStore.isSpectating && spectatorVisionMode.value === 'god') {
+      chessService.clearFog();
+      return;
+    }
+    chessService.applyFogFor(viewingColor.value, state.fogOfWar);
+  };
 
   // 动作
   const setGameState = (newGameState: GameState) => {
     gameState.value = newGameState;
-    chessService.setBoardFromFen(newGameState.board);
-    
-    // 迷雾棋规则：每个玩家始终看到自己的棋子和自己棋子可以移动到的格子
-    // 视野应该基于当前连接的玩家身份，而不是当前回合
-    const playerColor = currentPlayer.value?.color || roomStore.currentPlayer?.color;
-    
-    if (playerColor && newGameState.fogOfWar) {
-      chessService.applyFogFor(playerColor, newGameState.fogOfWar);
-    }
+    applyFogByCurrentView(newGameState);
   };
 
   function countAllPieces(boardPart: string): number {
@@ -57,10 +69,10 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  const setCurrentPlayer = (player: Player) => {
+  const setCurrentPlayer = (player: Player | null) => {
     currentPlayer.value = player;
     if (gameState.value) {
-      chessService.applyFogFor(player.color, gameState.value.fogOfWar as any);
+      applyFogByCurrentView(gameState.value);
     }
   };
 
@@ -302,18 +314,19 @@ export const useGameStore = defineStore('game', () => {
       // 历史局面下的基础视野：仅显示"自己棋子所在格"（不暴露对方）
       try {
         const viewer = currentPlayer.value?.color;
-        if (viewer) {
-          const fog = (replayService.constructor as any).calculateBasicVisibility(state.board, viewer);
-          chessService.applyFogFor(viewer, fog as any);
+        const replayViewer = viewer || viewingColor.value;
+        if (roomStore.isSpectating && spectatorVisionMode.value === 'god') {
+          chessService.clearFog();
+        } else if (replayViewer) {
+          const fog = (replayService.constructor as any).calculateBasicVisibility(state.board, replayViewer);
+          chessService.applyFogFor(replayViewer, fog as any);
         }
       } catch {}
     } else {
       // 退出回放模式，恢复当前游戏状态
       if (gameState.value) {
         chessService.setBoardFromFen(gameState.value.board);
-        if (currentPlayer.value && gameState.value.fogOfWar) {
-          chessService.applyFogFor(currentPlayer.value.color, gameState.value.fogOfWar);
-        }
+        applyFogByCurrentView(gameState.value);
       }
     }
   };
@@ -436,7 +449,9 @@ export const useGameStore = defineStore('game', () => {
     possibleMoves,
     isMyTurn,
     viewModePreference,
+    spectatorVisionMode,
     replayState,
+    viewingColor,
     
     // 动作
     setGameState,
@@ -452,8 +467,17 @@ export const useGameStore = defineStore('game', () => {
     requestDraw,
     respondToDraw,
     setReplayState,
+    toggleSpectatorVisionMode: () => {
+      spectatorVisionMode.value = spectatorVisionMode.value === 'god' ? 'alternating' : 'god';
+      if (gameState.value && !replayState.value) {
+        applyFogByCurrentView(gameState.value);
+      }
+    },
     setViewModePreference: (mode: 'auto' | 'white' | 'black' | 'alternating') => {
       viewModePreference.value = mode;
+      if (gameState.value && !replayState.value) {
+        applyFogByCurrentView(gameState.value);
+      }
     }
   };
 });

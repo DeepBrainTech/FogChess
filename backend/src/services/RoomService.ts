@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Room, Player, GameState, Move } from '../types';
+import type { Room, Player, Spectator, GameState, Move } from '../types';
 import { ChessService } from './ChessService';
 import { TimerService } from './TimerService';
 import { AIService } from './AIService';
@@ -10,14 +10,21 @@ export class RoomService {
   private rooms: Map<string, Room> = new Map();
   private roomIdToChess: Map<string, ChessService> = new Map();
   private roomIdToAI: Map<string, AIService> = new Map();
+  private roomIdToGraceDeadline: Map<string, number> = new Map();
   private timerService: TimerService;
   private repository?: RoomRepository;
   private archiver?: GameArchiver;
+  private roomClosedHandler?: (roomId: string, reason: string) => void;
+  private static readonly EMPTY_ROOM_GRACE_MS = 5 * 60 * 1000;
 
   constructor(repository?: RoomRepository, archiver?: GameArchiver) {
     this.timerService = new TimerService();
     this.repository = repository;
     this.archiver = archiver;
+  }
+
+  setRoomClosedHandler(handler: (roomId: string, reason: string) => void) {
+    this.roomClosedHandler = handler;
   }
 
   /**
@@ -66,6 +73,7 @@ export class RoomService {
       id: roomId,
       name: roomName,
       players: [player],
+      spectators: [],
       gameState,
       createdAt: new Date(),
       isFull: gameMode === 'ai', // AI模式房间创建时就是满的
@@ -91,6 +99,10 @@ export class RoomService {
       return { success: false, error: 'Room not found' };
     }
 
+    if (room.gameMode === 'ai') {
+      return { success: false, error: 'AI room does not support spectator/player switching' };
+    }
+
     if (room.isFull) {
       return { success: false, error: 'Room is full' };
     }
@@ -103,6 +115,9 @@ export class RoomService {
     if (room.players.some(p => p.socketId === socketId)) {
       return { success: false, error: 'Player already in room' };
     }
+    // 如果此前是观战，转为玩家时先移除观战身份
+    room.spectators = room.spectators.filter(s => s.socketId !== socketId);
+    this.cancelGraceDeadline(roomId);
 
     // 当第二个玩家加入时，随机分配黑白颜色
     let player: Player;
@@ -150,16 +165,18 @@ export class RoomService {
       room.players = room.players.filter(p => p.socketId !== socketId && p.color !== player.color);
       room.players.push(player);
     }
-    room.isFull = true;
+    room.isFull = room.players.length >= 2;
     // 重置为标准初始局并开始（使用该房间现有实例）
-    const chess = this.roomIdToChess.get(roomId) || new ChessService();
-    this.roomIdToChess.set(roomId, chess);
-    room.gameState = chess.createNewGame();
-    room.gameState.gameStatus = 'playing';
+    if (room.players.length === 2) {
+      const chess = this.roomIdToChess.get(roomId) || new ChessService();
+      this.roomIdToChess.set(roomId, chess);
+      room.gameState = chess.createNewGame();
+      room.gameState.gameStatus = 'playing';
+    }
     
     // 游戏开始时初始化计时器
     this.timerService.cleanupTimer(roomId);
-    if (room.timerMode && room.timerMode !== 'unlimited') {
+    if (room.players.length === 2 && room.timerMode && room.timerMode !== 'unlimited') {
       this.timerService.initializeTimer(roomId, room.timerMode);
       const timerState = this.timerService.getCurrentTimes(roomId);
       if (timerState) {
@@ -178,11 +195,67 @@ export class RoomService {
         mode: 'unlimited'
       };
     }
+    if (room.players.length < 2) {
+      room.gameState.gameStatus = 'waiting';
+      room.gameState.currentPlayer = 'white';
+    }
+    this.cancelGraceDeadline(roomId);
     // Game started with two players
     // persist updated room and players
     this.repository?.saveRoom(room).catch(() => {});
 
     return { success: true, room, player };
+  }
+
+  /**
+   * 以观战身份加入房间
+   */
+  joinAsSpectator(roomId: string, playerName: string, socketId: string, mainUserId?: number): { success: boolean; room?: Room; spectator?: Spectator; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+    if (room.players.some(p => p.socketId === socketId)) {
+      return { success: false, error: 'Players in room cannot spectate at the same time' };
+    }
+    const existing = room.spectators.find(s => s.socketId === socketId);
+    if (existing) {
+      return { success: true, room, spectator: existing };
+    }
+    const spectator: Spectator = {
+      id: uuidv4(),
+      name: playerName,
+      socketId,
+      mainUserId
+    };
+    room.spectators.push(spectator);
+    this.repository?.saveRoom(room).catch(() => {});
+    return { success: true, room, spectator };
+  }
+
+  /**
+   * 观战切换为玩家
+   */
+  switchSpectatorToPlayer(roomId: string, playerName: string, socketId: string, mainUserId?: number): { success: boolean; room?: Room; player?: Player; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+    if (room.players.length >= 2) {
+      return { success: false, error: 'Room is full' };
+    }
+    const spectator = room.spectators.find(s => s.socketId === socketId);
+    if (!spectator) {
+      return { success: false, error: 'Spectator not found in room' };
+    }
+    // 使用同一用户名切换为玩家
+    const result = this.joinRoom(roomId, playerName || spectator.name, socketId, mainUserId ?? spectator.mainUserId);
+    if (!result.success || !result.room || !result.player) {
+      return { success: false, error: result.error || 'Failed to switch role' };
+    }
+    result.room.spectators = result.room.spectators.filter(s => s.id !== spectator.id);
+    this.repository?.saveRoom(result.room).catch(() => {});
+    return { success: true, room: result.room, player: result.player };
   }
 
   /**
@@ -201,25 +274,47 @@ export class RoomService {
     }
 
     room.players.splice(playerIndex, 1);
-    room.isFull = false;
-    room.gameState.gameStatus = 'waiting';
-    room.gameState.currentPlayer = 'white';
-    room.gameState.clocks = {
-      white: 0,
-      black: 0,
-      increment: 0,
-      mode: 'unlimited'
-    };
-    this.timerService.cleanupTimer(roomId);
-
-    // 如果房间空了，删除房间
-    if (room.players.length === 0) {
-      this.rooms.delete(roomId);
-      this.repository?.deleteRoom(roomId).catch(() => {});
+    room.isFull = room.players.length >= 2;
+    if (room.players.length < 2) {
+      room.gameState.gameStatus = 'waiting';
+      room.gameState.currentPlayer = 'white';
+      room.gameState.clocks = {
+        white: 0,
+        black: 0,
+        increment: 0,
+        mode: 'unlimited'
+      };
+      this.timerService.cleanupTimer(roomId);
+    }
+    // 无玩家且无观战，立即删除；仅观战场景进入5分钟保留期
+    if (room.players.length === 0 && room.spectators.length === 0) {
+      this.deleteRoom(roomId, 'empty-no-spectators');
       return { success: true };
     }
+    if (room.players.length === 0 && room.spectators.length > 0) {
+      this.startGraceDeadline(roomId);
+    } else {
+      this.cancelGraceDeadline(roomId);
+    }
+    this.repository?.saveRoom(room).catch(() => {});
+    return { success: true, room };
+  }
 
-    // persist updated room
+  leaveSpectator(roomId: string, spectatorId: string): { success: boolean; room?: Room; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+    const index = room.spectators.findIndex(s => s.id === spectatorId);
+    if (index === -1) {
+      return { success: false, error: 'Spectator not found in room' };
+    }
+    room.spectators.splice(index, 1);
+    // 仅观战且玩家为0，如果观战也退出到0，立即删除房间
+    if (room.players.length === 0 && room.spectators.length === 0) {
+      this.deleteRoom(roomId, 'empty-after-spectator-left');
+      return { success: true };
+    }
     this.repository?.saveRoom(room).catch(() => {});
     return { success: true, room };
   }
@@ -354,6 +449,12 @@ export class RoomService {
     if (!room) return undefined;
     
     return room.players.find(p => p.socketId === socketId);
+  }
+
+  getSpectatorInRoom(roomId: string, socketId: string): Spectator | undefined {
+    const room = this.rooms.get(roomId);
+    if (!room) return undefined;
+    return room.spectators.find(s => s.socketId === socketId);
   }
 
   /**
@@ -541,26 +642,48 @@ export class RoomService {
     
     for (const [roomId, room] of this.rooms.entries()) {
       const playerIndex = room.players.findIndex(p => p.socketId === socketId);
+      const spectatorIndex = room.spectators.findIndex(s => s.socketId === socketId);
       if (playerIndex !== -1) {
         // 移除该玩家
         room.players.splice(playerIndex, 1);
-        room.isFull = false;
+        room.isFull = room.players.length >= 2;
+        room.gameState.gameStatus = 'waiting';
+        room.gameState.currentPlayer = 'white';
+        room.gameState.clocks = {
+          white: 0,
+          black: 0,
+          increment: 0,
+          mode: 'unlimited'
+        };
+        this.timerService.cleanupTimer(roomId);
+      }
+      if (spectatorIndex !== -1) {
+        room.spectators.splice(spectatorIndex, 1);
+      }
+      if (playerIndex !== -1 || spectatorIndex !== -1) {
+        if (room.players.length === 0 && room.spectators.length > 0) {
+          this.startGraceDeadline(roomId);
+        } else if (room.players.length > 0) {
+          this.cancelGraceDeadline(roomId);
+        }
         
         // 删除房间的条件：
-        // 1. 房间完全为空
-        // 2. 强制删除模式且房间只剩1个或0个玩家
-        if (room.players.length === 0 || (forceDeleteSinglePlayer && room.players.length <= 1)) {
+        // 1. 房间玩家和观战都为空
+        // 2. 强制删除模式且房间只剩1个或0个玩家且没有观战
+        if (
+          (room.players.length === 0 && room.spectators.length === 0) ||
+          (forceDeleteSinglePlayer && room.players.length <= 1 && room.spectators.length === 0)
+        ) {
           roomsToDelete.push(roomId);
+        } else {
+          this.repository?.saveRoom(room).catch(() => {});
         }
       }
     }
     
     // 删除所有标记的房间
     for (const roomId of roomsToDelete) {
-      this.rooms.delete(roomId);
-      this.roomIdToChess.delete(roomId);
-      this.timerService.cleanupTimer(roomId);
-      this.repository?.deleteRoom(roomId).catch(() => {});
+      this.deleteRoom(roomId, 'cleanup-player-rooms');
     }
   }
 
@@ -700,17 +823,48 @@ export class RoomService {
     }
   }
 
+  private startGraceDeadline(roomId: string) {
+    const room = this.rooms.get(roomId);
+    if (!room || room.players.length > 0 || room.spectators.length === 0) return;
+    if (!this.roomIdToGraceDeadline.has(roomId)) {
+      this.roomIdToGraceDeadline.set(roomId, Date.now() + RoomService.EMPTY_ROOM_GRACE_MS);
+      this.repository?.saveRoom(room).catch(() => {});
+    }
+  }
+
+  private cancelGraceDeadline(roomId: string) {
+    this.roomIdToGraceDeadline.delete(roomId);
+  }
+
+  private deleteRoom(roomId: string, reason: string) {
+    this.rooms.delete(roomId);
+    this.roomIdToChess.delete(roomId);
+    this.roomIdToAI.delete(roomId);
+    this.roomIdToGraceDeadline.delete(roomId);
+    this.timerService.cleanupTimer(roomId);
+    this.repository?.deleteRoom(roomId).catch(() => {});
+    this.roomClosedHandler?.(roomId, reason);
+  }
+
   /**
    * 清理空房间
    */
   cleanupEmptyRooms(): void {
+    const now = Date.now();
     for (const [roomId, room] of this.rooms.entries()) {
-      if (room.players.length === 0) {
-        this.rooms.delete(roomId);
-        this.roomIdToChess.delete(roomId);
-        this.roomIdToAI.delete(roomId);
-        this.timerService.cleanupTimer(roomId);
-        this.repository?.deleteRoom(roomId).catch(() => {});
+      if (room.players.length === 0 && room.spectators.length === 0) {
+        this.deleteRoom(roomId, 'cleanup-empty');
+        continue;
+      }
+      if (room.players.length === 0 && room.spectators.length > 0) {
+        const deadline = this.roomIdToGraceDeadline.get(roomId);
+        if (!deadline) {
+          this.startGraceDeadline(roomId);
+          continue;
+        }
+        if (now >= deadline) {
+          this.deleteRoom(roomId, 'grace-timeout');
+        }
       }
     }
   }

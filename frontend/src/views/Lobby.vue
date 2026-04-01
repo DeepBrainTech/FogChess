@@ -44,12 +44,18 @@
               <div class="info">
                 <span class="timer-mode">{{ getTimerModeText(room.timerMode) }}</span>
                 <span class="status">{{ getStatusText(room.gameState.gameStatus) }}</span>
+                <span class="spectator-count">{{ t('lobby.spectators') }} {{ room.spectators?.length || 0 }}</span>
               </div>
             </div>
           </div>
-          <button class="join" :disabled="room.isFull || !hasPlayerName" @click="join(room.id)">
-            {{ room.isFull ? t('lobby.full') : t('lobby.join') }}
-          </button>
+          <div class="room-actions">
+            <button class="join" :disabled="room.isFull || !hasPlayerName" @click="join(room.id)">
+              {{ room.isFull ? t('lobby.full') : t('lobby.join') }}
+            </button>
+            <button class="spectate" :disabled="!hasPlayerName" @click="spectate(room.id)">
+              {{ t('lobby.spectate') }}
+            </button>
+          </div>
         </li>
       </ul>
     </div>
@@ -109,6 +115,18 @@ const join = (roomId: string) => {
   roomStore.joinRoom(roomId, name);
   const un = roomStore.$subscribe((_, state) => {
     if (state.currentRoom) {
+      un();
+      router.push('/game');
+    }
+  });
+};
+
+const spectate = (roomId: string) => {
+  const name = playerName.value.trim();
+  if (!name) return;
+  roomStore.joinSpectator(roomId, name);
+  const un = roomStore.$subscribe((_, state) => {
+    if (state.currentRoom && (state.currentSpectator || state.currentPlayer)) {
       un();
       router.push('/game');
     }
@@ -196,8 +214,12 @@ button { padding: 12px 20px; border: none; background: #1976D2; color: #fff; bor
 .info { display: flex; gap: 12px; font-size: 14px; }
 .timer-mode { background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
 .status { background: #f3e5f5; color: #7b1fa2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+.spectator-count { background: #f1f8e9; color: #558b2f; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
 .join { padding: 12px 24px; border: none; background: #4caf50; color: #fff; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; min-width: 80px; }
 .join[disabled] { background: #ccc; cursor: not-allowed; }
+.room-actions { display: flex; gap: 8px; }
+.spectate { padding: 12px 16px; border: none; background: #1e88e5; color: #fff; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; min-width: 80px; }
+.spectate:disabled { background: #ccc; cursor: not-allowed; }
 .hint { color: #666; text-align: center; padding: 40px; font-size: 16px; }
 .spinner { 
   display: inline-block; 

@@ -7,11 +7,11 @@
       </div>
       
       <div class="game-sidebar">
-        <GameStatusCard :game-state="gameState" :is-my-turn="isMyTurn" />
+        <GameStatusCard :game-state="gameState" :is-my-turn="isMyTurn" :is-spectating="isSpectating" />
         
         <MoveHistory 
           :moves="gameState?.moveHistory || []" 
-          :current-player-color="roomStore.currentPlayer?.color || 'white'" 
+          :current-player-color="effectiveViewerColor" 
         />
 
         <!-- 回放控制按钮 -->
@@ -28,7 +28,7 @@
       
       <!-- 侧边聊天区 -->
       <div class="chat-sidebar">
-        <SideChat />
+        <SideChat :can-send="!isSpectating" />
       </div>
       
       <!-- 计时器显示 -->
@@ -56,13 +56,18 @@
           :can-download-fen="!!gameState"
           :sound-enabled="soundEnabled"
           :timer-mode="room?.timerMode || 'unlimited'"
+          :is-spectating="isSpectating"
+          :can-switch-to-player="canSwitchToPlayer"
+          :spectator-vision-mode="spectatorVisionMode"
           @request-undo="requestUndo"
           @show-surrender="showSurrenderDialog"
           @show-draw="showDrawDialog"
           @download-pgn="showDownloadPgnDialog"
           @download-fen="showDownloadFenDialog"
           @toggle-sound="toggleSound"
-          @leave="showLeaveDialog"
+          @switch-to-player="switchToPlayer"
+          @toggle-spectator-vision="toggleSpectatorVision"
+          @leave="handleLeaveAction"
         />
       </GameHeader>
     
@@ -120,7 +125,7 @@
 // Game page component
 import { socketService } from '../services/socket';
 import './Game.css';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
 import { useAuthStore } from '../stores/auth';
@@ -165,6 +170,13 @@ const sortPlayersByColor = (list: DisplayPlayer[]) => {
 const room = computed(() => roomStore.currentRoom);
 const gameState = computed(() => gameStore.gameState);
 const currentPlayerColor = computed(() => roomStore.currentPlayer?.color || null);
+const isSpectating = computed(() => roomStore.isSpectating);
+const effectiveViewerColor = computed<'white' | 'black'>(() => gameStore.viewingColor);
+const spectatorVisionMode = computed<'alternating' | 'god'>(() => gameStore.spectatorVisionMode);
+const canSwitchToPlayer = computed(() => {
+  if (!isSpectating.value || !room.value) return false;
+  return room.value.players.length < 2 && room.value.gameMode !== 'ai';
+});
 const apiBase = (import.meta as any).env?.VITE_API_URL || '';
 const playerRatings = ref<Record<number, number>>({});
 
@@ -215,6 +227,7 @@ const { showGameOver, isWinner, gameOverTitle, gameOverMessage, isVictoryFlash, 
 
 // 计算属性
 const canRequestUndo = computed(() => {
+  if (isSpectating.value) return false;
   if (!gameState.value || !roomStore.currentPlayer) return false;
   return gameState.value.gameStatus === 'playing' && 
          gameState.value.moveHistory && 
@@ -452,6 +465,27 @@ const confirmSurrender = () => {
   closeDialog();
 };
 
+const switchToPlayer = () => {
+  if (!room.value || !canSwitchToPlayer.value) return;
+  const name = authStore.user?.username || roomStore.currentSpectator?.name || 'Spectator';
+  roomStore.switchToPlayer(room.value.id, name);
+};
+
+const handleLeaveAction = () => {
+  if (isSpectating.value) {
+    roomStore.leaveRoom();
+    gameStore.resetGame();
+    router.push('/lobby');
+    return;
+  }
+  showLeaveDialog();
+};
+
+const toggleSpectatorVision = () => {
+  if (!isSpectating.value) return;
+  gameStore.toggleSpectatorVisionMode();
+};
+
 // 复制完整的邀请链接
 const copyInviteLink = async () => {
   if (!room.value) return;
@@ -467,6 +501,12 @@ const copyRoomIdOnly = async () => {
 
 // 悔棋与对话框方法已由 useGameDialogs 提供
 
+const onRoomClosed = () => {
+  roomStore.leaveRoom();
+  gameStore.resetGame();
+  router.push('/lobby');
+};
+
 onMounted(() => {
   if (!room.value) {
     router.push('/');
@@ -476,6 +516,8 @@ onMounted(() => {
   // 设置当前玩家
   if (roomStore.currentPlayer) {
     gameStore.setCurrentPlayer(roomStore.currentPlayer);
+  } else {
+    gameStore.setCurrentPlayer(null);
   }
   
   // 设置游戏状态（放在设置当前玩家之后，便于应用迷雾）
@@ -490,6 +532,8 @@ onMounted(() => {
   
 // 通过 composable 注册撤销相关窗口事件
 registerUndoWindowEvents();
+
+window.addEventListener('room-closed', onRoomClosed);
 
 // 监听升变请求事件
 window.addEventListener('show-promotion', (ev: any) => {
@@ -519,7 +563,7 @@ watch(gameState, (newState) => {
   }
   
   // 根据当前玩家启动计时器
-  if (newState.currentPlayer === roomStore.currentPlayer?.color) {
+  if (!isSpectating.value && newState.currentPlayer === roomStore.currentPlayer?.color) {
     startTimer();
   } else {
     stopTimer();
@@ -538,7 +582,7 @@ function updateTimerFromBackend(clocks: any) {
   timer.increment = clocks.increment || 0;
   
   // 根据当前玩家显示对应的时间
-  const myColor = roomStore.currentPlayer?.color;
+  const myColor = roomStore.currentPlayer?.color || effectiveViewerColor.value;
   if (myColor === 'white') {
     timer.timeLeft = clocks.white || 0;
   } else {
@@ -574,6 +618,7 @@ watch(
     }
 
     if (
+      !isSpectating.value &&
       gameState.value?.gameStatus === 'playing' &&
       gameState.value.currentPlayer === player.color
     ) {
@@ -582,6 +627,11 @@ watch(
   }
 );
 
+});
+
+onUnmounted(() => {
+  window.removeEventListener('room-closed', onRoomClosed);
+  stopTimer();
 });
 
 // 通知与进度逻辑由 useNewMoveNotice 与 useReplay 管理

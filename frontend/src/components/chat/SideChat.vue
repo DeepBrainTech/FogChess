@@ -23,14 +23,18 @@
         v-model="inputMessage"
         @keydown.enter.exact.prevent="sendMessage"
         class="chat-input"
-        :placeholder="t('chat.placeholder')"
+        :placeholder="canSend ? t('chat.placeholder') : t('chat.readonlyPlaceholder')"
         rows="1"
         ref="textareaRef"
+        :disabled="!canSend"
       ></textarea>
-      <button @click="sendMessage" class="chat-send-btn">
+      <button @click="sendMessage" class="chat-send-btn" :disabled="!canSend">
         {{ t('chat.send') }}
       </button>
       <!-- TODO: 未来在发送按钮旁边添加表情按钮，支持选择表情输入 -->
+    </div>
+    <div v-if="!canSend" class="chat-readonly-hint">
+      {{ t('chat.readonlyHint') }}
     </div>
   </div>
 </template>
@@ -49,6 +53,14 @@ interface ChatMessage {
   isOwn: boolean;
 }
 
+interface Props {
+  canSend?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  canSend: true
+});
+
 const roomStore = useRoomStore();
 const messages = ref<ChatMessage[]>([]);
 const inputMessage = ref('');
@@ -62,6 +74,7 @@ const formatTime = (date: Date): string => {
 };
 
 const sendMessage = () => {
+  if (!props.canSend) return;
   if (!inputMessage.value.trim()) return;
   if (!roomStore.currentRoom) return;
   
@@ -261,6 +274,17 @@ onUnmounted(() => {
 
 .chat-send-btn:hover {
   background: #1976D2;
+}
+
+.chat-send-btn:disabled {
+  background: #b0bec5;
+  cursor: not-allowed;
+}
+
+.chat-readonly-hint {
+  padding: 0 12px 10px 12px;
+  color: #8d6e63;
+  font-size: 12px;
 }
 </style>
 
