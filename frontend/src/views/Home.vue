@@ -143,11 +143,7 @@ const devLogin = async (id: number, username: string) => {
   }
 };
 
-const env = import.meta.env || {};
-const portalUrl =
-  env.VITE_MAIN_PORTAL_URL ||
-  (env as any).MAIN_PORTAL_URL ||
-  'https://deepbraintechnology.com/';
+const portalUrl = 'https://deepbraintechnology.com/';
 
 const goPortal = () => {
   if (!portalUrl) return;

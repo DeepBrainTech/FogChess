@@ -123,8 +123,10 @@ const winRate = computed(() => {
   return Math.round(rate * 10) / 10; // 保留一位小数
 });
 
+const portalUrl = 'https://deepbraintechnology.com/';
+
 const goBack = () => {
-  router.push('/');
+  window.location.href = portalUrl;
 };
 
 const goHome = () => {
