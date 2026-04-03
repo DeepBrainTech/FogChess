@@ -604,6 +604,7 @@ const fetchGameDetails = async () => {
         { id: 'white', name: gameData.value.white_name, color: 'white', socketId: '', mainUserId: gameData.value.white_user_id ?? undefined },
         { id: 'black', name: gameData.value.black_name, color: 'black', socketId: '', mainUserId: gameData.value.black_user_id ?? undefined }
       ],
+      spectators: [],
       gameState: {
         board: gameData.value.final_fen || STANDARD_STARTING_FEN,
         currentPlayer: 'white',
