@@ -23,6 +23,7 @@ export interface Room {
   isFull: boolean;
   timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet';
   gameMode?: 'normal' | 'ai';
+  aiDifficulty?: number;
 }
 
 export interface GameState {
@@ -65,7 +66,7 @@ export interface SocketEvents {
   'join-room': { roomId: string; playerName: string };
   'join-spectator': { roomId: string; playerName: string };
   'switch-to-player': { roomId: string; playerName: string };
-  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai' };
+  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai'; aiDifficulty?: number };
   'make-move': { roomId: string; move: Move };
   'get-legal-moves': { roomId: string; square: string };
   'leave-room': { roomId: string };

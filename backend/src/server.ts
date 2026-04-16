@@ -327,7 +327,8 @@ io.on('connection', (socket) => {
         socket.id,
         data.timerMode,
         data.gameMode,
-        sessionUser?.id
+        sessionUser?.id,
+        data.aiDifficulty
       );
       socket.join(room.id);
       socket.emit('room-created', { room });

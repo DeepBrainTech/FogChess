@@ -15,10 +15,10 @@ export const useRoomStore = defineStore('room', () => {
   const isSpectating = computed(() => !!currentSpectator.value && !currentPlayer.value);
 
   // 动作
-  const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal') => {
-    lastTimerMode.value = timerMode;
-    socketService.createRoom(roomName, playerName, timerMode, gameMode);
-  };
+    const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal', aiDifficulty: number = 6) => {
+      lastTimerMode.value = timerMode;
+      socketService.createRoom(roomName, playerName, timerMode, gameMode, aiDifficulty);
+    };
 
   const joinRoom = (roomId: string, playerName: string) => {
     socketService.joinRoom(roomId, playerName);

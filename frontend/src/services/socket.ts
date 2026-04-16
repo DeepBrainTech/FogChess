@@ -34,10 +34,10 @@ class SocketService {
     }
   }
 
-  // 创建房间
-  createRoom(roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal'): void {
-    this.socket?.emit('create-room', { roomName, playerName, timerMode, gameMode });
-  }
+    // 创建房间
+    createRoom(roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal', aiDifficulty: number = 6): void {
+      this.socket?.emit('create-room', { roomName, playerName, timerMode, gameMode, aiDifficulty });
+    }
 
   // 加入房间
   joinRoom(roomId: string, playerName: string): void {

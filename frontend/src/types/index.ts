@@ -25,6 +25,8 @@ export interface Room {
   timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet';
   // 游戏模式
   gameMode?: 'normal' | 'ai';
+  // AI难度
+  aiDifficulty?: number;
 }
 
 export interface GameState {
@@ -68,7 +70,7 @@ export interface SocketEvents {
   'join-room': { roomId: string; playerName: string };
   'join-spectator': { roomId: string; playerName: string };
   'switch-to-player': { roomId: string; playerName: string };
-  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai' };
+  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai'; aiDifficulty?: number };
   'make-move': { roomId: string; move: Move };
   'leave-room': { roomId: string };
   'get-legal-moves': { roomId: string; square: string };
