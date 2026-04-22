@@ -26,10 +26,41 @@ const apiBase = (import.meta as any).env?.VITE_API_URL || '';
 async function exchangeTokenIfPresent() {
   try {
     const hash = window.location.hash || '';
-    const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
-    const searchParams = new URLSearchParams(window.location.search || '');
-    const token = hashParams.get('token') || searchParams.get('token');
-    const redirect = hashParams.get('redirect') || searchParams.get('redirect');
+    
+    // 从 hash 中解析参数（因为现在换成了 hash router）
+    // 处理各种格式：#/token=... 或者 #/?token=... 或者 #?token=... 
+    let token = null;
+    let redirect = null;
+    
+    const hashQueryIndex = hash.indexOf('?');
+    if (hashQueryIndex !== -1) {
+      const hashParams = new URLSearchParams(hash.slice(hashQueryIndex + 1));
+      token = hashParams.get('token');
+      redirect = hashParams.get('redirect');
+    }
+    
+    // 兼容原有的无 ? 的 hash 格式: #/token=xxx 或者 #/token=xxx&other=yyy
+    if (!token && hash.includes('token=')) {
+      const parts = hash.split('token=');
+      if (parts.length > 1) {
+        token = parts[1].split('&')[0];
+        
+        // 尝试解析 redirect
+        if (hash.includes('redirect=')) {
+          const redirectParts = hash.split('redirect=');
+          if (redirectParts.length > 1) {
+            redirect = redirectParts[1].split('&')[0];
+          }
+        }
+      }
+    }
+    
+    // 如果 hash 中没有，检查 search (即 URL 中的 ? 后面的部分)
+    if (!token) {
+      const searchParams = new URLSearchParams(window.location.search || '');
+      token = searchParams.get('token');
+      if (!redirect) redirect = searchParams.get('redirect');
+    }
     
     if (!token) {
       console.log('No token found in URL');
@@ -67,12 +98,37 @@ async function exchangeTokenIfPresent() {
     }
     
     // Clear token from URL (avoid re-exposing)
-    // 保留其他查询参数（如room=xxx），只删除token
-    const newSearchParams = new URLSearchParams(window.location.search);
-    newSearchParams.delete('token');
-    const newSearch = newSearchParams.toString();
-    const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
-    history.replaceState(null, '', newUrl);
+    // 清除 URL 或者 Hash 中的 token
+    if (window.location.search.includes('token=')) {
+      const newSearchParams = new URLSearchParams(window.location.search);
+      newSearchParams.delete('token');
+      const newSearch = newSearchParams.toString();
+      const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+      history.replaceState(null, '', newUrl);
+    }
+    
+    if (window.location.hash.includes('token=')) {
+      let newHash = window.location.hash;
+      // 简单地把 token 参数和相关参数从 hash 里去掉
+      newHash = newHash.replace(/token=[^&]*/, '');
+      newHash = newHash.replace(/portal_token=[^&]*/, '');
+      newHash = newHash.replace(/portal_api=[^&]*/, '');
+      newHash = newHash.replace(/locale=[^&]*/, '');
+      newHash = newHash.replace(/coins=[^&]*/, '');
+      newHash = newHash.replace(/diamonds=[^&]*/, '');
+      newHash = newHash.replace(/flowers=[^&]*/, '');
+      newHash = newHash.replace(/&+$/, '').replace(/&+/g, '&'); // 清理多余的 &
+      newHash = newHash.replace(/#\/?\??&/, '#/'); // 清理 #/& 或 #/?& 变成 #/
+      newHash = newHash.replace(/\?&/, '?'); // 清理 ?& 变成 ?
+      
+      // 如果 hash 变成了只有一个空壳比如 #/ 或者 #/?，就清理干净
+      if (newHash === '#/' || newHash === '#/?' || newHash === '#') {
+        newHash = '#/';
+      }
+      
+      const newUrl = window.location.pathname + window.location.search + newHash;
+      history.replaceState(null, '', newUrl);
+    }
     
     // Optional redirect param; default stay on '/'
     if (redirect && /^\//.test(redirect) && !redirect.includes('//')) {
