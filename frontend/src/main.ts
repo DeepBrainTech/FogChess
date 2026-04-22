@@ -117,17 +117,30 @@ async function exchangeTokenIfPresent() {
       newHash = newHash.replace(/coins=[^&]*/, '');
       newHash = newHash.replace(/diamonds=[^&]*/, '');
       newHash = newHash.replace(/flowers=[^&]*/, '');
-      newHash = newHash.replace(/&+$/, '').replace(/&+/g, '&'); // 清理多余的 &
-      newHash = newHash.replace(/#\/?\??&/, '#/'); // 清理 #/& 或 #/?& 变成 #/
-      newHash = newHash.replace(/\?&/, '?'); // 清理 ?& 变成 ?
       
-      // 如果 hash 变成了只有一个空壳比如 #/ 或者 #/?，就清理干净
+      // 清理残留的 & 和 ?
+      newHash = newHash.replace(/&+/g, '&');
+      newHash = newHash.replace(/#\/?\??&/, '#/'); // #/& 或 #/?& -> #/
+      newHash = newHash.replace(/\?&/, '?');       // ?& -> ?
+      newHash = newHash.replace(/&+$/, '');        // 去掉末尾的 &
+      newHash = newHash.replace(/\?$/, '');        // 去掉末尾的 ?
+      
+      // 如果 hash 变成了只有一个空壳比如 #/ 或者 #/? 或者 #
       if (newHash === '#/' || newHash === '#/?' || newHash === '#') {
-        newHash = '#/';
+        newHash = ''; // 完全清空 hash
       }
       
       const newUrl = window.location.pathname + window.location.search + newHash;
       history.replaceState(null, '', newUrl);
+      
+      // 强制触发一次 hashchange 事件，让 Vue Router 知道 hash 已经改变，重新解析当前路由
+      // 如果我们把 hash 清空了，由于我们是在 hash 模式下，需要手动触发一次导航到 /
+      if (newHash === '') {
+        window.location.hash = '/';
+      } else {
+        // 触发 reload 即可确保白屏被打破
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
     }
     
     // Optional redirect param; default stay on '/'
