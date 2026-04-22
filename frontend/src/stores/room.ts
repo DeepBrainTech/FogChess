@@ -38,6 +38,13 @@ export const useRoomStore = defineStore('room', () => {
       currentRoom.value = null;
       currentPlayer.value = null;
       currentSpectator.value = null;
+      
+      // 清除 URL 中的 room 参数
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      } catch {}
     }
   };
 
@@ -82,7 +89,7 @@ export const useRoomStore = defineStore('room', () => {
       currentSpectator.value = null;
       try {
         const shareUrl = `${window.location.origin}?room=${data.room.id}`;
-        window.history.replaceState(null, '', `?room=${data.room.id}`);
+        window.history.replaceState(null, '', `?room=${data.room.id}${window.location.hash}`);
         if (navigator.clipboard && window.isSecureContext) {
           navigator.clipboard.writeText(shareUrl).catch(() => {});
         }
@@ -94,7 +101,7 @@ export const useRoomStore = defineStore('room', () => {
       setCurrentPlayer(data.player);
       currentSpectator.value = null;
       try {
-        window.history.replaceState(null, '', `?room=${data.room.id}`);
+        window.history.replaceState(null, '', `?room=${data.room.id}${window.location.hash}`);
       } catch {}
     });
 
@@ -103,7 +110,7 @@ export const useRoomStore = defineStore('room', () => {
       setCurrentPlayer(null);
       currentSpectator.value = data.spectator;
       try {
-        window.history.replaceState(null, '', `?room=${data.room.id}`);
+        window.history.replaceState(null, '', `?room=${data.room.id}${window.location.hash}`);
       } catch {}
     });
 
