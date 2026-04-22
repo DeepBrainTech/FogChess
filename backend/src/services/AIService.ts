@@ -3,11 +3,11 @@ import type { GameState, Move } from '../types';
 
 export class AIService {
   private chess: Chess;
-  private difficulty: number; // 1-10, 1是最简单，10是最难
+  private difficulty: number; // 1-10
 
   constructor(difficulty: number = 6) {
     this.chess = new Chess();
-    this.difficulty = Math.max(1, Math.min(10, difficulty)); // 限制在1-10之间
+    this.difficulty = Math.max(1, Math.min(10, difficulty)); 
   }
 
   /**
@@ -48,13 +48,10 @@ export class AIService {
       let bestMove: any = null;
       
       if (this.difficulty <= 3) {
-        // 低难度：非常呆的AI，只算1步，20%概率随机走
         bestMove = this.getVerySimpleBestMove(moves);
       } else if (this.difficulty <= 6) {
-        // 中等难度：简单的评估函数
         bestMove = this.getSimpleBestMove(moves);
       } else {
-        // 高难度：更复杂的评估
         bestMove = this.getAdvancedBestMove(moves);
       }
 
