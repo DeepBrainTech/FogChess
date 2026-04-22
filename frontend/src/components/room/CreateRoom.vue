@@ -60,6 +60,18 @@
           <option value="ai">{{ t('room.create.gameMode.ai') }}</option>
         </select>
       </div>
+
+      <div class="form-group" v-if="isAiMode">
+        <label for="aiDifficulty">{{ t('room.create.aiDifficulty') || 'AI难度:' }}</label>
+        <select
+          id="aiDifficulty"
+          v-model="aiDifficulty"
+          required
+        >
+          <option :value="3">{{ t('room.create.aiDifficulty.simple') || '简单AI' }}</option>
+          <option :value="6">{{ t('room.create.aiDifficulty.standard') || '标准AI' }}</option>
+        </select>
+      </div>
       
       <button 
         type="submit" 
@@ -95,6 +107,7 @@ const playerName = computed(() => authStore.user?.username ?? '');
 const hasPlayerName = computed(() => playerName.value.trim().length > 0);
 const timerMode = ref('unlimited');
 const gameMode = ref('normal');
+const aiDifficulty = ref(6);
 const isCreating = ref(false);
 const error = ref('');
 const previousTimerMode = ref('classical');
@@ -160,7 +173,7 @@ const handleCreateRoom = async () => {
   error.value = '';
   
   try {
-    roomStore.createRoom(roomName.value.trim(), name, timerMode.value, gameMode.value);
+    roomStore.createRoom(roomName.value.trim(), name, timerMode.value, gameMode.value, aiDifficulty.value);
     
     // 监听房间创建成功事件
     const unsubscribe = roomStore.$subscribe((_, state) => {

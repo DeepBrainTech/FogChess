@@ -3,15 +3,15 @@ import type { GameState, Move } from '../types';
 
 export class AIService {
   private chess: Chess;
-  private difficulty: number; // 1-10, 1是最简单，10是最难
+  private difficulty: number; // 1-10
 
   constructor(difficulty: number = 6) {
     this.chess = new Chess();
-    this.difficulty = Math.max(1, Math.min(10, difficulty)); // 限制在1-10之间
+    this.difficulty = Math.max(1, Math.min(10, difficulty)); 
   }
 
   /**
-   * 设置AI难度 (1-10)
+   * 设置AI难度 (1-10) //update
    */
   setDifficulty(difficulty: number): void {
     this.difficulty = Math.max(1, Math.min(10, difficulty));
@@ -48,13 +48,10 @@ export class AIService {
       let bestMove: any = null;
       
       if (this.difficulty <= 3) {
-        // 低难度：随机选择，偶尔选择好棋
-        bestMove = this.getRandomMove(moves);
+        bestMove = this.getVerySimpleBestMove(moves);
       } else if (this.difficulty <= 6) {
-        // 中等难度：简单的评估函数
         bestMove = this.getSimpleBestMove(moves);
       } else {
-        // 高难度：更复杂的评估
         bestMove = this.getAdvancedBestMove(moves);
       }
 
@@ -70,7 +67,59 @@ export class AIService {
   }
 
   /**
-   * 随机选择移动（低难度）
+   * 非常简单的AI（低难度）- 只算1步，20%概率随机走
+   */
+  private getVerySimpleBestMove(moves: any[]): any {
+    // 优先选择吃王移动（迷雾棋中吃王即获胜）
+    const kingCaptures = moves.filter(move => move.captured === 'k');
+    if (kingCaptures.length > 0) {
+      console.log('AI: Found king capture opportunity!');
+      return kingCaptures[Math.floor(Math.random() * kingCaptures.length)];
+    }
+    
+    // 20%的概率随机走一步合法的奇怪棋
+    if (Math.random() < 0.20) {
+      console.log('AI: Making a random simple move (20% chance)');
+      return moves[Math.floor(Math.random() * moves.length)];
+    }
+
+    // 计算1步以内的（depth=1）
+    let bestMove = moves[0];
+    let bestScore = Infinity;
+    
+    let worstMove: any = null;
+    let worstScore = -Infinity;
+    
+    const depth = 1; // 只算1步
+
+    for (const move of moves) {
+      this.chess.move(move);
+      const score = this.minimax(depth - 1, true, -Infinity, Infinity);
+      this.chess.undo();
+      
+      if (score < bestScore) {
+        bestScore = score;
+        bestMove = move;
+      }
+      
+      // 记录最差的棋（完全不避开送王，符合迷雾棋设定）
+      if (score > worstScore) {
+        worstScore = score;
+        worstMove = move;
+      }
+    }
+    
+    // 10%的概率走最差的棋（送大礼）
+    if (Math.random() < 0.10 && worstMove) {
+      console.log('AI: Making a blunder move (10% chance)');
+      return worstMove;
+    }
+    
+    return bestMove;
+  }
+
+  /**
+   * 随机选择移动（极低难度备用）
    */
   private getRandomMove(moves: any[]): any {
     // 优先选择吃王移动（迷雾棋中吃王即获胜）

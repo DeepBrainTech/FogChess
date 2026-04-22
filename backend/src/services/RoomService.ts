@@ -36,7 +36,8 @@ export class RoomService {
     socketId: string,
     timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited',
     gameMode: 'normal' | 'ai' = 'normal',
-    mainUserId?: number
+    mainUserId?: number,
+    aiDifficulty: number = 6
   ): Room {
     // 清理该socketId的旧房间（强制删除只包含该玩家的房间）
     this.cleanupPlayerRooms(socketId, true);
@@ -65,7 +66,7 @@ export class RoomService {
 
     // 如果是AI模式，创建AI实例
     if (gameMode === 'ai') {
-      const ai = new AIService(6); // 难度6，相当于1000分水平
+      const ai = new AIService(aiDifficulty); // 使用传入的难度
       this.roomIdToAI.set(roomId, ai);
     }
 
@@ -78,7 +79,8 @@ export class RoomService {
       createdAt: new Date(),
       isFull: gameMode === 'ai', // AI模式房间创建时就是满的
       timerMode: effectiveTimerMode,
-      gameMode: gameMode
+      gameMode: gameMode,
+      aiDifficulty: aiDifficulty
     };
 
     // 计时器将在游戏开始时初始化，而不是房间创建时
