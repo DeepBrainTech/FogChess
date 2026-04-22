@@ -11,7 +11,7 @@ export class AIService {
   }
 
   /**
-   * 设置AI难度 (1-10)
+   * 设置AI难度 (1-10) //update
    */
   setDifficulty(difficulty: number): void {
     this.difficulty = Math.max(1, Math.min(10, difficulty));
