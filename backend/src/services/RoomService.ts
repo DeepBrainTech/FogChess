@@ -452,8 +452,11 @@ export class RoomService {
           .catch(() => {});
       }
       
-      // append move and persist room state
-      this.repository?.appendMove(roomId, move).catch(() => {});
+      const lastFromHistory =
+        result.gameState.moveHistory?.length
+          ? result.gameState.moveHistory[result.gameState.moveHistory.length - 1]
+          : move;
+      this.repository?.appendMove(roomId, lastFromHistory).catch(() => {});
       this.repository?.saveRoom(room).catch(() => {});
 
       return { success: true, gameState: room.gameState };
@@ -743,9 +746,14 @@ export class RoomService {
       room.gameState.winner = (humanPlayer?.color as 'white' | 'black') || 'white';
       room.gameState.currentPlayer = room.gameState.winner;
       (room.gameState as any).aiNoMoves = true; // 标记为AI无棋可走
-      
+
+      this.repository
+        ?.getMoves(roomId)
+        .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
+        .then(() => this.repository?.clearMoves(roomId))
+        .catch(() => {});
       this.repository?.saveRoom(room).catch(() => {});
-      
+
       console.log('AI defeated - no legal moves available');
       return { gameState: room.gameState };
     }
