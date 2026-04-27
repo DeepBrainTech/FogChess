@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { Room, Player, Spectator, SocketEvents } from '../types';
 import { socketService } from '../services/socket';
+import { translateSocketJoinError } from '../services/i18n';
 
 export const useRoomStore = defineStore('room', () => {
   // 状态
@@ -15,9 +16,9 @@ export const useRoomStore = defineStore('room', () => {
   const isSpectating = computed(() => !!currentSpectator.value && !currentPlayer.value);
 
   // 动作
-    const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal', aiDifficulty: number = 6) => {
+    const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal', aiDifficulty: number = 6, humanColor: 'white' | 'black' = 'white') => {
       lastTimerMode.value = timerMode;
-      socketService.createRoom(roomName, playerName, timerMode, gameMode, aiDifficulty);
+      socketService.createRoom(roomName, playerName, timerMode, gameMode, aiDifficulty, humanColor);
     };
 
   const joinRoom = (roomId: string, playerName: string) => {
@@ -203,6 +204,12 @@ export const useRoomStore = defineStore('room', () => {
 
     socketService.on('error', (data: SocketEvents['error']) => {
       console.error('Room error:', data.message);
+      if (data?.message) {
+        const msg = translateSocketJoinError(String(data.message));
+        window.dispatchEvent(
+          new CustomEvent('room-socket-error', { detail: { message: msg, original: data.message } })
+        );
+      }
     });
   };
 

@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import type { Room } from '../types';
+import type { Player, Room } from '../types';
 import { UserService } from './UserService';
 
 export interface GameArchiver {
@@ -121,12 +121,15 @@ export class PostgresArchiver implements GameArchiver {
       const white = whitePlayer?.name || (isAiGame && !whitePlayer ? AI_NAME : 'White');
       const black = blackPlayer?.name || (isAiGame && !blackPlayer ? AI_NAME : 'Black');
 
-      const whiteUserId =
-        whitePlayer?.mainUserId ??
-        (isAiGame && !whitePlayer ? AI_USER_ID : null);
-      const blackUserId =
-        blackPlayer?.mainUserId ??
-        (isAiGame && !blackPlayer ? AI_USER_ID : null);
+      /** 棋谱归档用：哪一侧是电脑则记 AI_USER_ID，人类则记 portal user id；与 AI 执白/执黑无关 */
+      const userIdForDbColumn = (p: Player | undefined): number | null => {
+        if (!p) return null;
+        if (p.isAi) return AI_USER_ID;
+        return typeof p.mainUserId === 'number' && p.mainUserId > 0 ? p.mainUserId : null;
+      };
+
+      const whiteUserId = userIdForDbColumn(whitePlayer);
+      const blackUserId = userIdForDbColumn(blackPlayer);
       const params = [
         room.id,
         white,
@@ -145,10 +148,16 @@ export class PostgresArchiver implements GameArchiver {
       ];
       await client.query(text, params);
       
-      // 更新用户统计与评级
+      // 更新用户统计与评级（只更新人类；AI 侧 mainUserId 可能为空，须排除 isAi）
       if (this.userService) {
-        const whiteUserId = (room.players.find(p => p.color === 'white') as any)?.mainUserId;
-        const blackUserId = (room.players.find(p => p.color === 'black') as any)?.mainUserId;
+        const whiteHumanId =
+          whitePlayer && !whitePlayer.isAi && typeof whitePlayer.mainUserId === 'number' && whitePlayer.mainUserId > 0
+            ? whitePlayer.mainUserId
+            : null;
+        const blackHumanId =
+          blackPlayer && !blackPlayer.isAi && typeof blackPlayer.mainUserId === 'number' && blackPlayer.mainUserId > 0
+            ? blackPlayer.mainUserId
+            : null;
         const result = room.gameState.timeout ? 'timeout' : (room.gameState.winner || 'draw');
         const winner = room.gameState.winner;
 
@@ -191,8 +200,8 @@ export class PostgresArchiver implements GameArchiver {
         const whiteScore = computeWhiteScore();
         const blackScore = whiteScore !== null ? 1 - whiteScore : null;
 
-        const whiteHasUser = typeof whiteUserId === 'number' && whiteUserId > 0;
-        const blackHasUser = typeof blackUserId === 'number' && blackUserId > 0;
+        const whiteHasUser = whiteHumanId != null;
+        const blackHasUser = blackHumanId != null;
 
         let whiteNewRating: number | undefined;
         let blackNewRating: number | undefined;
@@ -200,8 +209,8 @@ export class PostgresArchiver implements GameArchiver {
         if (whiteHasUser && blackHasUser && whiteScore !== null && blackScore !== null) {
           try {
             const [whiteProfile, blackProfile] = await Promise.all([
-              this.userService.getUserProfile(whiteUserId),
-              this.userService.getUserProfile(blackUserId)
+              this.userService.getUserProfile(whiteHumanId!),
+              this.userService.getUserProfile(blackHumanId!)
             ]);
 
             if (whiteProfile && blackProfile) {
@@ -224,17 +233,17 @@ export class PostgresArchiver implements GameArchiver {
           }
         }
 
-        if (whiteUserId) {
+        if (whiteHumanId) {
           await this.userService
-            .updateUserStats(whiteUserId, whiteOutcome, whiteNewRating)
+            .updateUserStats(whiteHumanId, whiteOutcome, whiteNewRating)
             .catch(err => {
               console.error('Failed to update white user stats:', err);
             });
         }
-        
-        if (blackUserId) {
+
+        if (blackHumanId) {
           await this.userService
-            .updateUserStats(blackUserId, blackOutcome, blackNewRating)
+            .updateUserStats(blackHumanId, blackOutcome, blackNewRating)
             .catch(err => {
               console.error('Failed to update black user stats:', err);
             });

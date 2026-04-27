@@ -4,6 +4,7 @@ export interface Player {
   color: 'white' | 'black';
   socketId: string;
   mainUserId?: number;
+  isAi?: boolean;
 }
 
 export interface Spectator {
@@ -27,6 +28,8 @@ export interface Room {
   gameMode?: 'normal' | 'ai';
   // AI难度
   aiDifficulty?: number;
+  // 人类玩家颜色
+  humanColor?: 'white' | 'black';
 }
 
 export interface GameState {
@@ -70,7 +73,7 @@ export interface SocketEvents {
   'join-room': { roomId: string; playerName: string };
   'join-spectator': { roomId: string; playerName: string };
   'switch-to-player': { roomId: string; playerName: string };
-  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai'; aiDifficulty?: number };
+  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai'; aiDifficulty?: number; humanColor?: 'white' | 'black' };
   'make-move': { roomId: string; move: Move };
   'leave-room': { roomId: string };
   'get-legal-moves': { roomId: string; square: string };

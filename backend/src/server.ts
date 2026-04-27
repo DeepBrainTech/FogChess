@@ -328,7 +328,8 @@ io.on('connection', (socket) => {
         data.timerMode,
         data.gameMode,
         sessionUser?.id,
-        data.aiDifficulty
+        data.aiDifficulty,
+        data.humanColor
       );
       socket.join(room.id);
       socket.emit('room-created', { room });
@@ -337,6 +338,20 @@ io.on('connection', (socket) => {
       if (data.gameMode === 'ai') {
         room.gameState.gameStatus = 'playing';
         io.to(room.id).emit('game-updated', { gameState: room.gameState });
+        
+        // 如果人类选了黑棋（AI是白棋），房间创建后AI需要先走一步
+        const humanColor = data.humanColor || 'white';
+        if (humanColor === 'black') {
+          setTimeout(() => {
+            const aiResult = roomService.makeAIMove(room.id);
+            if (aiResult) {
+              io.to(room.id).emit('move-made', {
+                move: aiResult.move,
+                gameState: aiResult.gameState
+              });
+            }
+          }, 1000);
+        }
       } else {
         // 房间创建时处于等待状态
         io.to(room.id).emit('game-updated', { gameState: room.gameState });

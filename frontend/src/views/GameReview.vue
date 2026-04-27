@@ -117,7 +117,7 @@ import ReplayControls from '../components/replay/ReplayControls.vue';
 import MoveHistory from '../components/history/MoveHistory.vue';
 import GameStatusCard from '../components/status/GameStatusCard.vue';
 import GameHeader from '../components/game/GameHeader.vue';
-import { t } from '../services/i18n';
+import { t, displayPlayerName } from '../services/i18n';
 import type { GameState, Move, Room, Player } from '../types';
 import { getCapturedPiecesForColor, getPieceImageBySymbol } from '../utils/captured';
 import './Game.css';
@@ -236,14 +236,17 @@ const getPieceImage = (pieceSymbol: string) => {
 const playersForHeader = computed<DisplayPlayer[]>(() => {
   if (!reviewRoom.value) return [];
   return reviewRoom.value.players.map(player => {
-    const isAi = !player.mainUserId || player.mainUserId <= 0;
+    const isAi = Boolean(player.isAi) || (!player.mainUserId || player.mainUserId <= 0);
     const rating =
       !isAi && typeof player.mainUserId === 'number'
         ? playerRatings.value[player.mainUserId] 
         : undefined;
-    const isViewer = player.mainUserId && player.mainUserId === authStore.user?.id;
-    const name = player.name || (isViewer ? authStore.user?.username : '') || t('header.opponent');
-    const label = !isAi && typeof rating === 'number' ? `${name}: ${rating}` : name;
+    const isSelf = Boolean(player.mainUserId && player.mainUserId === authStore.user?.id);
+    const base =
+      isSelf && authStore.user?.username
+        ? authStore.user.username
+        : displayPlayerName({ ...player, isAi: Boolean(player.isAi) || player.id === 'ai-player' });
+    const label = !isAi && typeof rating === 'number' ? `${base}: ${rating}` : base;
     return { ...player, isAi, rating, label };
   });
 });

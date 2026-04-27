@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../../stores/room';
 import { useAuthStore } from '../../stores/auth';
@@ -67,6 +67,13 @@ const playerName = computed(() => authStore.user?.username ?? '');
 const hasPlayerName = computed(() => playerName.value.trim().length > 0);
 const isJoining = ref(false);
 const error = ref('');
+
+const onRoomSocketError = (e: Event) => {
+  const msg = (e as CustomEvent<{ message?: string }>).detail?.message;
+  if (!msg || !isJoining.value) return;
+  error.value = msg;
+  isJoining.value = false;
+};
 
 const handleJoinRoom = async () => {
   const name = playerName.value.trim();
@@ -105,6 +112,8 @@ const goToHomePage = () => {
 };
 
 onMounted(async () => {
+  window.addEventListener('room-socket-error', onRoomSocketError as EventListener);
+
   // 自动从邀请链接读取 ?room=xxx 预填房间ID
   try {
     const params = new URLSearchParams(window.location.search);
@@ -139,6 +148,10 @@ onMounted(async () => {
   } finally {
     isFetchingUser.value = false;
   }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('room-socket-error', onRoomSocketError as EventListener);
 });
 </script>
 

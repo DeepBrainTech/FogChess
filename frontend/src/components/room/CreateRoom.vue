@@ -70,6 +70,19 @@
         >
           <option :value="3">{{ t('room.create.aiDifficulty.simple') || '简单AI' }}</option>
           <option :value="6">{{ t('room.create.aiDifficulty.standard') || '标准AI' }}</option>
+          <option :value="9">{{ t('room.create.aiDifficulty.hard') || '困难AI' }}</option>
+        </select>
+      </div>
+
+      <div class="form-group" v-if="isAiMode">
+        <label for="aiColor">{{ t('room.create.aiColor') || '你的颜色:' }}</label>
+        <select
+          id="aiColor"
+          v-model="humanColor"
+          required
+        >
+          <option value="white">{{ t('room.create.aiColor.white') || '白棋 (先手)' }}</option>
+          <option value="black">{{ t('room.create.aiColor.black') || '黑棋 (后手)' }}</option>
         </select>
       </div>
       
@@ -108,6 +121,7 @@ const hasPlayerName = computed(() => playerName.value.trim().length > 0);
 const timerMode = ref('unlimited');
 const gameMode = ref('normal');
 const aiDifficulty = ref(6);
+const humanColor = ref<'white' | 'black'>('white');
 const isCreating = ref(false);
 const error = ref('');
 const previousTimerMode = ref('classical');
@@ -173,7 +187,7 @@ const handleCreateRoom = async () => {
   error.value = '';
   
   try {
-    roomStore.createRoom(roomName.value.trim(), name, timerMode.value, gameMode.value, aiDifficulty.value);
+    roomStore.createRoom(roomName.value.trim(), name, timerMode.value, gameMode.value, aiDifficulty.value, humanColor.value);
     
     // 监听房间创建成功事件
     const unsubscribe = roomStore.$subscribe((_, state) => {

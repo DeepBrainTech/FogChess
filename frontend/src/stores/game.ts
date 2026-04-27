@@ -7,6 +7,7 @@ import { audioService } from '../services/audio';
 import { replayService } from '../services/replay';
 import { animationService } from '../services/animation';
 import { useRoomStore } from './room';
+import { translateSocketJoinError } from '../services/i18n';
 
 export const useGameStore = defineStore('game', () => {
   const roomStore = useRoomStore();
@@ -414,9 +415,11 @@ export const useGameStore = defineStore('game', () => {
         detail: { message: data.message }
       }));
     } else {
-      window.dispatchEvent(new CustomEvent('show-undo-error', {
-        detail: { message: data.message }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('show-undo-error', {
+          detail: { message: translateSocketJoinError(String(data.message ?? '')) }
+        })
+      );
     }
   };
 

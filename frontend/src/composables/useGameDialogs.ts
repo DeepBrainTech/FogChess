@@ -2,6 +2,7 @@ import { ref, type Ref } from 'vue';
 import type { Room, GameState } from '../types';
 import type { Router } from 'vue-router';
 import { buildPGN } from '../utils/chessExport';
+import { t, displayPlayerName } from '../services/i18n';
 import { parseBoardPartToMatrix, matrixToBoardPart, notationToCoords, isKingCapturedFromBoardPart } from '../utils/fen';
 
 export type DialogType = 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result' | 'game-over';
@@ -165,8 +166,10 @@ export function useGameDialogs(params: {
     if (!gs) { closeDialog(); return; }
     const moves = [...(gs.moveHistory || [])];
     const result = gs.winner === 'white' ? '1-0' : gs.winner === 'black' ? '0-1' : gs.winner === 'draw' ? '1/2-1/2' : '*';
-    const whiteName = room.value?.players.find(p => p.color === 'white')?.name || 'White';
-    const blackName = room.value?.players.find(p => p.color === 'black')?.name || 'Black';
+    const wPl = room.value?.players.find(p => p.color === 'white');
+    const bPl = room.value?.players.find(p => p.color === 'black');
+    const whiteName = wPl ? displayPlayerName(wPl) : t('status.white');
+    const blackName = bPl ? displayPlayerName(bPl) : t('status.black');
     const pgn = buildPGN(moves as any, whiteName, blackName, result, new Date());
     const roomName = room.value?.name || 'FogChess';
     const now = new Date();

@@ -23,8 +23,26 @@ export function useGameOver(gameStateSource: Ref<GameState | null>, currentPlaye
     if (!gs) return;
     if (gs.gameStatus === 'finished' && !showGameOver.value && gs.winner) {
       const myColor = currentPlayerColorSource.value;
-      const win = myColor ? gs.winner === myColor : false;
       const isDraw = gs.winner === 'draw';
+
+      // 观战无己方颜色，不显示个人胜负
+      if (!myColor) {
+        isWinner.value = false;
+        isVictoryFlash.value = false;
+        isDefeatFlash.value = false;
+        if (isDraw) {
+          gameOverTitle.value = t('gameOver.draw');
+          gameOverMessage.value = t('gameOver.draw.message');
+        } else {
+          gameOverTitle.value = t('gameOver.finished');
+          gameOverMessage.value =
+            gs.winner === 'white' ? t('gameOver.spectator.whiteWins') : t('gameOver.spectator.blackWins');
+        }
+        showGameOver.value = true;
+        return;
+      }
+
+      const win = myColor ? gs.winner === myColor : false;
       
       isWinner.value = win;
       

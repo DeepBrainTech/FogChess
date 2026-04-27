@@ -49,14 +49,14 @@
                 class="player white" 
                 :class="{ 'current-player': isCurrentPlayer(game.white_name) }"
               >
-                {{ game.white_name }}
+                {{ displayNameFromApiString(game.white_name) }}
               </span>
               <span class="vs">VS</span>
               <span 
                 class="player black" 
                 :class="{ 'current-player': isCurrentPlayer(game.black_name) }"
               >
-                {{ game.black_name }}
+                {{ displayNameFromApiString(game.black_name) }}
               </span>
             </div>
             <div class="game-result">
@@ -83,7 +83,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { t } from '../services/i18n';
+import { t, displayNameFromApiString } from '../services/i18n';
 import { useAuthStore } from '../stores/auth';
 
 interface UserProfile {
