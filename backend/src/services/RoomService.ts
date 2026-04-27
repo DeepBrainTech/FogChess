@@ -15,6 +15,7 @@ export class RoomService {
   private repository?: RoomRepository;
   private archiver?: GameArchiver;
   private roomClosedHandler?: (roomId: string, reason: string) => void;
+  /** 当「0 个真实玩家、仍有观战」时，先进入保留期，到时删房（全进程每分钟扫一次，见 server cleanupEmptyRooms） */
   private static readonly EMPTY_ROOM_GRACE_MS = 5 * 60 * 1000;
 
   constructor(repository?: RoomRepository, archiver?: GameArchiver) {
@@ -296,6 +297,13 @@ export class RoomService {
 
     room.players.splice(playerIndex, 1);
     room.isFull = room.players.length >= 2;
+
+    // AI 房：没有真实人类玩家时（只剩 isAi 占位或已空）不再保留
+    if (room.gameMode === 'ai' && !room.players.some((p) => !p.isAi)) {
+      this.deleteRoom(roomId, 'ai-no-human');
+      return { success: true };
+    }
+
     if (room.players.length < 2) {
       room.gameState.gameStatus = 'waiting';
       room.gameState.currentPlayer = 'white';
@@ -861,6 +869,15 @@ export class RoomService {
   cleanupEmptyRooms(): void {
     const now = Date.now();
     for (const [roomId, room] of this.rooms.entries()) {
+      // 理论上应在 leave 时已删；兜底清理「只剩机器人」的 AI 房
+      if (
+        room.gameMode === 'ai' &&
+        room.players.length > 0 &&
+        room.players.every((p) => p.isAi)
+      ) {
+        this.deleteRoom(roomId, 'cleanup-ai-only');
+        continue;
+      }
       if (room.players.length === 0 && room.spectators.length === 0) {
         this.deleteRoom(roomId, 'cleanup-empty');
         continue;
