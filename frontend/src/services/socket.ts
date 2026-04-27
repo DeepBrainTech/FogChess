@@ -27,6 +27,11 @@ class SocketService {
     return this.socket;
   }
 
+  /** 任何 emit/on 前调用，避免 socket 未创建时监听器挂不上、emit 被 ?. 静默丢弃 */
+  private ensureSocket(): Socket {
+    return this.connect();
+  }
+
   disconnect(): void {
     if (this.socket) {
       this.socket.disconnect();
@@ -36,83 +41,84 @@ class SocketService {
 
     // 创建房间
     createRoom(roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal', aiDifficulty: number = 6, humanColor: 'white' | 'black' = 'white'): void {
-      this.socket?.emit('create-room', { roomName, playerName, timerMode, gameMode, aiDifficulty, humanColor });
+      this.ensureSocket().emit('create-room', { roomName, playerName, timerMode, gameMode, aiDifficulty, humanColor });
     }
 
   // 加入房间
   joinRoom(roomId: string, playerName: string): void {
-    this.socket?.emit('join-room', { roomId, playerName });
+    this.ensureSocket().emit('join-room', { roomId, playerName });
   }
 
   // 加入观战
   joinSpectator(roomId: string, playerName: string): void {
-    this.socket?.emit('join-spectator', { roomId, playerName });
+    this.ensureSocket().emit('join-spectator', { roomId, playerName });
   }
 
   // 观战切换为玩家
   switchToPlayer(roomId: string, playerName: string): void {
-    this.socket?.emit('switch-to-player', { roomId, playerName });
+    this.ensureSocket().emit('switch-to-player', { roomId, playerName });
   }
 
   // 执行移动
   makeMove(roomId: string, move: any): void {
-    this.socket?.emit('make-move', { roomId, move });
+    this.ensureSocket().emit('make-move', { roomId, move });
   }
 
   // 获取某格子的合法走法
   getLegalMoves(roomId: string, square: string): void {
-    this.socket?.emit('get-legal-moves', { roomId, square });
+    this.ensureSocket().emit('get-legal-moves', { roomId, square });
   }
 
   // 请求悔棋
   requestUndo(roomId: string): void {
-    this.socket?.emit('request-undo', { roomId });
+    this.ensureSocket().emit('request-undo', { roomId });
   }
 
   // 响应悔棋请求
   respondToUndo(roomId: string, accepted: boolean): void {
-    this.socket?.emit('respond-undo', { roomId, accepted });
+    this.ensureSocket().emit('respond-undo', { roomId, accepted });
   }
 
   // 认输
   surrender(roomId: string): void {
-    this.socket?.emit('surrender', { roomId });
+    this.ensureSocket().emit('surrender', { roomId });
   }
 
   // 上报超时（由本地倒计时归零触发，后端进行权威结算）
   reportTimeout(roomId: string, player: 'white' | 'black'): void {
-    this.socket?.emit('report-timeout', { roomId, player });
+    this.ensureSocket().emit('report-timeout', { roomId, player });
   }
 
   // 请求和棋
   requestDraw(roomId: string): void {
-    this.socket?.emit('request-draw', { roomId });
+    this.ensureSocket().emit('request-draw', { roomId });
   }
 
   // 响应和棋请求
   respondToDraw(roomId: string, accepted: boolean): void {
-    this.socket?.emit('respond-draw', { roomId, accepted });
+    this.ensureSocket().emit('respond-draw', { roomId, accepted });
   }
 
   // 离开房间
   leaveRoom(roomId: string): void {
-    this.socket?.emit('leave-room', { roomId });
+    this.ensureSocket().emit('leave-room', { roomId });
   }
 
   // 发送聊天消息
   sendChat(roomId: string, message: string): void {
-    this.socket?.emit('send-chat', { roomId, message });
+    this.ensureSocket().emit('send-chat', { roomId, message });
   }
 
   // 监听事件
   on<K extends keyof SocketEvents | string>(event: K, callback: any): void {
     // 这里放宽类型以便前后端扩展自定义事件（如临时的legal-moves）
-    (this.socket as any)?.on(event as any, callback);
+    this.ensureSocket().on(event as any, callback);
   }
 
   // 移除监听器
   off<K extends keyof SocketEvents | string>(event: K, callback?: any): void {
-    (this.socket as any)?.off(event as any, callback);
+    if (!this.socket) return;
+    this.socket.off(event as any, callback);
   }
 
   // 获取连接状态

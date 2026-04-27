@@ -425,6 +425,7 @@ export const useGameStore = defineStore('game', () => {
 
   // 监听Socket事件
   const setupSocketListeners = () => {
+    socketService.connect();
     socketService.off('move-made', handleMoveMade);
     socketService.off('game-updated', handleGameUpdated);
     socketService.off('undo-requested', handleUndoRequested);
