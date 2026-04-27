@@ -475,9 +475,11 @@ export class AIService {
   getPieceAtSquare(square: string): string {
     const piece = this.chess.get(square as any);
     if (!piece) return '';
-    
-    // 对于兵，返回'p'，其他棋子返回类型
-    const pieceChar = piece.type === 'p' ? 'p' : piece.type.toUpperCase();
-    return piece.color === 'w' ? pieceChar : pieceChar.toLowerCase();
+    // 与 ChessService 一致：白方大写、黑方小写；兵在两侧分别为 P / p
+    if (piece.type === 'p') {
+      return piece.color === 'w' ? 'P' : 'p';
+    }
+    const ch = piece.type.toUpperCase();
+    return piece.color === 'w' ? ch : ch.toLowerCase();
   }
 }

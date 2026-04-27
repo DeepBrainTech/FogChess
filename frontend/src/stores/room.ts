@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import type { Room, Player, Spectator, SocketEvents } from '../types';
+import type { Room, Player, Spectator, SocketEvents, GameState } from '../types';
 import { socketService } from '../services/socket';
 import { translateSocketJoinError } from '../services/i18n';
 
@@ -15,21 +15,36 @@ export const useRoomStore = defineStore('room', () => {
   const lastTimerMode = ref<string>('unlimited');
   const isSpectating = computed(() => !!currentSpectator.value && !currentPlayer.value);
 
+  /** 若 game-updated 在 room-created 之前到达，先缓存再合并到房间 */
+  const pendingGameState = ref<GameState | null>(null);
+  let roomSocketListenersBound = false;
+
   // 动作
-    const createRoom = (roomName: string, playerName: string, timerMode: string = 'unlimited', gameMode: string = 'normal', aiDifficulty: number = 6, humanColor: 'white' | 'black' = 'white') => {
-      lastTimerMode.value = timerMode;
-      socketService.createRoom(roomName, playerName, timerMode, gameMode, aiDifficulty, humanColor);
-    };
+  const createRoom = (
+    roomName: string,
+    playerName: string,
+    timerMode: string = 'unlimited',
+    gameMode: string = 'normal',
+    aiDifficulty: number = 6,
+    humanColor: 'white' | 'black' = 'white'
+  ) => {
+    connect();
+    lastTimerMode.value = timerMode;
+    socketService.createRoom(roomName, playerName, timerMode, gameMode, aiDifficulty, humanColor);
+  };
 
   const joinRoom = (roomId: string, playerName: string) => {
+    connect();
     socketService.joinRoom(roomId, playerName);
   };
 
   const joinSpectator = (roomId: string, playerName: string) => {
+    connect();
     socketService.joinSpectator(roomId, playerName);
   };
 
   const switchToPlayer = (roomId: string, playerName: string) => {
+    connect();
     socketService.switchToPlayer(roomId, playerName);
   };
 
@@ -39,6 +54,7 @@ export const useRoomStore = defineStore('room', () => {
       currentRoom.value = null;
       currentPlayer.value = null;
       currentSpectator.value = null;
+      pendingGameState.value = null;
       
       // 清除 URL 中的 room 参数
       try {
@@ -77,13 +93,28 @@ export const useRoomStore = defineStore('room', () => {
     isConnected.value = connected;
   };
 
+  const handleGameUpdatedForRoom = (data: SocketEvents['game-updated']) => {
+    if (currentRoom.value) {
+      setCurrentRoom({ ...currentRoom.value, gameState: data.gameState } as any);
+    } else {
+      pendingGameState.value = data.gameState;
+    }
+  };
+
   // 监听Socket事件
   const setupSocketListeners = () => {
+    socketService.off('game-updated', handleGameUpdatedForRoom);
+    socketService.on('game-updated', handleGameUpdatedForRoom);
+
     socketService.on('room-created', (data: SocketEvents['room-created']) => {
       // 将计时模式注入到房间对象（若后端暂未回传）
       const roomWithTimer: any = { ...data.room } as any;
       if (!('timerMode' in roomWithTimer)) {
         roomWithTimer.timerMode = lastTimerMode.value;
+      }
+      if (pendingGameState.value) {
+        roomWithTimer.gameState = pendingGameState.value;
+        pendingGameState.value = null;
       }
       setCurrentRoom(roomWithTimer as any);
       setCurrentPlayer(data.room.players[0]);
@@ -199,6 +230,7 @@ export const useRoomStore = defineStore('room', () => {
       currentRoom.value = null;
       currentPlayer.value = null;
       currentSpectator.value = null;
+      pendingGameState.value = null;
       window.dispatchEvent(new CustomEvent('room-closed', { detail: data }));
     });
 
@@ -216,12 +248,20 @@ export const useRoomStore = defineStore('room', () => {
   const connect = () => {
     socketService.connect();
     setConnectionStatus(socketService.isConnected);
-    setupSocketListeners();
+    if (!roomSocketListenersBound) {
+      setupSocketListeners();
+      roomSocketListenersBound = true;
+    }
+    // 游戏侧监听（move-made 等）依赖 socket 已存在；on() 现会先 ensureSocket
+    void import('./game').then(({ useGameStore }) => {
+      useGameStore().setupSocketListeners();
+    });
   };
 
   const disconnect = () => {
     leaveRoom();
     socketService.disconnect();
+    roomSocketListenersBound = false;
     setConnectionStatus(false);
   };
 
