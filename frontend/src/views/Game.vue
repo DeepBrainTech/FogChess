@@ -143,7 +143,7 @@ import SideChat from '../components/chat/SideChat.vue';
 import { useGameOver } from '../composables/useGameOver';
 import { useReplay } from '../composables/useReplay';
 import { useNewMoveNotice } from '../composables/useNewMoveNotice';
-import { t } from '../services/i18n';
+import { t, displayPlayerName } from '../services/i18n';
 import { useGameDialogs } from '../composables/useGameDialogs';
 import { copyText } from '../utils/clipboard';
 import { getCapturedPiecesForColor, getPieceImageBySymbol } from '../utils/captured';
@@ -249,7 +249,10 @@ const basePlayersForHeader = computed<DisplayPlayer[]>(() => {
     const localPlayerId = roomStore.currentPlayer?.id;
     const playersWithFlags = basePlayers.map(player => ({
       ...player,
-      isAi: localPlayerId ? player.id !== localPlayerId : false,
+      isAi:
+        Boolean((player as DisplayPlayer).isAi) ||
+        player.id === 'ai-player' ||
+        player.socketId === 'ai-player',
     }));
 
     if (playersWithFlags.length >= 2) {
@@ -298,13 +301,16 @@ const playersForHeader = computed<DisplayPlayer[]>(() => {
         : undefined;
 
     const isAi = Boolean(player.isAi);
-    const nameFallback =
+    const nameFromRoom =
       player.name ||
       (player.mainUserId === roomStore.currentPlayer?.mainUserId
         ? roomStore.currentPlayer?.name || authStore.user?.username
         : undefined) ||
       (player.mainUserId === authStore.user?.id ? authStore.user?.username : undefined) ||
-      t('header.opponent');
+      '';
+    const nameFallback = nameFromRoom
+      ? displayPlayerName({ ...player, name: nameFromRoom })
+      : t('header.opponent');
 
     const label = !isAi && typeof rating === 'number'
       ? `${nameFallback}: ${rating}`

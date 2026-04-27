@@ -4,10 +4,12 @@ import type { GameState, Move } from '../types';
 export class AIService {
   private chess: Chess;
   private difficulty: number; // 1-10
+  private aiColor: 'white' | 'black';
 
-  constructor(difficulty: number = 6) {
+  constructor(difficulty: number = 6, aiColor: 'white' | 'black' = 'black') {
     this.chess = new Chess();
     this.difficulty = Math.max(1, Math.min(10, difficulty)); 
+    this.aiColor = aiColor;
   }
 
   /**
@@ -67,54 +69,63 @@ export class AIService {
   }
 
   /**
-   * 非常简单的AI（低难度）- 只算1步，20%概率随机走
+   * 非常简单的AI（低难度）- 极小计算，50%随机，25%走0步
    */
   private getVerySimpleBestMove(moves: any[]): any {
     // 优先选择吃王移动（迷雾棋中吃王即获胜）
     const kingCaptures = moves.filter(move => move.captured === 'k');
     if (kingCaptures.length > 0) {
       console.log('AI: Found king capture opportunity!');
-      return kingCaptures[Math.floor(Math.random() * kingCaptures.length)];
+      // 哪怕是吃王，也给它10%的概率“没看见”（更符合盲棋瞎子设定）
+      if (Math.random() < 0.90) {
+        return kingCaptures[Math.floor(Math.random() * kingCaptures.length)];
+      }
     }
     
-    // 20%的概率随机走一步合法的奇怪棋
-    if (Math.random() < 0.20) {
-      console.log('AI: Making a random simple move (20% chance)');
+    // 生成一个 0-1 的随机数来决定行为
+    const rand = Math.random();
+    
+    if (rand < 0.50) {
+      // 50%的概率随机走一步合法的奇怪棋
+      console.log('AI: Making a random simple move (50% chance)');
       return moves[Math.floor(Math.random() * moves.length)];
     }
 
-    // 计算1步以内的（depth=1）
     let bestMove = moves[0];
-    let bestScore = Infinity;
+    const isAiWhite = this.aiColor === 'white';
+    let bestScore = isAiWhite ? -Infinity : Infinity;
     
-    let worstMove: any = null;
-    let worstScore = -Infinity;
-    
-    const depth = 1; // 只算1步
+    let worstMove = moves[0];
+    let worstScore = isAiWhite ? Infinity : -Infinity;
 
     for (const move of moves) {
       this.chess.move(move);
-      const score = this.minimax(depth - 1, true, -Infinity, Infinity);
+      // 简单版：去掉复杂的盘面评估，只看纯粹的棋子价值（吃子得分）
+      const score = this.evaluateMaterialOnly();
       this.chess.undo();
       
-      if (score < bestScore) {
+      // AI是白方找最大值（Infinity），黑方找最小值（-Infinity）
+      // isAiWhite ? (score > bestScore) : (score < bestScore)
+      if (isAiWhite ? (score > bestScore) : (score < bestScore)) {
         bestScore = score;
         bestMove = move;
       }
       
       // 记录最差的棋（完全不避开送王，符合迷雾棋设定）
-      if (score > worstScore) {
+      if (isAiWhite ? (score < worstScore) : (score > worstScore)) {
         worstScore = score;
         worstMove = move;
       }
     }
     
-    // 10%的概率走最差的棋（送大礼）
-    if (Math.random() < 0.10 && worstMove) {
-      console.log('AI: Making a blunder move (10% chance)');
+    // 剩下的50%里，有一半的概率（即总体的25%）走最差的棋（送大礼）
+    // rand 范围是 [0.50, 1)。如果 rand < 0.75，正好是 25% 的总概率
+    if (rand < 0.75) {
+      console.log('AI: Making a blunder move (25% chance)');
       return worstMove;
     }
     
+    // 剩下的 25% 走看起来最好的一步（但因为只看眼前，经常会被反杀）
     return bestMove;
   }
 
@@ -140,79 +151,51 @@ export class AIService {
   }
 
   /**
-   * 中等难度评估函数（1500分水平）- 使用minimax向前看多步
+   * 标准难度（中等难度）- 盲棋友好版
+   * 日常看1步计算，当有>=5个棋子被吃掉或者这局棋双方总共有10步移动之后，变成50%随机，50%算1步
    */
   private getSimpleBestMove(moves: any[]): any {
-    // 优先选择吃王移动（迷雾棋中吃王即获胜）
+    // 优先选择吃王移动
     const kingCaptures = moves.filter(move => move.captured === 'k');
     if (kingCaptures.length > 0) {
       console.log('AI: Found king capture opportunity!');
       return kingCaptures[Math.floor(Math.random() * kingCaptures.length)];
     }
     
-    let bestMove = moves[0];
-    // AI是黑方（minimizing），评估函数返回的是从白方视角的分数
-    // 所以AI应该找最小分数（最负的），而不是最大分数
-    let bestScore = Infinity;
-
-    // 根据局面复杂度动态调整深度
-    const moveCount = moves.length;
-    let depth = 3; // 默认3步
+    // 判断是否满足残局条件（被吃掉的棋子 >= 5，或者双方总移动步数 >= 10）
+    const board = this.chess.board();
+    let pieceCount = 0;
+    for (let rank = 0; rank < 8; rank++) {
+      for (let file = 0; file < 8; file++) {
+        if (board[rank][file]) pieceCount++;
+      }
+    }
+    const capturedCount = 32 - pieceCount;
     
-    // 如果移动较少，可以看更深
-    if (moveCount < 10) {
-      depth = 4;
-    } else if (moveCount < 5) {
-      depth = 5;
+    // chess.history().length 返回的是半步数（ply）。双方总共10步移动意味着 10 ply。
+    const totalMoves = this.chess.history().length;
+    
+    // 如果满足条件，50% 概率直接随机走
+    if ((capturedCount >= 5 || totalMoves >= 10) && Math.random() < 0.50) {
+      console.log('AI: Nerfed standard random move (50% chance)');
+      return moves[Math.floor(Math.random() * moves.length)];
     }
 
-    console.log(`AI: Using minimax depth ${depth} (available moves: ${moveCount})`);
+    let bestMove = moves[0];
+    const isAiWhite = this.aiColor === 'white';
+    let bestScore = isAiWhite ? -Infinity : Infinity;
+
+    // 标准版恒定只算 1 步 (depth = 1)，但使用包含阵型评估的 position 函数
+    const depth = 1;
 
     for (const move of moves) {
-      // 执行移动
       this.chess.move(move);
-      
-      // 使用minimax向前看：走完AI（黑方）一步后轮到白方，白方应作为max层
-      const score = this.minimax(depth - 1, true, -Infinity, Infinity);
-      
-      // 撤销移动
+      const score = this.minimax(depth - 1, !isAiWhite, -Infinity, Infinity);
       this.chess.undo();
       
-      // AI是黑方，要找最小分数（最负的）
-      if (score < bestScore) {
+      if (isAiWhite ? (score > bestScore) : (score < bestScore)) {
         bestScore = score;
         bestMove = move;
-      }
-    }
-
-    // 1500分水平：降低随机性，提高稳定性
-    const randomFactor = 0.15; // 从30%降到15%
-    if (Math.random() < randomFactor) {
-      const randomMoves = moves.filter(move => {
-        this.chess.move(move);
-        const score = this.minimax(depth - 1, true, -Infinity, Infinity);
-        this.chess.undo();
-        // AI找最小值，所以接近最佳的是略大于bestScore的（负得少一点）
-        return score > bestScore && score < bestScore * 1.1;
-      });
-      
-      if (randomMoves.length > 0) {
-        bestMove = randomMoves[Math.floor(Math.random() * randomMoves.length)];
-      }
-    }
-    
-    // 1500分水平：偶尔会犯小错误（降到5%）
-    if (Math.random() < 0.05) {
-      const badMoves = moves.filter(move => {
-        this.chess.move(move);
-        const score = this.minimax(depth - 1, true, -Infinity, Infinity);
-        this.chess.undo();
-        // AI找最小值，所以略差的是略大于bestScore的（负得少一点，但不太多）
-        return score > bestScore && score < bestScore * 1.15;
-      });
-      
-      if (badMoves.length > 0) {
-        bestMove = badMoves[Math.floor(Math.random() * badMoves.length)];
       }
     }
 
@@ -220,7 +203,8 @@ export class AIService {
   }
 
   /**
-   * 高级评估函数（高难度 - 2000+分水平）
+   * 困难难度（高级评估）
+   * 恒定算2步，双方总共有10步移动之后，恒定1步
    */
   private getAdvancedBestMove(moves: any[]): any {
     // 优先选择吃王移动
@@ -230,30 +214,19 @@ export class AIService {
     }
     
     let bestMove = moves[0];
-    // AI是黑方（minimizing），应该找最小分数
-    let bestScore = Infinity;
+    const isAiWhite = this.aiColor === 'white';
+    let bestScore = isAiWhite ? -Infinity : Infinity;
 
-    // 高难度：使用更深度的搜索
-    const moveCount = moves.length;
-    let depth = 4; // 默认4步
-    
-    if (moveCount < 10) {
-      depth = 5;
-    } else if (moveCount < 5) {
-      depth = 6;
-    }
+    // 困难版：前10步算2步，之后算1步
+    const totalMoves = this.chess.history().length;
+    const depth = totalMoves >= 10 ? 1 : 2; 
 
     for (const move of moves) {
       this.chess.move(move);
-      
-      // 使用minimax算法（带alpha-beta剪枝）
-      // AI走完后轮到白方（maximizing），所以传入true
-      const score = this.minimax(depth - 1, true, -Infinity, Infinity);
-      
+      const score = this.minimax(depth - 1, !isAiWhite, -Infinity, Infinity);
       this.chess.undo();
       
-      // AI是黑方，要找最小分数
-      if (score < bestScore) {
+      if (isAiWhite ? (score > bestScore) : (score < bestScore)) {
         bestScore = score;
         bestMove = move;
       }
@@ -316,7 +289,31 @@ export class AIService {
   }
 
   /**
-   * 评估当前局面
+   * 仅评估棋子价值（简单版专用，不考虑阵型和位置）
+   */
+  private evaluateMaterialOnly(): number {
+    const board = this.chess.board();
+    let score = 0;
+
+    const pieceValues: { [key: string]: number } = {
+      'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0
+    };
+
+    for (let rank = 0; rank < 8; rank++) {
+      for (let file = 0; file < 8; file++) {
+        const piece = board[rank][file];
+        if (piece) {
+          const value = pieceValues[piece.type] || 0;
+          const multiplier = piece.color === 'w' ? 1 : -1;
+          score += value * multiplier;
+        }
+      }
+    }
+    return score;
+  }
+
+  /**
+   * 评估当前局面（标准版/困难版使用，包含阵型评估）
    */
   private evaluatePosition(): number {
     const board = this.chess.board();

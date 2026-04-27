@@ -37,7 +37,8 @@ export class RoomService {
     timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited',
     gameMode: 'normal' | 'ai' = 'normal',
     mainUserId?: number,
-    aiDifficulty: number = 6
+    aiDifficulty: number = 6,
+    humanColor: 'white' | 'black' = 'white'
   ): Room {
     // 清理该socketId的旧房间（强制删除只包含该玩家的房间）
     this.cleanupPlayerRooms(socketId, true);
@@ -47,7 +48,7 @@ export class RoomService {
     const player: Player = {
       id: uuidv4(),
       name: playerName,
-      color: 'white', // 创建者默认为白方
+      color: gameMode === 'ai' ? humanColor : 'white', // AI模式下使用选择的颜色，否则默认为白方
       socketId,
       mainUserId
     };
@@ -64,12 +65,6 @@ export class RoomService {
       };
     }
 
-    // 如果是AI模式，创建AI实例
-    if (gameMode === 'ai') {
-      const ai = new AIService(aiDifficulty); // 使用传入的难度
-      this.roomIdToAI.set(roomId, ai);
-    }
-
     const room: Room = {
       id: roomId,
       name: roomName,
@@ -80,8 +75,29 @@ export class RoomService {
       isFull: gameMode === 'ai', // AI模式房间创建时就是满的
       timerMode: effectiveTimerMode,
       gameMode: gameMode,
-      aiDifficulty: aiDifficulty
+      aiDifficulty: aiDifficulty,
+      humanColor: humanColor
     };
+
+    // 如果是AI模式，创建AI实例并设置颜色
+    if (gameMode === 'ai') {
+      const aiColor = humanColor === 'white' ? 'black' : 'white';
+      const ai = new AIService(aiDifficulty, aiColor); // 使用传入的难度和颜色
+      this.roomIdToAI.set(roomId, ai);
+      
+      // 创建AI玩家对象
+      const aiPlayer: Player = {
+        id: 'ai-player',
+        name: 'Computer', // 这个名字会在大厅显示
+        color: aiColor,
+        socketId: 'ai-player',
+        isAi: true
+      };
+      
+      // 将AI玩家加入房间
+      room.players.push(aiPlayer);
+      room.isFull = true;
+    }
 
     // 计时器将在游戏开始时初始化，而不是房间创建时
 
@@ -102,7 +118,10 @@ export class RoomService {
     }
 
     if (room.gameMode === 'ai') {
-      return { success: false, error: 'AI room does not support spectator/player switching' };
+      return {
+        success: false,
+        error: 'This is a human vs AI room; a second human cannot join. Use spectate to watch the game'
+      };
     }
 
     if (room.isFull) {
@@ -433,8 +452,11 @@ export class RoomService {
           .catch(() => {});
       }
       
-      // append move and persist room state
-      this.repository?.appendMove(roomId, move).catch(() => {});
+      const lastFromHistory =
+        result.gameState.moveHistory?.length
+          ? result.gameState.moveHistory[result.gameState.moveHistory.length - 1]
+          : move;
+      this.repository?.appendMove(roomId, lastFromHistory).catch(() => {});
       this.repository?.saveRoom(room).catch(() => {});
 
       return { success: true, gameState: room.gameState };
@@ -719,65 +741,48 @@ export class RoomService {
     console.log('AI Move Result:', aiMove);
     if (!aiMove) {
       console.log('AI Move: No move found - AI has no legal moves, human player wins!');
-      // AI没有可移动的棋子，人类玩家获胜
+      const humanPlayer = room.players.find(p => p.isAi !== true);
       room.gameState.gameStatus = 'finished';
-      room.gameState.winner = 'white'; // 人类玩家是白方
-      room.gameState.currentPlayer = 'white';
+      room.gameState.winner = (humanPlayer?.color as 'white' | 'black') || 'white';
+      room.gameState.currentPlayer = room.gameState.winner;
       (room.gameState as any).aiNoMoves = true; // 标记为AI无棋可走
-      
-      // 持久化游戏状态
+
+      this.repository
+        ?.getMoves(roomId)
+        .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
+        .then(() => this.repository?.clearMoves(roomId))
+        .catch(() => {});
       this.repository?.saveRoom(room).catch(() => {});
-      
+
       console.log('AI defeated - no legal moves available');
       return { gameState: room.gameState };
     }
 
-    // 创建AI移动记录 - 使用AI的chess实例获取棋子信息
-    // 从AI的chess实例中获取棋子信息
+    const aiPlayer = room.players.find(p => p.isAi === true) ?? room.players.find(p => p.id === 'ai-player');
+    const aiColor: 'white' | 'black' = aiPlayer?.color ?? 'black';
+
     const fromPiece = ai.getPieceAtSquare(aiMove.from);
     const capturedPiece = ai.getPieceAtSquare(aiMove.to);
-    
-    // AI是黑方，棋子应该已经是小写表示
-    const blackPiece = fromPiece;
-    
-    // 验证AI移动的棋子类型
-    console.log('AI Piece validation:', {
-      originalPiece: fromPiece,
-      blackPiece: blackPiece,
-      fromSquare: aiMove.from,
-      toSquare: aiMove.to,
-      aiFen: ai.getFen(),
-      gameFen: room.gameState.board
-    });
-    
-    // 处理吃子：如果吃的是白棋，保持大写；如果吃的是黑棋，转为小写
-    let blackCapturedPiece = capturedPiece;
-    if (capturedPiece && capturedPiece !== '') {
-      // 如果目标格有棋子，根据AI是黑方，被吃的应该是白棋（大写）
-      // 但我们需要确保逻辑正确
-      blackCapturedPiece = capturedPiece.toUpperCase();
-    }
-    
+    // getPieceAtSquare: 白方大写、黑方小写，与 ChessService 一致
+    const capturedForMove = capturedPiece && capturedPiece !== '' ? capturedPiece : undefined;
+
     const move: Move = {
       from: aiMove.from,
       to: aiMove.to,
-      piece: blackPiece,
-      captured: blackCapturedPiece,
+      piece: fromPiece,
+      captured: capturedForMove,
       promotion: aiMove.promotion as any,
       timestamp: new Date(),
-      player: 'black' // AI总是黑方
+      player: aiColor
     };
 
-    // 执行AI移动
-    console.log('AI Move to execute:', {
+    const result = chess.makeMove({
       from: move.from,
       to: move.to,
       piece: move.piece,
       captured: move.captured,
-      promotion: move.promotion,
-      player: move.player
+      promotion: move.promotion
     });
-    const result = chess.makeMove(move);
     console.log('AI Move execution result:', {
       success: result.success,
       gameStatus: result.gameState?.gameStatus,
@@ -800,12 +805,14 @@ export class RoomService {
           .catch(() => {});
       }
       
-      // 保存移动和房间状态
-      this.repository?.appendMove(roomId, move).catch(() => {});
+      const last =
+        result.gameState.moveHistory?.length
+          ? result.gameState.moveHistory[result.gameState.moveHistory.length - 1]
+          : move;
+      this.repository?.appendMove(roomId, last).catch(() => {});
       this.repository?.saveRoom(room).catch(() => {});
-      
-      console.log('AI Move completed successfully:', move.from, 'to', move.to);
-      return { move, gameState: room.gameState };
+
+      return { move: last, gameState: room.gameState };
     }
     
     return null;

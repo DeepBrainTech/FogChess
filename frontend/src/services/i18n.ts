@@ -113,9 +113,13 @@ const dict: Dict = {
   'gameOver.timeout.lose': { zh: '很抱歉，你超时了！', en: 'Sorry, you ran out of time!' },
   'gameOver.surrender.win': { zh: '恭喜你，你赢了！', en: 'Congratulations! You won!' },
   'gameOver.surrender.lose': { zh: '很抱歉，你输了！', en: 'Sorry, you lost!' },
-  'gameOver.noMoves.win': { zh: '恭喜你，AI无棋可走！', en: 'Congratulations! AI has no legal moves!' },
-  'gameOver.noMoves.lose': { zh: '很抱歉，你无棋可走！', en: 'Sorry, you have no legal moves!' },
+  'gameOver.noMoves.win': { zh: '恭喜你，对方（电脑）无子可走！', en: "Congratulations! The computer has no legal moves!" },
+  'gameOver.noMoves.lose': { zh: '很抱歉，你无子可走！', en: 'Sorry, you have no legal moves!' },
   'gameOver.draw.message': { zh: '平局！', en: 'It\'s a draw!' },
+  'gameOver.finished': { zh: '对局结束', en: 'Game finished' },
+  'gameOver.spectator.whiteWins': { zh: '对局结果：白方胜', en: 'Result: white wins' },
+  'gameOver.spectator.blackWins': { zh: '对局结果：黑方胜', en: 'Result: black wins' },
+  'lobby.aiRoomSpectateOnly': { zh: '本房间为 AI 对战，无法作为第二人加入，请使用「观战」', en: 'This is a human vs AI game; use “Spectate” to watch' },
   'dialog.cannotUndo.title': { zh: '无法悔棋', en: 'Cannot Undo' },
   'dialog.cannotMove.title': { zh: '无法移动', en: 'Cannot Move' },
   'dialog.notYourTurn': { zh: '不是你的回合', en: 'Not your turn' },
@@ -182,6 +186,10 @@ const dict: Dict = {
   'room.join.button': { zh: '加入房间', en: 'Join Room' },
   'room.join.fail': { zh: '加入房间失败，请检查房间ID', en: 'Failed to join. Check the room ID.' },
   'room.join.error': { zh: '加入房间时发生错误', en: 'An error occurred while joining.' },
+  'room.join.aiRoomNoSecondPlayer': {
+    zh: '本房间为人机对战，无法作为第二人加入。请使用「观战」或另选房间。',
+    en: 'This is a human vs. computer game. A second human cannot join. Use “Spectate” or try another room.'
+  },
   'room.join.availableRooms': { zh: '可用房间', en: 'Available Rooms' },
   'room.join.players': { zh: '玩家', en: 'players' },
   'room.join.full': { zh: '已满', en: 'Full' },
@@ -210,6 +218,10 @@ const dict: Dict = {
   'room.create.aiDifficulty': { zh: 'AI难度:', en: 'AI Difficulty:' },
   'room.create.aiDifficulty.simple': { zh: '简单AI', en: 'Simple AI' },
   'room.create.aiDifficulty.standard': { zh: '标准AI', en: 'Standard AI' },
+  'room.create.aiDifficulty.hard': { zh: '困难AI', en: 'Hard AI' },
+  'room.create.aiColor': { zh: '你的颜色:', en: 'Your Color:' },
+  'room.create.aiColor.white': { zh: '白棋 (先手)', en: 'White (Move First)' },
+  'room.create.aiColor.black': { zh: '黑棋 (后手)', en: 'Black (Move Second)' },
   'room.create.creating': { zh: '创建中...', en: 'Creating...' },
   'room.create.button': { zh: '创建房间', en: 'Create Room' },
   'room.create.fail': { zh: '创建房间失败，请重试', en: 'Failed to create room. Please retry.' },
@@ -225,7 +237,7 @@ const dict: Dict = {
   'header.you': { zh: '你', en: 'You' },
   'header.opponent': { zh: '对方', en: 'Opponent' },
   'header.aiOpponent': { zh: '电脑', en: 'Computer' },
-  'header.aiTurn': { zh: '轮到AI移动', en: 'AI to move' },
+  'header.aiTurn': { zh: '轮到电脑走', en: 'Computer to move' },
   'header.currentTurn': { zh: '(当前回合)', en: '(Current turn)' },
 
   // Draw & undo dialogs (titles/messages)
@@ -323,6 +335,42 @@ export function t(key: keyof typeof dict): string {
   const item = dict[key];
   if (!item) return key;
   return item[currentLang.value];
+}
+
+/** 服务端/存档里 AI 的固定英文标识 */
+const AI_CANONICAL_NAME = /^computer$/i;
+
+/**
+ * 仅根据原始 name 显示：「Computer」→ 当前语言下为 电脑 / Computer
+ */
+export function displayNameFromApiString(name: string | undefined | null): string {
+  const raw = (name || '').trim();
+  if (!raw) return t('header.opponent');
+  if (AI_CANONICAL_NAME.test(raw)) return t('header.aiOpponent');
+  return raw;
+}
+
+/**
+ * 根据玩家对象显示名称（isAi 或 name 为 Computer 时与 header.aiOpponent 一致）
+ */
+export function displayPlayerName(player: { name?: string; isAi?: boolean } | null | undefined): string {
+  if (!player) return t('header.opponent');
+  if (player.isAi) return t('header.aiOpponent');
+  return displayNameFromApiString(player.name);
+}
+
+/** 将后端英文错误信息映射为可展示的 i18n 文案 */
+export function translateSocketJoinError(message: string | undefined | null): string {
+  if (!message) return t('room.join.error');
+  const m = message.trim();
+  const low = m.toLowerCase();
+  if (
+    (low.includes('human vs') && low.includes('second human') && low.includes('spectat')) ||
+    (low.includes('ai room') && low.includes('join'))
+  ) {
+    return t('room.join.aiRoomNoSecondPlayer');
+  }
+  return m;
 }
 
 

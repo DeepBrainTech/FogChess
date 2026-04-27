@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Player, Room, GameState } from '../../types';
-import { t } from '../../services/i18n';
+import { t, displayPlayerName } from '../../services/i18n';
 
 interface DisplayPlayer extends Player {
   isAi?: boolean;
@@ -88,8 +88,7 @@ const playersToRender = computed<DisplayPlayer[]>(() => {
 
 const getPlayerLabel = (player: DisplayPlayer) => {
   if (player.label) return player.label;
-  if (player.isAi) return t('header.aiOpponent');
-  const name = player.name || t('header.opponent');
+  const name = displayPlayerName(player);
   if (typeof player.rating === 'number') {
     return `${name}: ${player.rating}`;
   }

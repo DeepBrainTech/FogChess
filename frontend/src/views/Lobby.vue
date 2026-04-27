@@ -34,14 +34,21 @@
             <div class="title">{{ room.name || `${t('lobby.roomName')} ${room.id.slice(0, 8)}` }}</div>
             <div class="players">
               <div class="player-list">
-                <span v-for="(player, index) in room.players" :key="player.id" class="player">
-                  {{ player.name }}
+                <span
+                  v-for="(player, index) in sortPlayersByColorWhiteFirst(room.players)"
+                  :key="player.id"
+                  class="player"
+                >
+                  {{ displayPlayerName(player) }}
                   <span class="color">{{ player.color === 'white' ? '⚪' : '⚫' }}</span>
                   <span v-if="index < room.players.length - 1" class="separator">, </span>
                 </span>
                 <span v-if="room.players.length === 0" class="empty">{{ t('lobby.waitingPlayers') }}</span>
               </div>
               <div class="info">
+                <span v-if="room.gameMode === 'ai'" class="game-mode game-mode--ai">{{
+                  t('room.create.gameMode.ai')
+                }}</span>
                 <span class="timer-mode">{{ getTimerModeText(room.timerMode) }}</span>
                 <span class="status">{{ getStatusText(room.gameState.gameStatus) }}</span>
                 <span class="spectator-count">{{ t('lobby.spectators') }} {{ room.spectators?.length || 0 }}</span>
@@ -49,7 +56,12 @@
             </div>
           </div>
           <div class="room-actions">
-            <button class="join" :disabled="room.isFull || !hasPlayerName" @click="join(room.id)">
+            <button
+              class="join"
+              :disabled="room.isFull || !hasPlayerName"
+              :title="room.isFull && room.gameMode === 'ai' ? t('lobby.aiRoomSpectateOnly') : undefined"
+              @click="join(room.id)"
+            >
               {{ room.isFull ? t('lobby.full') : t('lobby.join') }}
             </button>
             <button class="spectate" :disabled="!hasPlayerName" @click="spectate(room.id)">
@@ -67,7 +79,14 @@ import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoomStore } from '../stores/room';
 import { useAuthStore } from '../stores/auth';
-import { t } from '../services/i18n';
+import { t, displayPlayerName } from '../services/i18n';
+import type { Player } from '../types';
+
+const sortPlayersByColorWhiteFirst = (players: Player[]) =>
+  [...players].sort((a, b) => {
+    if (a.color === b.color) return 0;
+    return a.color === 'white' ? -1 : 1;
+  });
 
 const router = useRouter();
 const roomStore = useRoomStore();
@@ -81,10 +100,14 @@ const rooms = computed(() => {
   if (!searchQuery.value.trim()) return allRooms;
   
   const query = searchQuery.value.toLowerCase();
-  return allRooms.filter(room => 
-    room.name.toLowerCase().includes(query) ||
-    room.id.toLowerCase().includes(query) ||
-    room.players.some(player => player.name.toLowerCase().includes(query))
+  return allRooms.filter(
+    room =>
+      room.name.toLowerCase().includes(query) ||
+      room.id.toLowerCase().includes(query) ||
+      room.players.some(
+        p =>
+          p.name.toLowerCase().includes(query) || displayPlayerName(p).toLowerCase().includes(query)
+      )
   );
 });
 let interval: any = null;
@@ -212,6 +235,7 @@ button { padding: 12px 20px; border: none; background: #1976D2; color: #fff; bor
 .separator { color: #999; }
 .empty { color: #999; font-style: italic; }
 .info { display: flex; gap: 12px; font-size: 14px; }
+.game-mode--ai { background: #fff3e0; color: #e65100; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
 .timer-mode { background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
 .status { background: #f3e5f5; color: #7b1fa2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
 .spectator-count { background: #f1f8e9; color: #558b2f; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
