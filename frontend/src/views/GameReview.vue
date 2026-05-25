@@ -562,13 +562,18 @@ async function updateBoardForMoves(movesApplied: number, prevIndexOverride?: num
 const fetchGameDetails = async () => {
   try {
     const url = apiBase ? `${apiBase}/game/${gameId.value}` : `/api/game/${gameId.value}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'include'
-    });
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (response.ok || response.status !== 404 || attempt === 3) break;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
     
-    if (!response.ok) {
-      throw new Error(`Failed to load game: ${response.status}`);
+    if (!response || !response.ok) {
+      throw new Error(`Failed to load game: ${response?.status || 'no response'}`);
     }
     
     const data = await response.json();

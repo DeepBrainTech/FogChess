@@ -345,6 +345,10 @@ export const useGameStore = defineStore('game', () => {
     socketService.surrender(roomId);
   };
 
+  const requestRematch = (roomId: string) => {
+    socketService.requestRematch(roomId);
+  };
+
   const requestDraw = (roomId: string) => {
     socketService.requestDraw(roomId);
   };
@@ -395,6 +399,12 @@ export const useGameStore = defineStore('game', () => {
     }));
   };
 
+  const handleRematchStarted = (data: any) => {
+    roomStore.setCurrentRoom(data.room);
+    setReplayState(null);
+    setGameState(data.gameState);
+  };
+
   const handleSocketError = (data: any) => {
     console.error('Socket error:', data);
     if (data && (
@@ -433,6 +443,7 @@ export const useGameStore = defineStore('game', () => {
     socketService.off('undo-executed', handleUndoExecuted);
     socketService.off('draw-requested', handleDrawRequested);
     socketService.off('draw-response', handleDrawResponse);
+    socketService.off('rematch-started', handleRematchStarted);
     socketService.off('error', handleSocketError);
 
     socketService.on('move-made', handleMoveMade);
@@ -442,6 +453,7 @@ export const useGameStore = defineStore('game', () => {
     socketService.on('undo-executed', handleUndoExecuted);
     socketService.on('draw-requested', handleDrawRequested);
     socketService.on('draw-response', handleDrawResponse);
+    socketService.on('rematch-started', handleRematchStarted);
     socketService.on('error', handleSocketError);
   };
 
@@ -468,6 +480,7 @@ export const useGameStore = defineStore('game', () => {
     requestUndo,
     respondToUndo,
     surrender,
+    requestRematch,
     requestDraw,
     respondToDraw,
     setReplayState,

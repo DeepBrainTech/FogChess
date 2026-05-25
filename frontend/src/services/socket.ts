@@ -6,7 +6,7 @@ class SocketService {
   private url: string;
 
   constructor() {
-    this.url = import.meta.env.VITE_API_URL || 'http://backend:3001';
+    this.url = import.meta.env.VITE_API_URL || window.location.origin;
   }
 
   connect(): Socket {
@@ -82,6 +82,10 @@ class SocketService {
   // 认输
   surrender(roomId: string): void {
     this.ensureSocket().emit('surrender', { roomId });
+  }
+
+  requestRematch(roomId: string): void {
+    this.ensureSocket().emit('request-rematch', { roomId });
   }
 
   // 上报超时（由本地倒计时归零触发，后端进行权威结算）

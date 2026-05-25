@@ -113,7 +113,7 @@ export class PostgresArchiver implements GameArchiver {
 
       const AI_NAME = 'Computer';
       const AI_USER_ID = 0;
-      const isAiGame = room.gameMode === 'ai';
+      const isAiGame = room.gameMode === 'ai' || room.gameMode === 'super-ai';
 
       const whitePlayer = room.players.find(p => p.color === 'white');
       const blackPlayer = room.players.find(p => p.color === 'black');

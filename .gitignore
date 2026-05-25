@@ -37,6 +37,7 @@ pids
 *.pid
 *.seed
 *.pid.lock
+backend/data/experience/
 
 # Coverage directory used by tools like istanbul
 coverage/

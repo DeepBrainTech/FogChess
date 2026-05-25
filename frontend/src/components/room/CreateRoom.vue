@@ -58,10 +58,11 @@
         >
           <option value="normal">{{ t('room.create.gameMode.normal') }}</option>
           <option value="ai">{{ t('room.create.gameMode.ai') }}</option>
+          <option value="super-ai">{{ t('room.create.gameMode.superAi') }}</option>
         </select>
       </div>
 
-      <div class="form-group" v-if="isAiMode">
+      <div class="form-group" v-if="gameMode === 'ai'">
         <label for="aiDifficulty">{{ t('room.create.aiDifficulty') || 'AI难度:' }}</label>
         <select
           id="aiDifficulty"
@@ -127,7 +128,7 @@ const error = ref('');
 const previousTimerMode = ref('classical');
 const aiTimerTooltip = computed(() => t('room.create.timer.aiOnlyUnlimited'));
 
-const isAiMode = computed(() => gameMode.value === 'ai');
+const isAiMode = computed(() => gameMode.value === 'ai' || gameMode.value === 'super-ai');
 
 // 组件挂载时尝试获取用户信息
 onMounted(async () => {

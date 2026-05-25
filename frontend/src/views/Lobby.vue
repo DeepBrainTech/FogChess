@@ -49,6 +49,9 @@
                 <span v-if="room.gameMode === 'ai'" class="game-mode game-mode--ai">{{
                   t('room.create.gameMode.ai')
                 }}</span>
+                <span v-if="room.gameMode === 'super-ai'" class="game-mode game-mode--ai">{{
+                  t('room.create.gameMode.superAi')
+                }}</span>
                 <span class="timer-mode">{{ getTimerModeText(room.timerMode) }}</span>
                 <span class="status">{{ getStatusText(room.gameState.gameStatus) }}</span>
                 <span class="spectator-count">{{ t('lobby.spectators') }} {{ room.spectators?.length || 0 }}</span>
@@ -59,7 +62,7 @@
             <button
               class="join"
               :disabled="room.isFull || !hasPlayerName"
-              :title="room.isFull && room.gameMode === 'ai' ? t('lobby.aiRoomSpectateOnly') : undefined"
+              :title="room.isFull && (room.gameMode === 'ai' || room.gameMode === 'super-ai') ? t('lobby.aiRoomSpectateOnly') : undefined"
               @click="join(room.id)"
             >
               {{ room.isFull ? t('lobby.full') : t('lobby.join') }}

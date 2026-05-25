@@ -415,6 +415,33 @@ export class ChessService {
     return this.chess.moves({ verbose: true, legal: false } as any) as any[];
   }
 
+  /** Return the current player's moves under fog rules, ignoring check/checkmate restrictions. */
+  getFogMovesForCurrentPlayer(): Array<{ from: string; to: string; captured?: string; promotion?: string }> {
+    const activeColor = this.chess.turn();
+    const moves: Array<{ from: string; to: string; captured?: string; promotion?: string }> = [];
+    const board = this.chess.board();
+
+    for (let rank = 0; rank < 8; rank++) {
+      for (let file = 0; file < 8; file++) {
+        const piece = board[rank][file];
+        if (!piece || piece.color !== activeColor) continue;
+
+        const from = `${String.fromCharCode(97 + file)}${8 - rank}`;
+        for (const to of this.generatePseudoLegalMoves(from)) {
+          const target = this.chess.get(to as any) as any;
+          const move: { from: string; to: string; captured?: string; promotion?: string } = { from, to };
+          if (target) move.captured = target.type;
+          if (piece.type === 'p' && (to.endsWith('8') || to.endsWith('1'))) {
+            move.promotion = 'q';
+          }
+          moves.push(move);
+        }
+      }
+    }
+
+    return moves;
+  }
+
   /**
    * 返回某个格子的合法走法（目标坐标数组）。
    * 不依赖当前轮到谁：临时切换FEN的行棋方为该格子的棋子颜色后计算，再恢复。
@@ -672,7 +699,7 @@ export class ChessService {
     const piece = this.chess.get(square as any);
     if (!piece) return '';
     
-    const pieceChar = piece.type === 'p' ? '' : piece.type.toUpperCase();
+    const pieceChar = piece.type === 'p' ? 'P' : piece.type.toUpperCase();
     return piece.color === 'w' ? pieceChar : pieceChar.toLowerCase();
   }
 }

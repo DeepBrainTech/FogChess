@@ -23,7 +23,7 @@ export interface Room {
   createdAt: Date;
   isFull: boolean;
   timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet';
-  gameMode?: 'normal' | 'ai';
+  gameMode?: 'normal' | 'ai' | 'super-ai';
   aiDifficulty?: number;
   humanColor?: 'white' | 'black';
 }
@@ -36,6 +36,7 @@ export interface GameState {
   moveHistory: Move[];
   fogOfWar: FogOfWarState;
   timeout?: boolean;
+  aiThinking?: boolean;
   clocks?: {
     white: number; // seconds left
     black: number; // seconds left
@@ -68,7 +69,7 @@ export interface SocketEvents {
   'join-room': { roomId: string; playerName: string };
   'join-spectator': { roomId: string; playerName: string };
   'switch-to-player': { roomId: string; playerName: string };
-  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai'; aiDifficulty?: number; humanColor?: 'white' | 'black' };
+  'create-room': { roomName: string; playerName: string; timerMode?: 'unlimited' | 'classical' | 'rapid' | 'bullet'; gameMode?: 'normal' | 'ai' | 'super-ai'; aiDifficulty?: number; humanColor?: 'white' | 'black' };
   'make-move': { roomId: string; move: Move };
   'get-legal-moves': { roomId: string; square: string };
   'leave-room': { roomId: string };
@@ -78,6 +79,7 @@ export interface SocketEvents {
   'report-timeout': { roomId: string; player: 'white' | 'black' };
   'request-draw': { roomId: string };
   'respond-draw': { roomId: string; accepted: boolean };
+  'request-rematch': { roomId: string };
   'send-chat': { roomId: string; message: string };
   
   // 服务端发送的事件
@@ -98,6 +100,7 @@ export interface SocketEvents {
   'undo-executed': { gameState: GameState };
   'draw-requested': { fromPlayer: string };
   'draw-response': { accepted: boolean };
+  'rematch-started': { room: Room; gameState: GameState };
   'chat-message': { fromPlayer: string; message: string; timestamp: Date };
   'error': { message: string };
 }

@@ -5,9 +5,10 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import { RoomService } from './services/RoomService';
-import type { SocketEvents } from './types';
+import { SableFowAI } from './ai/SableFowAI';
+import type { GameState, Player, Room, SocketEvents } from './types';
 import { RedisRoomRepository } from './repositories/RedisRoomRepository';
-import { PostgresArchiver } from './services/ArchiverService';
+import { PostgresArchiver, type GameArchiver } from './services/ArchiverService';
 import { UserService } from './services/UserService';
 
 const app = express();
@@ -33,10 +34,119 @@ if (
 ) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
+
+interface LocalProfile {
+  id: number;
+  username: string;
+  total_games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  rating: number;
+}
+
+interface LocalGame {
+  id: string;
+  room_id: string;
+  white_name: string;
+  black_name: string;
+  white_user_id: number | null;
+  black_user_id: number | null;
+  result: string | null;
+  finished_at: Date;
+  starting_fen: string;
+  final_fen: string;
+  moves: any[];
+  timer_mode: string;
+}
+
+const localProfiles = new Map<number, LocalProfile>();
+const localGames: LocalGame[] = [];
+
+function ensureLocalProfile(id: number, username: string): LocalProfile {
+  const existing = localProfiles.get(id);
+  if (existing) {
+    existing.username = username;
+    return existing;
+  }
+
+  const profile = {
+    id,
+    username,
+    total_games: 0,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    rating: 1500
+  };
+  localProfiles.set(id, profile);
+  return profile;
+}
+
+function localHumanId(player: Player | undefined): number | null {
+  if (!player || player.isAi || typeof player.mainUserId !== 'number' || player.mainUserId <= 0) {
+    return null;
+  }
+  return player.mainUserId;
+}
+
+const localArchiver: GameArchiver = {
+  async initializeTables() {},
+
+  async archiveFinishedGame(room: Room, moves: any[]) {
+    const whitePlayer = room.players.find(player => player.color === 'white');
+    const blackPlayer = room.players.find(player => player.color === 'black');
+    const whiteUserId = localHumanId(whitePlayer);
+    const blackUserId = localHumanId(blackPlayer);
+    const result = room.gameState.timeout ? 'timeout' : (room.gameState.winner || null);
+    localGames.unshift({
+      id: `${room.id}-${Date.now()}`,
+      room_id: room.id,
+      white_name: whitePlayer?.name || 'White',
+      black_name: blackPlayer?.name || 'Black',
+      white_user_id: whiteUserId,
+      black_user_id: blackUserId,
+      result,
+      finished_at: new Date(),
+      starting_fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      final_fen: room.gameState.board,
+      moves: moves.length ? moves : room.gameState.moveHistory,
+      timer_mode: room.timerMode || 'unlimited'
+    });
+
+    for (const [player, id] of [[whitePlayer, whiteUserId], [blackPlayer, blackUserId]] as const) {
+      if (!player || id === null) continue;
+      const profile = ensureLocalProfile(id, player.name);
+      profile.total_games += 1;
+      if (room.gameState.winner === 'draw') {
+        profile.draws += 1;
+      } else if (room.gameState.winner === player.color) {
+        profile.wins += 1;
+      } else {
+        profile.losses += 1;
+      }
+    }
+  }
+};
+
 const repository = redisUrl ? new RedisRoomRepository(redisUrl) : undefined;
-const archiver = dbUrl ? new PostgresArchiver(dbUrl) : undefined;
+const persistentArchiver = dbUrl ? new PostgresArchiver(dbUrl) : undefined;
+const archiver: GameArchiver = persistentArchiver
+  ? {
+      async initializeTables() {
+        await persistentArchiver.initializeTables();
+      },
+      async archiveFinishedGame(room: Room, moves: any[]) {
+        // Keep the just-finished game immediately reviewable while persistence completes.
+        await localArchiver.archiveFinishedGame(room, moves);
+        await persistentArchiver.archiveFinishedGame(room, moves);
+      }
+    }
+  : localArchiver;
 const userService = dbUrl ? new UserService(dbUrl) : undefined;
 const roomService = new RoomService(repository, archiver);
+const isComputerMode = (mode: Room['gameMode']) => mode === 'ai' || mode === 'super-ai';
+const sableFowAI = new SableFowAI();
 roomService.setRoomClosedHandler((roomId, reason) => {
   io.to(roomId).emit('room-closed', { roomId, reason });
   io.socketsLeave(roomId);
@@ -70,11 +180,13 @@ const SESSION_COOKIE = 'fogchess.sid';
 const SESSION_AUD = 'fogchess-session';
 const SESSION_ISS = 'fogchess-backend';
 const SESSION_TTL_SEC = 7 * 24 * 3600;
+const IS_DEVELOPMENT = process.env.NODE_ENV === 'development' || process.env.npm_lifecycle_event === 'dev';
+const SESSION_SECRET = process.env.SESSION_SECRET || (IS_DEVELOPMENT ? 'fogchess-local-dev-session-secret' : undefined);
 
 function signSession(user: { mainUserId: number; username: string }) {
   return jwt.sign(
     { sub: String(user.username), mainUserId: user.mainUserId, username: user.username },
-    process.env.SESSION_SECRET as string,
+    SESSION_SECRET as string,
     { algorithm: 'HS256', audience: SESSION_AUD, issuer: SESSION_ISS, expiresIn: SESSION_TTL_SEC }
   );
 }
@@ -122,7 +234,7 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
     return;
   }
   try {
-    const payload = jwt.verify(token, process.env.SESSION_SECRET as string, {
+    const payload = jwt.verify(token, SESSION_SECRET as string, {
       algorithms: ['HS256'],
       audience: SESSION_AUD,
       issuer: SESSION_ISS
@@ -143,7 +255,7 @@ app.get('/health', (req, res) => {
 
 // 仅用于本地开发的登录接口
 app.post('/auth/dev-login', async (req, res) => {
-  if (process.env.NODE_ENV !== 'development') {
+  if (!IS_DEVELOPMENT) {
     return res.status(403).json({ error: 'not allowed in production' });
   }
 
@@ -152,13 +264,6 @@ app.post('/auth/dev-login', async (req, res) => {
     return res.status(400).json({ error: 'username and userId required' });
   }
   try {
-    // 模拟主站发来的Token
-    const token = jwt.sign(
-      { user_id: userId, username, sub: String(username), iss: process.env.FOG_CHESS_JWT_ISS, aud: process.env.FOG_CHESS_JWT_AUD },
-      process.env.FOG_CHESS_JWT_SECRET as string,
-      { algorithm: 'HS256', expiresIn: '1h' }
-    );
-    
     // 使用现有的逻辑生成Session
     const session = signSession({ mainUserId: userId, username });
     
@@ -170,6 +275,8 @@ app.post('/auth/dev-login', async (req, res) => {
       await userService.ensureUserExists(userId, username).catch(err => {
         console.error('Failed to ensure user exists:', err);
       });
+    } else {
+      ensureLocalProfile(userId, username);
     }
     
     return res.json({ ok: true, user: { id: userId, username } });
@@ -192,6 +299,8 @@ app.post('/auth/fogchess/exchange', async (req, res) => {
       await userService.ensureUserExists(claims.user_id, claims.username).catch(err => {
         console.error('Failed to ensure user exists:', err);
       });
+    } else {
+      ensureLocalProfile(claims.user_id, claims.username);
     }
     
     // 返回用户信息，方便移动端直接存储到localStorage
@@ -216,7 +325,7 @@ app.get('/user/profile', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     if (!userService) {
-      return res.status(503).json({ error: 'User service not available' });
+      return res.json({ profile: ensureLocalProfile(userId, (req as any).user.username) });
     }
     const profile = await userService.getUserProfile(userId);
     if (!profile) {
@@ -234,7 +343,9 @@ app.get('/user/games', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     if (!userService) {
-      return res.status(503).json({ error: 'User service not available' });
+      return res.json({
+        games: localGames.filter(game => game.white_user_id === userId || game.black_user_id === userId)
+      });
     }
     const games = await userService.getUserGames(userId);
     return res.json({ games });
@@ -246,9 +357,6 @@ app.get('/user/games', requireAuth, async (req, res) => {
 
 app.get('/user/ratings', requireAuth, async (req, res) => {
   try {
-    if (!userService) {
-      return res.status(503).json({ error: 'User service not available' });
-    }
     const idsParam = req.query.ids;
     if (!idsParam) {
       return res.status(400).json({ error: 'ids query parameter required' });
@@ -260,6 +368,15 @@ app.get('/user/ratings', requireAuth, async (req, res) => {
       .filter(id => Number.isFinite(id) && id > 0);
     if (!parsedIds.length) {
       return res.status(400).json({ error: 'No valid user ids provided' });
+    }
+    if (!userService) {
+      return res.json({
+        ratings: parsedIds.map(id => ({
+          id,
+          username: localProfiles.get(id)?.username || String(id),
+          rating: localProfiles.get(id)?.rating ?? 1500
+        }))
+      });
     }
     const ratings = await userService.getUserRatingsByIds(parsedIds);
     return res.json({ ratings });
@@ -274,8 +391,15 @@ app.get('/game/:gameId', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     const gameId = req.params.gameId;
+    const recentGame = localGames.find(
+      record => (record.id === gameId || record.room_id === gameId) &&
+        (Number(record.white_user_id) === Number(userId) || Number(record.black_user_id) === Number(userId))
+    );
+    if (recentGame) {
+      return res.json({ game: recentGame });
+    }
     if (!userService) {
-      return res.status(503).json({ error: 'User service not available' });
+      return res.status(404).json({ error: 'Game not found' });
     }
     const game = await userService.getGameDetails(gameId, userId);
     if (!game) {
@@ -293,6 +417,23 @@ app.get('/rooms', (req, res) => {
   res.json(rooms);
 });
 
+app.post(['/ai/move', '/api/ai/move'], async (req, res) => {
+  try {
+    const gameState = req.body?.gameState as GameState | undefined;
+    const aiColor = req.body?.aiColor as 'white' | 'black' | undefined;
+    const memoryKey = typeof req.body?.memoryKey === 'string' ? req.body.memoryKey : undefined;
+    if (!gameState?.board || (aiColor !== 'white' && aiColor !== 'black')) {
+      return res.status(400).json({ error: 'gameState and aiColor are required' });
+    }
+    if (gameState.gameStatus !== 'playing' || gameState.currentPlayer !== aiColor) {
+      return res.status(409).json({ error: 'It is not the AI turn' });
+    }
+    return res.json(await sableFowAI.getBestMove(gameState, aiColor, memoryKey));
+  } catch {
+    return res.status(400).json({ error: 'Invalid game state' });
+  }
+});
+
 // Socket.io 连接处理
 io.use(async (socket, next) => {
   try {
@@ -300,7 +441,7 @@ io.use(async (socket, next) => {
     const match = cookieHeader.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`));
     const token = match ? decodeURIComponent(match[1]) : '';
     if (!token) return next();
-    const payload = jwt.verify(token, process.env.SESSION_SECRET as string, {
+    const payload = jwt.verify(token, SESSION_SECRET as string, {
       algorithms: ['HS256'], audience: SESSION_AUD, issuer: SESSION_ISS
     }) as any;
     (socket as any).data.user = { id: payload.mainUserId, username: payload.username };
@@ -310,6 +451,8 @@ io.use(async (socket, next) => {
       await userService.ensureUserExists(payload.mainUserId, payload.username).catch(err => {
         console.error('Failed to ensure user exists in socket:', err);
       });
+    } else if (payload.mainUserId && payload.username) {
+      ensureLocalProfile(payload.mainUserId, payload.username);
     }
   } catch {}
   next();
@@ -335,7 +478,7 @@ io.on('connection', (socket) => {
       socket.emit('room-created', { room });
       
       // 如果是AI模式，直接开始游戏
-      if (data.gameMode === 'ai') {
+      if (isComputerMode(data.gameMode)) {
         room.gameState.gameStatus = 'playing';
         io.to(room.id).emit('game-updated', { gameState: room.gameState });
         
@@ -343,14 +486,18 @@ io.on('connection', (socket) => {
         const humanIsBlack =
           room.humanColor === 'black' || (data.humanColor || 'white') === 'black';
         if (humanIsBlack) {
-          setImmediate(() => {
-            const aiResult = roomService.makeAIMove(room.id);
+          room.gameState.aiThinking = true;
+          io.to(room.id).emit('game-updated', { gameState: room.gameState });
+          setTimeout(async () => {
+            const aiResult = await roomService.makeAIMove(room.id);
             if (aiResult) {
               io.to(room.id).emit('move-made', {
                 move: aiResult.move,
                 gameState: aiResult.gameState
               });
             } else {
+              room.gameState.aiThinking = false;
+              io.to(room.id).emit('game-updated', { gameState: room.gameState });
               console.warn(
                 '[create-room] AI opening move did not run for room',
                 room.id,
@@ -358,7 +505,7 @@ io.on('connection', (socket) => {
                 room.humanColor
               );
             }
-          });
+          }, 500);
         }
       } else {
         // 房间创建时处于等待状态
@@ -473,16 +620,21 @@ io.on('connection', (socket) => {
         
         // 如果是AI模式且游戏未结束，让AI下棋
         const room = roomService.getRoom(data.roomId);
-        if (room?.gameMode === 'ai' && result.gameState.gameStatus === 'playing') {
+        if (room && isComputerMode(room.gameMode) && result.gameState.gameStatus === 'playing') {
+          room.gameState.aiThinking = true;
+          io.to(data.roomId).emit('game-updated', { gameState: room.gameState });
           // 延迟1秒让AI下棋，模拟思考时间
-          setTimeout(() => {
-            const aiResult = roomService.makeAIMove(data.roomId);
+          setTimeout(async () => {
+            const aiResult = await roomService.makeAIMove(data.roomId);
             if (aiResult) {
               // 广播AI移动
               io.to(data.roomId).emit('move-made', {
                 move: aiResult.move,
                 gameState: aiResult.gameState
               });
+            } else {
+              room.gameState.aiThinking = false;
+              io.to(data.roomId).emit('game-updated', { gameState: room.gameState });
             }
           }, 1000);
         }
@@ -596,6 +748,33 @@ io.on('connection', (socket) => {
   });
 
   // 前端上报超时（由后端进行权威结算并广播）
+  socket.on('request-rematch', (data: SocketEvents['request-rematch']) => {
+    try {
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Player not found in room' });
+        return;
+      }
+      const result = roomService.rematch(data.roomId, player.id);
+      if (!result.success || !result.room || !result.gameState) {
+        socket.emit('error', { message: result.error || 'Failed to start rematch' });
+        return;
+      }
+      io.to(data.roomId).emit('rematch-started', { room: result.room, gameState: result.gameState });
+      io.to(data.roomId).emit('game-updated', { gameState: result.gameState });
+      if (isComputerMode(result.room.gameMode) && result.room.humanColor === 'black') {
+        result.room.gameState.aiThinking = true;
+        io.to(data.roomId).emit('game-updated', { gameState: result.room.gameState });
+        setTimeout(async () => {
+          const aiResult = await roomService.makeAIMove(data.roomId);
+          if (aiResult) io.to(data.roomId).emit('move-made', aiResult);
+        }, 500);
+      }
+    } catch {
+      socket.emit('error', { message: 'Failed to start rematch' });
+    }
+  });
+
   socket.on('report-timeout', (data: SocketEvents['report-timeout']) => {
     try {
       const result = roomService.reportTimeout(data.roomId, data.player);

@@ -12,6 +12,10 @@
       <span class="label">{{ t('status.gameStatus') }}</span>
       <span class="value">{{ statusText }}</span>
     </div>
+    <div v-if="gameState?.aiThinking" class="status-item ai-thinking">
+      <span class="label">{{ t('status.ai') }}</span>
+      <span class="value">{{ t('status.aiThinking') }}</span>
+    </div>
     <div v-if="isSpectating" class="status-item">
       <span class="label">{{ t('status.role') }}</span>
       <span class="value">{{ t('status.spectating') }}</span>
@@ -62,4 +66,5 @@ const statusText = computed(() => {
 .turn-dot { width: 16px; height: 16px; border-radius: 50%; transition: all 0.3s ease; }
 .turn-dot.my-turn { background-color: #478058; box-shadow: 0 0 8px rgba(71, 128, 88, 0.4); }
 .turn-dot.opponent-turn { background-color: #999; }
+.ai-thinking .value { color: #478058; font-weight: 600; }
 </style>

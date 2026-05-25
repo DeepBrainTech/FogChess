@@ -162,7 +162,9 @@ export class UserService {
         `SELECT id, white_name, black_name, white_user_id, black_user_id, 
                 result, finished_at, starting_fen, final_fen, moves, timer_mode
          FROM games
-         WHERE id = $1 AND (white_user_id = $2 OR black_user_id = $2)`,
+         WHERE (id::text = $1 OR room_id = $1) AND (white_user_id = $2 OR black_user_id = $2)
+         ORDER BY finished_at DESC
+         LIMIT 1`,
         [gameId, userId]
       );
       if (result.rows.length === 0) {

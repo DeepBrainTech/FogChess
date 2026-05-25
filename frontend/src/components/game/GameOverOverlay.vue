@@ -4,6 +4,8 @@
       <h3 :class="{ 'victory-title': isWinner, 'defeat-title': !isWinner }">{{ title }}</h3>
       <p>{{ message }}</p>
       <div class="dialog-buttons">
+        <button v-if="canReview" @click="$emit('review')" class="review-btn">{{ t('gameOver.reviewAll') }}</button>
+        <button v-if="canRematch" @click="$emit('rematch')" class="rematch-btn">{{ t('gameOver.rematch') }}</button>
         <button @click="$emit('close')" class="ok-btn">{{ t('btn.ok') }}</button>
       </div>
     </div>
@@ -16,13 +18,17 @@ interface Props {
   isWinner: boolean;
   title: string;
   message: string;
+  canReview?: boolean;
+  canRematch?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
   show: false,
   isWinner: false,
   title: 'Game Over',
-  message: ''
+  message: '',
+  canReview: true,
+  canRematch: true
 });
 import { t } from '../../services/i18n';
 </script>
@@ -34,8 +40,12 @@ import { t } from '../../services/i18n';
 .victory-title { color: #4CAF50 !important; text-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
 .defeat-title { color: #f44336 !important; text-shadow: 0 0 10px rgba(244, 67, 54, 0.3); }
 .dialog-content p { margin: 0 0 30px 0; color: #666; line-height: 1.6; font-size: 18px; }
-.dialog-buttons { display: flex; gap: 15px; justify-content: center; }
+.dialog-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .dialog-buttons button { padding: 14px 28px; border: none; border-radius: 6px; cursor: pointer; font-size: 17px; font-weight: 500; transition: all 0.3s ease; min-width: 110px; }
 .ok-btn { background: #2196F3; color: white; }
 .ok-btn:hover { background: #1976D2; }
+.review-btn { background: #4b6b9a; color: white; }
+.review-btn:hover { background: #39547b; }
+.rematch-btn { background: #478058; color: white; }
+.rematch-btn:hover { background: #376747; }
 </style>

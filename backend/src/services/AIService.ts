@@ -1,6 +1,8 @@
 import { Chess } from 'chess.js';
 import type { GameState, Move } from '../types';
 
+type AIMove = { from: string; to: string; captured?: string; promotion?: string };
+
 export class AIService {
   private chess: Chess;
   private difficulty: number; // 1-10
@@ -39,10 +41,10 @@ export class AIService {
    * 获取AI的最佳移动
    * 这里实现一个简单的AI算法，模拟400-500分水平的玩家
    */
-  getBestMove(): { from: string; to: string; promotion?: string } | null {
+  getBestMove(fogMoves?: AIMove[]): { from: string; to: string; promotion?: string } | null {
     try {
-      // 使用迷雾棋规则获取移动（忽略将军限制）
-      const moves = this.chess.moves({ verbose: true } as any);
+      // RoomService supplies pseudo-legal fog moves so check/checkmate never limits the AI.
+      const moves = fogMoves ?? (this.chess.moves({ verbose: true } as any) as any[]);
       console.log('AI Available Moves:', moves.length, moves.slice(0, 3));
       if (moves.length === 0) return null;
 
@@ -98,8 +100,10 @@ export class AIService {
     let worstMove = moves[0];
     let worstScore = isAiWhite ? Infinity : -Infinity;
 
+    let hasScoredMove = false;
     for (const move of moves) {
-      this.chess.move(move);
+      if (!this.tryMove(move)) continue;
+      hasScoredMove = true;
       // 简单版：去掉复杂的盘面评估，只看纯粹的棋子价值（吃子得分）
       const score = this.evaluateMaterialOnly();
       this.chess.undo();
@@ -122,11 +126,11 @@ export class AIService {
     // rand 范围是 [0.50, 1)。如果 rand < 0.75，正好是 25% 的总概率
     if (rand < 0.75) {
       console.log('AI: Making a blunder move (25% chance)');
-      return worstMove;
+      return hasScoredMove ? worstMove : moves[Math.floor(Math.random() * moves.length)];
     }
     
     // 剩下的 25% 走看起来最好的一步（但因为只看眼前，经常会被反杀）
-    return bestMove;
+    return hasScoredMove ? bestMove : moves[Math.floor(Math.random() * moves.length)];
   }
 
   /**
@@ -188,8 +192,10 @@ export class AIService {
     // 标准版恒定只算 1 步 (depth = 1)，但使用包含阵型评估的 position 函数
     const depth = 1;
 
+    let hasScoredMove = false;
     for (const move of moves) {
-      this.chess.move(move);
+      if (!this.tryMove(move)) continue;
+      hasScoredMove = true;
       const score = this.minimax(depth - 1, !isAiWhite, -Infinity, Infinity);
       this.chess.undo();
       
@@ -199,7 +205,7 @@ export class AIService {
       }
     }
 
-    return bestMove;
+    return hasScoredMove ? bestMove : moves[Math.floor(Math.random() * moves.length)];
   }
 
   /**
@@ -221,8 +227,10 @@ export class AIService {
     const totalMoves = this.chess.history().length;
     const depth = totalMoves >= 10 ? 1 : 2; 
 
+    let hasScoredMove = false;
     for (const move of moves) {
-      this.chess.move(move);
+      if (!this.tryMove(move)) continue;
+      hasScoredMove = true;
       const score = this.minimax(depth - 1, !isAiWhite, -Infinity, Infinity);
       this.chess.undo();
       
@@ -232,7 +240,19 @@ export class AIService {
       }
     }
 
-    return bestMove;
+    return hasScoredMove ? bestMove : moves[Math.floor(Math.random() * moves.length)];
+  }
+
+  private tryMove(move: AIMove): boolean {
+    try {
+      return Boolean(this.chess.move({
+        from: move.from,
+        to: move.to,
+        promotion: move.promotion
+      } as any));
+    } catch {
+      return false;
+    }
   }
 
   /**

@@ -3,6 +3,8 @@ import type { Room, Player, Spectator, GameState, Move } from '../types';
 import { ChessService } from './ChessService';
 import { TimerService } from './TimerService';
 import { AIService } from './AIService';
+import { SableFowAI } from '../ai/SableFowAI';
+import { ExperienceLogger } from '../ai/ExperienceLogger';
 import type { RoomRepository } from '../repositories/RoomRepository';
 import type { GameArchiver } from './ArchiverService';
 
@@ -10,6 +12,8 @@ export class RoomService {
   private rooms: Map<string, Room> = new Map();
   private roomIdToChess: Map<string, ChessService> = new Map();
   private roomIdToAI: Map<string, AIService> = new Map();
+  private sableFowAI = new SableFowAI();
+  private experienceLogger = new ExperienceLogger();
   private roomIdToGraceDeadline: Map<string, number> = new Map();
   private timerService: TimerService;
   private repository?: RoomRepository;
@@ -28,6 +32,46 @@ export class RoomService {
     this.roomClosedHandler = handler;
   }
 
+  private isComputerRoom(roomOrMode: Room | Room['gameMode']): boolean {
+    const mode = typeof roomOrMode === 'object' ? roomOrMode.gameMode : roomOrMode;
+    return mode === 'ai' || mode === 'super-ai';
+  }
+
+  private archiveFinishedRoom(room: Room, reason: string = this.gameOverReason(room)): void {
+    this.experienceLogger.finishRoomGame(room, reason);
+    if (!this.archiver) return;
+
+    const finishedRoom: Room = {
+      ...room,
+      players: room.players.map(player => ({ ...player })),
+      spectators: room.spectators.map(spectator => ({ ...spectator })),
+      gameState: {
+        ...room.gameState,
+        moveHistory: [...(room.gameState.moveHistory || [])],
+        fogOfWar: {
+          ...room.gameState.fogOfWar,
+          whiteVisible: [...room.gameState.fogOfWar.whiteVisible],
+          blackVisible: [...room.gameState.fogOfWar.blackVisible],
+          lastKnownPositions: {
+            white: { ...room.gameState.fogOfWar.lastKnownPositions.white },
+            black: { ...room.gameState.fogOfWar.lastKnownPositions.black }
+          }
+        }
+      }
+    };
+    Promise.resolve(finishedRoom.gameState.moveHistory)
+      .then((history) => this.archiver?.archiveFinishedGame(finishedRoom, history))
+      .catch(() => {});
+  }
+
+  private gameOverReason(room: Room): string {
+    if (room.gameState.timeout) return 'timeout';
+    if (room.gameState.winner === 'draw') return 'draw-agreement';
+    const lastMove = room.gameState.moveHistory[room.gameState.moveHistory.length - 1];
+    if (lastMove?.captured?.toLowerCase() === 'k') return 'king-captured';
+    return 'finished';
+  }
+
   /**
    * 创建新房间
    */
@@ -36,7 +80,7 @@ export class RoomService {
     playerName: string,
     socketId: string,
     timerMode: 'unlimited' | 'classical' | 'rapid' | 'bullet' = 'unlimited',
-    gameMode: 'normal' | 'ai' = 'normal',
+    gameMode: 'normal' | 'ai' | 'super-ai' = 'normal',
     mainUserId?: number,
     aiDifficulty: number = 6,
     humanColor: 'white' | 'black' = 'white'
@@ -45,11 +89,12 @@ export class RoomService {
     this.cleanupPlayerRooms(socketId, true);
     
     const roomId = uuidv4();
-    const effectiveTimerMode = gameMode === 'ai' ? 'unlimited' : timerMode;
+    const computerMode = this.isComputerRoom(gameMode);
+    const effectiveTimerMode = computerMode ? 'unlimited' : timerMode;
     const player: Player = {
       id: uuidv4(),
       name: playerName,
-      color: gameMode === 'ai' ? humanColor : 'white', // AI模式下使用选择的颜色，否则默认为白方
+      color: computerMode ? humanColor : 'white', // AI模式下使用选择的颜色，否则默认为白方
       socketId,
       mainUserId
     };
@@ -57,7 +102,7 @@ export class RoomService {
     const chess = new ChessService();
     this.roomIdToChess.set(roomId, chess);
     const gameState = chess.createNewGame();
-    if (gameMode === 'ai') {
+    if (computerMode) {
       gameState.clocks = {
         white: 0,
         black: 0,
@@ -73,7 +118,7 @@ export class RoomService {
       spectators: [],
       gameState,
       createdAt: new Date(),
-      isFull: gameMode === 'ai', // AI模式房间创建时就是满的
+      isFull: computerMode, // AI模式房间创建时就是满的
       timerMode: effectiveTimerMode,
       gameMode: gameMode,
       aiDifficulty: aiDifficulty,
@@ -81,15 +126,16 @@ export class RoomService {
     };
 
     // 如果是AI模式，创建AI实例并设置颜色
-    if (gameMode === 'ai') {
+    if (computerMode) {
       const aiColor = humanColor === 'white' ? 'black' : 'white';
-      const ai = new AIService(aiDifficulty, aiColor); // 使用传入的难度和颜色
-      this.roomIdToAI.set(roomId, ai);
+      if (gameMode === 'ai') {
+        this.roomIdToAI.set(roomId, new AIService(aiDifficulty, aiColor));
+      }
       
       // 创建AI玩家对象
       const aiPlayer: Player = {
         id: 'ai-player',
-        name: 'Computer', // 这个名字会在大厅显示
+        name: gameMode === 'super-ai' ? 'Super AI' : 'Computer',
         color: aiColor,
         socketId: 'ai-player',
         isAi: true
@@ -103,6 +149,7 @@ export class RoomService {
     // 计时器将在游戏开始时初始化，而不是房间创建时
 
     this.rooms.set(roomId, room);
+    this.experienceLogger.beginRoomGame(room);
     // persist room to repository
     this.repository?.saveRoom(room).catch(() => {});
     return room;
@@ -118,7 +165,7 @@ export class RoomService {
       return { success: false, error: 'Room not found' };
     }
 
-    if (room.gameMode === 'ai') {
+    if (this.isComputerRoom(room)) {
       return {
         success: false,
         error: 'This is a human vs AI room; a second human cannot join. Use spectate to watch the game'
@@ -299,7 +346,7 @@ export class RoomService {
     room.isFull = room.players.length >= 2;
 
     // AI 房：没有真实人类玩家时（只剩 isAi 占位或已空）不再保留
-    if (room.gameMode === 'ai' && !room.players.some((p) => !p.isAi)) {
+    if (this.isComputerRoom(room) && !room.players.some((p) => !p.isAi)) {
       this.deleteRoom(roomId, 'ai-no-human');
       return { success: true };
     }
@@ -418,10 +465,7 @@ export class RoomService {
           (room.gameState as any).timeout = true;
           
           // 归档超时游戏
-          this.repository?.getMoves(roomId)
-            .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
-            .then(() => this.repository?.clearMoves(roomId))
-            .catch(() => {});
+          this.archiveFinishedRoom(room, 'timeout');
           
           return { 
             success: true, 
@@ -444,7 +488,7 @@ export class RoomService {
       room.gameState = result.gameState;
       
       // 如果是AI模式，同步AI的chess实例
-      if (room.gameMode === 'ai') {
+      if (this.isComputerRoom(room)) {
         const ai = this.roomIdToAI.get(roomId);
         if (ai) {
           ai.loadGameState(room.gameState);
@@ -454,10 +498,7 @@ export class RoomService {
       
       // 如果游戏结束（吃王），归档游戏
       if (result.gameState.gameStatus === 'finished' && result.gameState.winner) {
-        this.repository?.getMoves(roomId)
-          .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
-          .then(() => this.repository?.clearMoves(roomId))
-          .catch(() => {});
+        this.archiveFinishedRoom(room, 'king-captured');
       }
       
       const lastFromHistory =
@@ -487,6 +528,43 @@ export class RoomService {
     const room = this.rooms.get(roomId);
     if (!room) return undefined;
     return room.spectators.find(s => s.socketId === socketId);
+  }
+
+  rematch(roomId: string, playerId: string): { success: boolean; room?: Room; gameState?: GameState; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { success: false, error: 'Room not found' };
+    if (!room.players.some(player => player.id === playerId && !player.isAi)) {
+      return { success: false, error: 'Player not found in room' };
+    }
+    if (room.gameState.gameStatus !== 'finished') {
+      return { success: false, error: 'Game is not finished' };
+    }
+    if (!this.isComputerRoom(room) && room.players.length < 2) {
+      return { success: false, error: 'Opponent is not in the room' };
+    }
+
+    const chess = this.roomIdToChess.get(roomId) || new ChessService();
+    this.roomIdToChess.set(roomId, chess);
+    this.sableFowAI.resetMemory(roomId);
+    room.gameState = chess.createNewGame();
+    room.gameState.gameStatus = 'playing';
+    room.gameState.aiThinking = false;
+    this.experienceLogger.beginRoomGame(room);
+    this.timerService.cleanupTimer(roomId);
+    if (room.timerMode && room.timerMode !== 'unlimited') {
+      this.timerService.initializeTimer(roomId, room.timerMode);
+      const timers = this.timerService.getCurrentTimes(roomId);
+      if (timers) {
+        room.gameState.clocks = {
+          white: timers.white,
+          black: timers.black,
+          increment: timers.increment,
+          mode: timers.mode
+        };
+      }
+    }
+    this.repository?.saveRoom(room).catch(() => {});
+    return { success: true, room, gameState: room.gameState };
   }
 
   /**
@@ -578,10 +656,7 @@ export class RoomService {
     room.gameState.gameStatus = 'finished';
     room.gameState.winner = winner;
     // archive and cleanup moves (best-effort)
-    this.repository?.getMoves(roomId)
-      .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
-      .then(() => this.repository?.clearMoves(roomId))
-      .catch(() => {});
+    this.archiveFinishedRoom(room, 'surrender');
     this.repository?.saveRoom(room).catch(() => {});
     return { success: true, gameState: room.gameState };
   }
@@ -605,10 +680,7 @@ export class RoomService {
     room.gameState.winner = winner;
     (room.gameState as any).timeout = true;
     // archive and cleanup moves (best-effort)
-    this.repository?.getMoves(roomId)
-      .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
-      .then(() => this.repository?.clearMoves(roomId))
-      .catch(() => {});
+    this.archiveFinishedRoom(room, 'timeout');
     this.repository?.saveRoom(room).catch(() => {});
     return { success: true, gameState: room.gameState };
   }
@@ -654,10 +726,7 @@ export class RoomService {
       room.gameState.gameStatus = 'finished';
       room.gameState.winner = 'draw';
       // archive and cleanup moves (best-effort)
-      this.repository?.getMoves(roomId)
-        .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
-        .then(() => this.repository?.clearMoves(roomId))
-        .catch(() => {});
+      this.archiveFinishedRoom(room, 'draw-agreement');
       this.repository?.saveRoom(room).catch(() => {});
     }
 
@@ -722,7 +791,7 @@ export class RoomService {
   /**
    * AI执行移动
    */
-  makeAIMove(roomId: string): { move?: Move; gameState?: GameState } | null {
+  async makeAIMove(roomId: string): Promise<{ move?: Move; gameState?: GameState } | null> {
     const room = this.rooms.get(roomId);
     const ai = this.roomIdToAI.get(roomId);
     const chess = this.roomIdToChess.get(roomId);
@@ -730,47 +799,40 @@ export class RoomService {
     console.log('AI Move Debug:', {
       roomId,
       hasRoom: !!room,
-      hasAI: !!ai,
+      hasAI: room?.gameMode === 'super-ai' || !!ai,
       hasChess: !!chess,
       gameStatus: room?.gameState.gameStatus,
       currentPlayer: room?.gameState.currentPlayer
     });
     
-    if (!room || !ai || !chess || room.gameState.gameStatus !== 'playing') {
+    if (!room || !chess || (room.gameMode !== 'super-ai' && !ai) || room.gameState.gameStatus !== 'playing') {
       console.log('AI Move: Early return due to missing components or game not playing');
       return null;
     }
 
     // 加载当前游戏状态到AI
-    ai.loadGameState(room.gameState);
-    
-    // 获取AI的最佳移动
-    const aiMove = ai.getBestMove();
-    console.log('AI Move Result:', aiMove);
-    if (!aiMove) {
-      console.log('AI Move: No move found - AI has no legal moves, human player wins!');
-      const humanPlayer = room.players.find(p => p.isAi !== true);
-      room.gameState.gameStatus = 'finished';
-      room.gameState.winner = (humanPlayer?.color as 'white' | 'black') || 'white';
-      room.gameState.currentPlayer = room.gameState.winner;
-      (room.gameState as any).aiNoMoves = true; // 标记为AI无棋可走
-
-      this.repository
-        ?.getMoves(roomId)
-        .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
-        .then(() => this.repository?.clearMoves(roomId))
-        .catch(() => {});
-      this.repository?.saveRoom(room).catch(() => {});
-
-      console.log('AI defeated - no legal moves available');
-      return { gameState: room.gameState };
-    }
-
     const aiPlayer = room.players.find(p => p.isAi === true) ?? room.players.find(p => p.id === 'ai-player');
     const aiColor: 'white' | 'black' = aiPlayer?.color ?? 'black';
+    if (room.gameState.currentPlayer !== aiColor) {
+      console.log('AI Move: Ignored because it is not the AI turn');
+      return null;
+    }
 
-    const fromPiece = ai.getPieceAtSquare(aiMove.from);
-    const capturedPiece = ai.getPieceAtSquare(aiMove.to);
+    ai?.loadGameState(room.gameState);
+    const sableResult = room.gameMode === 'super-ai'
+      ? await this.sableFowAI.getBestMove(room.gameState, aiColor, roomId)
+      : null;
+    const aiMove = sableResult
+      ? sableResult.move
+      : ai!.getBestMove(chess.getFogMovesForCurrentPlayer());
+    console.log('AI Move Result:', aiMove);
+    if (!aiMove) {
+      console.log('AI Move: No fog-rule move available; the game is not won until a king is captured');
+      return null;
+    }
+
+    const fromPiece = room.gameMode === 'super-ai' ? chess.getPieceAtSquare(aiMove.from) : ai!.getPieceAtSquare(aiMove.from);
+    const capturedPiece = room.gameMode === 'super-ai' ? chess.getPieceAtSquare(aiMove.to) : ai!.getPieceAtSquare(aiMove.to);
     // getPieceAtSquare: 白方大写、黑方小写，与 ChessService 一致
     const capturedForMove = capturedPiece && capturedPiece !== '' ? capturedPiece : undefined;
 
@@ -800,25 +862,26 @@ export class RoomService {
     });
     
     if (result.success && result.gameState) {
+      result.gameState.aiThinking = false;
       room.gameState = result.gameState;
       
       // 同步AI的chess实例
-      ai.loadGameState(room.gameState);
+      ai?.loadGameState(room.gameState);
       
       // 如果游戏结束，归档游戏
-      if (result.gameState.gameStatus === 'finished' && result.gameState.winner) {
-        this.repository?.getMoves(roomId)
-          .then((moves) => this.archiver?.archiveFinishedGame(room, moves))
-          .then(() => this.repository?.clearMoves(roomId))
-          .catch(() => {});
-      }
-      
       const last =
         result.gameState.moveHistory?.length
           ? result.gameState.moveHistory[result.gameState.moveHistory.length - 1]
           : move;
       this.repository?.appendMove(roomId, last).catch(() => {});
       this.repository?.saveRoom(room).catch(() => {});
+      if (sableResult) {
+        this.experienceLogger.recordDecision(roomId, aiColor, result.gameState.moveHistory.length, sableResult);
+      }
+      // Preserve a terminal AI decision before sealing the game log.
+      if (result.gameState.gameStatus === 'finished' && result.gameState.winner) {
+        this.archiveFinishedRoom(room, 'king-captured');
+      }
 
       return { move: last, gameState: room.gameState };
     }
@@ -857,6 +920,7 @@ export class RoomService {
     this.rooms.delete(roomId);
     this.roomIdToChess.delete(roomId);
     this.roomIdToAI.delete(roomId);
+    this.sableFowAI.resetMemory(roomId);
     this.roomIdToGraceDeadline.delete(roomId);
     this.timerService.cleanupTimer(roomId);
     this.repository?.deleteRoom(roomId).catch(() => {});
@@ -871,7 +935,7 @@ export class RoomService {
     for (const [roomId, room] of this.rooms.entries()) {
       // 理论上应在 leave 时已删；兜底清理「只剩机器人」的 AI 房
       if (
-        room.gameMode === 'ai' &&
+        this.isComputerRoom(room) &&
         room.players.length > 0 &&
         room.players.every((p) => p.isAi)
       ) {

@@ -112,11 +112,13 @@
 import { ref, onMounted } from 'vue';
 import { t } from '../services/i18n';
 import { useRoomStore } from '../stores/room';
+import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
 import CreateRoom from '../components/room/CreateRoom.vue';
 import RoomList from '../components/room/RoomList.vue';
 
 const roomStore = useRoomStore();
+const authStore = useAuthStore();
 const router = useRouter();
 const showCreateRoom = ref(false);
 const showJoinRoom = ref(false);
@@ -126,17 +128,24 @@ const isDev = import.meta.env.DEV;
 const devLogin = async (id: number, username: string) => {
   try {
     const apiBase = import.meta.env.VITE_API_URL || '';
-    const res = await fetch(`${apiBase}/auth/dev-login`, {
+    const url = apiBase ? `${apiBase}/auth/dev-login` : '/api/auth/dev-login';
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: id, username }),
       credentials: 'include'
     });
     if (res.ok) {
+      const data = await res.json();
+      authStore.setUser(data.user);
       window.location.reload();
     } else {
-      const err = await res.json();
-      alert('Dev login failed: ' + (err.error || res.statusText));
+      let errorMessage = res.statusText || `HTTP ${res.status}`;
+      try {
+        const err = await res.json();
+        errorMessage = err.error || errorMessage;
+      } catch {}
+      alert('Dev login failed: ' + errorMessage);
     }
   } catch (e: any) {
     alert('Error during dev login: ' + e.message);

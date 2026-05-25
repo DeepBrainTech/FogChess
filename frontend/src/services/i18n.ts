@@ -117,6 +117,8 @@ const dict: Dict = {
   'gameOver.noMoves.lose': { zh: '很抱歉，你无子可走！', en: 'Sorry, you have no legal moves!' },
   'gameOver.draw.message': { zh: '平局！', en: 'It\'s a draw!' },
   'gameOver.finished': { zh: '对局结束', en: 'Game finished' },
+  'gameOver.reviewAll': { zh: '解雾复盘', en: 'Reveal & Review' },
+  'gameOver.rematch': { zh: '再来一局', en: 'Rematch' },
   'gameOver.spectator.whiteWins': { zh: '对局结果：白方胜', en: 'Result: white wins' },
   'gameOver.spectator.blackWins': { zh: '对局结果：黑方胜', en: 'Result: black wins' },
   'lobby.aiRoomSpectateOnly': { zh: '本房间为 AI 对战，无法作为第二人加入，请使用「观战」', en: 'This is a human vs AI game; use “Spectate” to watch' },
@@ -169,6 +171,8 @@ const dict: Dict = {
   'status.unknown': { zh: '未知状态', en: 'Unknown' },
   'status.role': { zh: '身份:', en: 'Role:' },
   'status.spectating': { zh: '观战中', en: 'Spectating' },
+  'status.ai': { zh: 'AI:', en: 'AI:' },
+  'status.aiThinking': { zh: 'AI 思考中...', en: 'AI thinking...' },
 
   // Replay controls titles
   'replay.toStart': { zh: '回到开始', en: 'Go to start' },
@@ -215,6 +219,7 @@ const dict: Dict = {
   'room.create.gameMode': { zh: '游戏模式:', en: 'Game Mode:' },
   'room.create.gameMode.normal': { zh: '正常对战', en: 'Normal Game' },
   'room.create.gameMode.ai': { zh: 'AI对战', en: 'AI Game' },
+  'room.create.gameMode.superAi': { zh: '对战超级AI', en: 'Vs Super AI' },
   'room.create.aiDifficulty': { zh: 'AI难度:', en: 'AI Difficulty:' },
   'room.create.aiDifficulty.simple': { zh: '简单AI', en: 'Simple AI' },
   'room.create.aiDifficulty.standard': { zh: '标准AI', en: 'Standard AI' },
@@ -237,6 +242,7 @@ const dict: Dict = {
   'header.you': { zh: '你', en: 'You' },
   'header.opponent': { zh: '对方', en: 'Opponent' },
   'header.aiOpponent': { zh: '电脑', en: 'Computer' },
+  'header.superAiOpponent': { zh: '超级AI', en: 'Super AI' },
   'header.aiTurn': { zh: '轮到电脑走', en: 'Computer to move' },
   'header.currentTurn': { zh: '(当前回合)', en: '(Current turn)' },
 
@@ -339,6 +345,7 @@ export function t(key: keyof typeof dict): string {
 
 /** 服务端/存档里 AI 的固定英文标识 */
 const AI_CANONICAL_NAME = /^computer$/i;
+const SUPER_AI_CANONICAL_NAME = /^super ai$/i;
 
 /**
  * 仅根据原始 name 显示：「Computer」→ 当前语言下为 电脑 / Computer
@@ -346,6 +353,7 @@ const AI_CANONICAL_NAME = /^computer$/i;
 export function displayNameFromApiString(name: string | undefined | null): string {
   const raw = (name || '').trim();
   if (!raw) return t('header.opponent');
+  if (SUPER_AI_CANONICAL_NAME.test(raw)) return t('header.superAiOpponent');
   if (AI_CANONICAL_NAME.test(raw)) return t('header.aiOpponent');
   return raw;
 }
@@ -355,6 +363,7 @@ export function displayNameFromApiString(name: string | undefined | null): strin
  */
 export function displayPlayerName(player: { name?: string; isAi?: boolean } | null | undefined): string {
   if (!player) return t('header.opponent');
+  if (SUPER_AI_CANONICAL_NAME.test((player.name || '').trim())) return t('header.superAiOpponent');
   if (player.isAi) return t('header.aiOpponent');
   return displayNameFromApiString(player.name);
 }

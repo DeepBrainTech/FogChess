@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 
+const backendTarget = process.env.BACKEND_URL || 'http://localhost:3001';
+
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -30,11 +32,15 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        // In docker-compose, the backend is reachable by service name 'backend'
-        // Fallback to localhost for non-docker local runs
-        target: process.env.BACKEND_URL || 'http://backend:3001',
+        // Local development uses localhost; containers can override this target.
+        target: backendTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      '/socket.io': {
+        target: backendTarget,
+        changeOrigin: true,
+        ws: true,
       },
     },
   },

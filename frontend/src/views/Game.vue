@@ -94,7 +94,11 @@
     :is-winner="isWinner" 
     :title="gameOverTitle" 
     :message="gameOverMessage" 
+    :can-review="!!room"
+    :can-rematch="!!roomStore.currentPlayer"
     @close="closeGameOver"
+    @review="openFullReview"
+    @rematch="startRematch"
   />
 
   <!-- 升变选择弹窗 -->
@@ -175,7 +179,7 @@ const effectiveViewerColor = computed<'white' | 'black'>(() => gameStore.viewing
 const spectatorVisionMode = computed<'alternating' | 'god'>(() => gameStore.spectatorVisionMode);
 const canSwitchToPlayer = computed(() => {
   if (!isSpectating.value || !room.value) return false;
-  return room.value.players.length < 2 && room.value.gameMode !== 'ai';
+  return room.value.players.length < 2 && room.value.gameMode !== 'ai' && room.value.gameMode !== 'super-ai';
 });
 const apiBase = (import.meta as any).env?.VITE_API_URL || '';
 const playerRatings = ref<Record<number, number>>({});
@@ -245,7 +249,7 @@ const basePlayersForHeader = computed<DisplayPlayer[]>(() => {
 
   const basePlayers = (currentRoom.players || []).map(player => ({ ...player })) as DisplayPlayer[];
 
-  if (currentRoom.gameMode === 'ai') {
+  if (currentRoom.gameMode === 'ai' || currentRoom.gameMode === 'super-ai') {
     const localPlayerId = roomStore.currentPlayer?.id;
     const playersWithFlags = basePlayers.map(player => ({
       ...player,
@@ -281,7 +285,7 @@ const basePlayersForHeader = computed<DisplayPlayer[]>(() => {
 
     const aiPlayer: DisplayPlayer = {
       id: 'ai-player',
-      name: t('header.aiOpponent'),
+      name: currentRoom.gameMode === 'super-ai' ? t('header.superAiOpponent') : t('header.aiOpponent'),
       color: aiColor,
       socketId: 'ai-player',
       isAi: true,
@@ -469,6 +473,18 @@ const confirmSurrender = () => {
   
   gameStore.surrender(room.value.id);
   closeDialog();
+};
+
+const openFullReview = () => {
+  if (!room.value) return;
+  closeGameOver();
+  router.push(`/game-review/${room.value.id}`);
+};
+
+const startRematch = () => {
+  if (!room.value || !roomStore.currentPlayer) return;
+  closeGameOver();
+  gameStore.requestRematch(room.value.id);
 };
 
 const switchToPlayer = () => {
