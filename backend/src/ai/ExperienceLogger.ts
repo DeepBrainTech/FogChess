@@ -18,9 +18,16 @@ export interface ExperienceDecision {
     luxScore: number;
     tacticalSource: string;
     tacticalCentipawns: number;
+    worstCaseRisk: string;
+    robustness: number;
+    decisionFeatures: SableFowResult['candidateMoves'][number]['decisionFeatures'];
+    learnedExperience: SableFowResult['candidateMoves'][number]['learnedExperience'];
   }>;
   riveScore: number | null;
   luxScore: number | null;
+  finalScore: number | null;
+  worstCaseRisk: SableFowResult['worstCaseRisk'];
+  robustness: number | null;
   intentSummary: SableFowResult['intentSummary'];
   beliefSummary: {
     sampledScenarios: number;
@@ -87,10 +94,17 @@ export class ExperienceLogger {
         riveScore: candidate.riveScore,
         luxScore: candidate.luxScore,
         tacticalSource: candidate.tacticalOracle.source,
-        tacticalCentipawns: candidate.tacticalOracle.centipawns
+        tacticalCentipawns: candidate.tacticalOracle.centipawns,
+        worstCaseRisk: candidate.worstCaseRisk,
+        robustness: candidate.robustness,
+        decisionFeatures: candidate.decisionFeatures,
+        learnedExperience: candidate.learnedExperience
       })),
       riveScore: result.riveScore,
       luxScore: result.luxScore,
+      finalScore: result.finalScore,
+      worstCaseRisk: result.worstCaseRisk,
+      robustness: result.robustness,
       intentSummary: result.intentSummary,
       beliefSummary: {
         sampledScenarios: result.sampledScenarios.length,

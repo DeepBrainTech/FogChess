@@ -5,6 +5,7 @@ import { TimerService } from './TimerService';
 import { AIService } from './AIService';
 import { SableFowAI } from '../ai/SableFowAI';
 import { ExperienceLogger } from '../ai/ExperienceLogger';
+import { loadRuntimeAiConfig } from '../ai/AiConfig';
 import type { RoomRepository } from '../repositories/RoomRepository';
 import type { GameArchiver } from './ArchiverService';
 
@@ -12,7 +13,7 @@ export class RoomService {
   private rooms: Map<string, Room> = new Map();
   private roomIdToChess: Map<string, ChessService> = new Map();
   private roomIdToAI: Map<string, AIService> = new Map();
-  private sableFowAI = new SableFowAI();
+  private sableFowAI = new SableFowAI(loadRuntimeAiConfig());
   private experienceLogger = new ExperienceLogger();
   private roomIdToGraceDeadline: Map<string, number> = new Map();
   private timerService: TimerService;

@@ -8,7 +8,11 @@ export class AIService {
   private difficulty: number; // 1-10
   private aiColor: 'white' | 'black';
 
-  constructor(difficulty: number = 6, aiColor: 'white' | 'black' = 'black') {
+  constructor(
+    difficulty: number = 6,
+    aiColor: 'white' | 'black' = 'black',
+    private readonly silent: boolean = false
+  ) {
     this.chess = new Chess();
     this.difficulty = Math.max(1, Math.min(10, difficulty)); 
     this.aiColor = aiColor;
@@ -25,13 +29,13 @@ export class AIService {
    * 加载游戏状态
    */
   loadGameState(gameState: GameState): void {
-    console.log('AI loading game state:', gameState.board);
+    this.log('AI loading game state:', gameState.board);
     try {
       this.chess.load(gameState.board);
-      console.log('AI chess loaded, current turn:', this.chess.turn());
+      this.log('AI chess loaded, current turn:', this.chess.turn());
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.log('AI chess load failed (game might be finished):', errorMessage);
+      this.log('AI chess load failed (game might be finished):', errorMessage);
       // 如果游戏已结束（比如王被吃掉），重置AI的chess实例
       this.chess.reset();
     }
@@ -45,7 +49,7 @@ export class AIService {
     try {
       // RoomService supplies pseudo-legal fog moves so check/checkmate never limits the AI.
       const moves = fogMoves ?? (this.chess.moves({ verbose: true } as any) as any[]);
-      console.log('AI Available Moves:', moves.length, moves.slice(0, 3));
+      this.log('AI Available Moves:', moves.length, moves.slice(0, 3));
       if (moves.length === 0) return null;
 
       // 根据难度调整AI行为
@@ -77,7 +81,7 @@ export class AIService {
     // 优先选择吃王移动（迷雾棋中吃王即获胜）
     const kingCaptures = moves.filter(move => move.captured === 'k');
     if (kingCaptures.length > 0) {
-      console.log('AI: Found king capture opportunity!');
+      this.log('AI: Found king capture opportunity!');
       // 哪怕是吃王，也给它10%的概率“没看见”（更符合盲棋瞎子设定）
       if (Math.random() < 0.90) {
         return kingCaptures[Math.floor(Math.random() * kingCaptures.length)];
@@ -89,7 +93,7 @@ export class AIService {
     
     if (rand < 0.50) {
       // 50%的概率随机走一步合法的奇怪棋
-      console.log('AI: Making a random simple move (50% chance)');
+      this.log('AI: Making a random simple move (50% chance)');
       return moves[Math.floor(Math.random() * moves.length)];
     }
 
@@ -125,7 +129,7 @@ export class AIService {
     // 剩下的50%里，有一半的概率（即总体的25%）走最差的棋（送大礼）
     // rand 范围是 [0.50, 1)。如果 rand < 0.75，正好是 25% 的总概率
     if (rand < 0.75) {
-      console.log('AI: Making a blunder move (25% chance)');
+      this.log('AI: Making a blunder move (25% chance)');
       return hasScoredMove ? worstMove : moves[Math.floor(Math.random() * moves.length)];
     }
     
@@ -140,7 +144,7 @@ export class AIService {
     // 优先选择吃王移动（迷雾棋中吃王即获胜）
     const kingCaptures = moves.filter(move => move.captured === 'k');
     if (kingCaptures.length > 0) {
-      console.log('AI: Found king capture opportunity!');
+      this.log('AI: Found king capture opportunity!');
       return kingCaptures[Math.floor(Math.random() * kingCaptures.length)];
     }
     
@@ -162,7 +166,7 @@ export class AIService {
     // 优先选择吃王移动
     const kingCaptures = moves.filter(move => move.captured === 'k');
     if (kingCaptures.length > 0) {
-      console.log('AI: Found king capture opportunity!');
+      this.log('AI: Found king capture opportunity!');
       return kingCaptures[Math.floor(Math.random() * kingCaptures.length)];
     }
     
@@ -181,7 +185,7 @@ export class AIService {
     
     // 如果满足条件，50% 概率直接随机走
     if ((capturedCount >= 5 || totalMoves >= 10) && Math.random() < 0.50) {
-      console.log('AI: Nerfed standard random move (50% chance)');
+      this.log('AI: Nerfed standard random move (50% chance)');
       return moves[Math.floor(Math.random() * moves.length)];
     }
 
@@ -501,5 +505,9 @@ export class AIService {
     }
     const ch = piece.type.toUpperCase();
     return piece.color === 'w' ? ch : ch.toLowerCase();
+  }
+
+  private log(...args: unknown[]): void {
+    if (!this.silent) console.log(...args);
   }
 }

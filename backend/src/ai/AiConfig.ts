@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 export interface AiConfig {
   materialWeight: number;
   captureWeight: number;
@@ -33,6 +36,10 @@ export interface AiConfig {
   finalHeuristicWeight: number;
   finalRiveWeight: number;
   finalLuxWeight: number;
+  mistakePenaltyWeight: number;
+  learnedAlternativeBonusWeight: number;
+  maxCaseMemoryAdjustment: number;
+  maxPolicyPatchAdjustment: number;
   useStockfish: boolean;
   stockfishDepth: number;
   stockfishTimeLimitMs: number;
@@ -75,9 +82,57 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
   finalHeuristicWeight: 1,
   finalRiveWeight: 1,
   finalLuxWeight: 35,
+  mistakePenaltyWeight: 1,
+  learnedAlternativeBonusWeight: 1,
+  maxCaseMemoryAdjustment: 25,
+  maxPolicyPatchAdjustment: 20,
   useStockfish: true,
   stockfishDepth: 8,
   stockfishTimeLimitMs: 40,
   maxStockfishEvaluationsPerMove: 8,
   stockfishTopCandidateCount: 3
 };
+
+export interface SavedAiConfig {
+  trainingRunId: string;
+  timestamp: string;
+  numberOfGames: number;
+  evaluationResult: unknown;
+  configWeights: AiConfig;
+  previousBestComparison: unknown;
+}
+
+export const BEST_AI_CONFIG_PATH = path.resolve(__dirname, '../../data/ai_configs/best_config.json');
+
+export function loadSavedBestConfig(filePath: string = BEST_AI_CONFIG_PATH): SavedAiConfig | null {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Partial<SavedAiConfig>;
+    if (!parsed.configWeights || typeof parsed.configWeights !== 'object') return null;
+    return {
+      trainingRunId: String(parsed.trainingRunId || 'unknown'),
+      timestamp: String(parsed.timestamp || ''),
+      numberOfGames: Number(parsed.numberOfGames || 0),
+      evaluationResult: parsed.evaluationResult || {},
+      configWeights: { ...DEFAULT_AI_CONFIG, ...parsed.configWeights },
+      previousBestComparison: parsed.previousBestComparison || null
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function loadRuntimeAiConfig(): AiConfig {
+  if (process.env.AI_USE_BEST_CONFIG !== 'true') return DEFAULT_AI_CONFIG;
+  const saved = loadSavedBestConfig()?.configWeights;
+  if (!saved) return DEFAULT_AI_CONFIG;
+  return {
+    ...saved,
+    beliefPoolSize: DEFAULT_AI_CONFIG.beliefPoolSize,
+    beliefSampleCount: DEFAULT_AI_CONFIG.beliefSampleCount,
+    useStockfish: DEFAULT_AI_CONFIG.useStockfish,
+    stockfishDepth: DEFAULT_AI_CONFIG.stockfishDepth,
+    stockfishTimeLimitMs: DEFAULT_AI_CONFIG.stockfishTimeLimitMs,
+    maxStockfishEvaluationsPerMove: DEFAULT_AI_CONFIG.maxStockfishEvaluationsPerMove,
+    stockfishTopCandidateCount: DEFAULT_AI_CONFIG.stockfishTopCandidateCount
+  };
+}

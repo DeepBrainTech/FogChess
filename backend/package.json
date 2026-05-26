@@ -8,6 +8,13 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "self-play": "tsx src/scripts/SelfPlayRunner.ts",
+    "ai:selfplay": "tsx src/scripts/SelfPlayRunner.ts",
+    "ai:evaluate": "tsx src/scripts/EvaluateAI.ts",
+    "ai:train": "tsx src/scripts/TrainAI.ts",
+    "ai:analyze-mistakes": "tsx src/scripts/AnalyzeMistakes.ts",
+    "ai:train:quick": "tsx src/scripts/RobustTrainingRunner.ts --quick",
+    "ai:train:full": "tsx src/scripts/RobustTrainingRunner.ts --stockfish",
+    "ai:evolve": "tsx src/scripts/ContinuousEvolutionRunner.ts",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
   },

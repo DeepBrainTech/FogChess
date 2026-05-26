@@ -1,12 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
-import { DEFAULT_AI_CONFIG } from '../ai/AiConfig';
+import { DEFAULT_AI_CONFIG, loadSavedBestConfig } from '../ai/AiConfig';
 import { ExperienceBuffer } from '../ai/ExperienceBuffer';
 import { ExperienceLogger } from '../ai/ExperienceLogger';
 import { SableFowAI } from '../ai/SableFowAI';
 import type { AiColor } from '../ai/types';
 import { ChessService } from '../services/ChessService';
 
-interface SelfPlayOptions {
+export interface SelfPlayOptions {
   games: number;
   maxPlies: number;
   useStockfish: boolean;
@@ -31,8 +31,9 @@ async function runGame(index: number, options: SelfPlayOptions, logger: Experien
   const chess = new ChessService();
   let state = chess.createNewGame();
   state.gameStatus = 'playing';
-  const white = new SableFowAI({ ...DEFAULT_AI_CONFIG, useStockfish: options.useStockfish });
-  const black = new SableFowAI({ ...DEFAULT_AI_CONFIG, useStockfish: options.useStockfish });
+  const best = loadSavedBestConfig()?.configWeights || DEFAULT_AI_CONFIG;
+  const white = new SableFowAI({ ...best, useStockfish: options.useStockfish });
+  const black = new SableFowAI({ ...best, useStockfish: options.useStockfish });
   logger.beginGame(gameId, [
     { name: 'SABLE-White', color: 'white', role: 'ai' },
     { name: 'SABLE-Black', color: 'black', role: 'ai' }
@@ -73,24 +74,31 @@ async function runGame(index: number, options: SelfPlayOptions, logger: Experien
   }
 }
 
-async function main(): Promise<void> {
-  const options = optionsFromArgs();
+export async function runSelfPlayGames(options: SelfPlayOptions): Promise<string> {
   const buffer = new ExperienceBuffer();
   const logger = new ExperienceLogger(buffer);
   for (let game = 1; game <= options.games; game++) {
     await runGame(game, options, logger);
   }
+  return buffer.getStoragePath();
+}
+
+async function main(): Promise<void> {
+  const options = optionsFromArgs();
+  const savedTo = await runSelfPlayGames(options);
   console.log(JSON.stringify({
     games: options.games,
     maxPlies: options.maxPlies,
     useStockfish: options.useStockfish,
-    savedTo: buffer.getStoragePath()
+    savedTo
   }));
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch(error => {
-    console.error(error);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch(error => {
+      console.error(error);
+      process.exit(1);
+    });
+}

@@ -64,6 +64,17 @@ export interface FeatureContribution {
   contribution: number;
 }
 
+export interface LearnedExperienceAdjustment {
+  mistakePenalty: number;
+  learnedAvoidanceScore: number;
+  learnedAlternativeBonus: number;
+  policyPatchAdjustment: number;
+  totalAdjustment: number;
+  matchedCasesCount: number;
+  matchedMistakeTypes: string[];
+  matchedPatchIds: string[];
+}
+
 export interface CandidateDecisionContext {
   observation: AiObservation;
   memory: AiMemoryState;
@@ -89,6 +100,7 @@ export interface EvaluatedMove extends BaseEvaluatedMove {
   topFeatureContributions: FeatureContribution[];
   shortReason: string;
   tacticalOracle: StockfishEvaluation;
+  learnedExperience: LearnedExperienceAdjustment;
 }
 
 export interface SableFowResult {

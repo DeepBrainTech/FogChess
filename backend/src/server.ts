@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import { RoomService } from './services/RoomService';
 import { SableFowAI } from './ai/SableFowAI';
+import { loadRuntimeAiConfig } from './ai/AiConfig';
 import type { GameState, Player, Room, SocketEvents } from './types';
 import { RedisRoomRepository } from './repositories/RedisRoomRepository';
 import { PostgresArchiver, type GameArchiver } from './services/ArchiverService';
@@ -146,7 +147,7 @@ const archiver: GameArchiver = persistentArchiver
 const userService = dbUrl ? new UserService(dbUrl) : undefined;
 const roomService = new RoomService(repository, archiver);
 const isComputerMode = (mode: Room['gameMode']) => mode === 'ai' || mode === 'super-ai';
-const sableFowAI = new SableFowAI();
+const sableFowAI = new SableFowAI(loadRuntimeAiConfig());
 roomService.setRoomClosedHandler((roomId, reason) => {
   io.to(roomId).emit('room-closed', { roomId, reason });
   io.socketsLeave(roomId);

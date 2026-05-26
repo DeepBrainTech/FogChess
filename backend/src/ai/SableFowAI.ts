@@ -2,7 +2,7 @@ import { ChessService } from '../services/ChessService';
 import type { GameState } from '../types';
 import { DEFAULT_AI_CONFIG, type AiConfig } from './AiConfig';
 import { HeuristicEvaluator } from './HeuristicEvaluator';
-import type { AiColor, AiMove, SableFowResult } from './types';
+import type { AiColor, AiMove, LearnedExperienceAdjustment, SableFowResult } from './types';
 import { MemoryTracker } from './MemoryTracker';
 import { HiddenBoardGenerator } from './HiddenBoardGenerator';
 import type { IntentScenario, IntentSummary } from './beliefTypes';
@@ -16,6 +16,8 @@ import {
   type StockfishAdapter,
   type StockfishEvaluation
 } from './StockfishAdapter';
+import { CaseMemoryScorer } from './training/CaseMemoryScorer';
+import { PolicyPatchManager } from './training/PolicyPatchManager';
 
 export class SableFowAI {
   private readonly evaluator: HeuristicEvaluator;
@@ -26,6 +28,8 @@ export class SableFowAI {
   private readonly luxScorer: LuxScorer;
   private readonly riveScorer: RiveScorer;
   private readonly stockfishAdapter: StockfishAdapter;
+  private readonly caseMemoryScorer: CaseMemoryScorer;
+  private readonly policyPatchManager: PolicyPatchManager;
 
   constructor(
     private readonly config: AiConfig = DEFAULT_AI_CONFIG,
@@ -35,7 +39,9 @@ export class SableFowAI {
     intentSampler = new IntentStratifiedSampler(),
     luxScorer = new LuxScorer(config),
     riveScorer = new RiveScorer(config),
-    stockfishAdapter: StockfishAdapter = SHARED_STOCKFISH_ADAPTER
+    stockfishAdapter: StockfishAdapter = SHARED_STOCKFISH_ADAPTER,
+    caseMemoryScorer = new CaseMemoryScorer(),
+    policyPatchManager = new PolicyPatchManager()
   ) {
     this.evaluator = new HeuristicEvaluator(config);
     this.memoryTracker = memoryTracker;
@@ -47,6 +53,8 @@ export class SableFowAI {
     this.stockfishAdapter = config.useStockfish && stockfishAdapter.available
       ? stockfishAdapter
       : new HeuristicFallbackStockfishAdapter();
+    this.caseMemoryScorer = caseMemoryScorer;
+    this.policyPatchManager = policyPatchManager;
   }
 
   async getBestMove(gameState: GameState, aiColor: AiColor, memoryKey?: string): Promise<SableFowResult> {
@@ -124,10 +132,12 @@ export class SableFowAI {
           tacticalOracleValue: tacticalOracle.centipawns / 100
         });
         const rive = this.riveScorer.score(decisionBase);
+        const learnedExperience = this.learnedExperienceAdjustment(move, observation, memory, intentSummary);
         const finalScore =
           robustness * this.config.finalHeuristicWeight +
           rive.riveScore * this.config.finalRiveWeight +
-          lux.luxScore * this.config.finalLuxWeight;
+          lux.luxScore * this.config.finalLuxWeight +
+          learnedExperience.totalAdjustment;
         const decisionFeatures = {
           ...decisionBase,
           riveScore: rive.riveScore,
@@ -146,7 +156,8 @@ export class SableFowAI {
           luxScore: lux.luxScore,
           topFeatureContributions: rive.contributions,
           shortReason: this.shortReason(rive.contributions, lux.luxScore),
-          tacticalOracle
+          tacticalOracle,
+          learnedExperience
         };
       })
       .sort((a, b) =>
@@ -170,11 +181,11 @@ export class SableFowAI {
       );
     }
     const best = candidates[0];
-    const topReasons = this.addIntentReasons(
+    const topReasons = this.addExperienceReasons(this.addIntentReasons(
       best?.reasons || ['no legal fog move'],
       intentSummary,
       highRiskScenarios
-    );
+    ), best?.learnedExperience);
     return {
       move: best?.move || null,
       score: best?.score ?? null,
@@ -298,6 +309,46 @@ export class SableFowAI {
     return result.filter((reason, index, all) => all.indexOf(reason) === index).slice(0, 5);
   }
 
+  private addExperienceReasons(
+    reasons: string[],
+    learned?: LearnedExperienceAdjustment
+  ): string[] {
+    if (!learned || learned.matchedCasesCount === 0 && learned.matchedPatchIds.length === 0) return reasons;
+    const result = [...reasons];
+    if (learned.mistakePenalty > 0) result.push('avoids a previously observed failure pattern');
+    if (learned.learnedAlternativeBonus > 0) result.push('prefers a safer alternative learned from a similar loss');
+    if (learned.policyPatchAdjustment !== 0) result.push('applies a bounded learned local policy rule');
+    return result.filter((reason, index, all) => all.indexOf(reason) === index).slice(0, 5);
+  }
+
+  private learnedExperienceAdjustment(
+    move: AiMove,
+    observation: ReturnType<MemoryTracker['createObservation']>,
+    memory: ReturnType<MemoryTracker['updateMemory']>,
+    intentSummary: IntentSummary
+  ): LearnedExperienceAdjustment {
+    const caseScore = this.caseMemoryScorer.score(move, observation, memory, intentSummary);
+    const patch = this.policyPatchManager.score(move, observation, memory, intentSummary);
+    const caseAdjustment = Math.max(
+      -this.config.maxCaseMemoryAdjustment,
+      Math.min(
+        this.config.maxCaseMemoryAdjustment,
+        caseScore.learnedAlternativeBonus * this.config.learnedAlternativeBonusWeight -
+          caseScore.mistakePenalty * this.config.mistakePenaltyWeight
+      )
+    );
+    const policyPatchAdjustment = Math.max(
+      -this.config.maxPolicyPatchAdjustment,
+      Math.min(this.config.maxPolicyPatchAdjustment, patch.adjustment)
+    );
+    return {
+      ...caseScore,
+      policyPatchAdjustment,
+      totalAdjustment: caseAdjustment + policyPatchAdjustment,
+      matchedPatchIds: patch.matchedPatchIds
+    };
+  }
+
   private async evaluateTacticalOracle(
     move: AiMove,
     scenarios: IntentScenario[],
@@ -359,7 +410,8 @@ export class SableFowAI {
     const finalScore =
       candidate.robustness * this.config.finalHeuristicWeight +
       rive.riveScore * this.config.finalRiveWeight +
-      candidate.luxScore * this.config.finalLuxWeight;
+      candidate.luxScore * this.config.finalLuxWeight +
+      candidate.learnedExperience.totalAdjustment;
     return {
       ...candidate,
       score: finalScore,

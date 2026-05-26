@@ -38,6 +38,8 @@ pids
 *.seed
 *.pid.lock
 backend/data/experience/
+backend/data/ai_configs/
+backend/data/ai_training/
 
 # Coverage directory used by tools like istanbul
 coverage/
