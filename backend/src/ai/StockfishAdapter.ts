@@ -78,6 +78,7 @@ export class NodeStockfishAdapter implements StockfishAdapter {
   private lineListener?: (line: string) => void;
   private lineBuffer = '';
   private workQueue: Promise<void> = Promise.resolve();
+  private activeReject?: (reason?: unknown) => void;
 
   constructor(private readonly maxCacheEntries = 1000) {}
 
@@ -145,6 +146,7 @@ export class NodeStockfishAdapter implements StockfishAdapter {
         if (finished) return;
         finished = true;
         clearTimeout(timeout);
+        this.clearActiveReject(reject);
         const perspective = move ? -1 : 1;
         resolve({
           centipawns: perspective * centipawns,
@@ -165,7 +167,9 @@ export class NodeStockfishAdapter implements StockfishAdapter {
         }
         if (line.startsWith('bestmove')) complete();
       };
+      this.activeReject = reject;
       const timeout = setTimeout(() => {
+        this.clearActiveReject(reject);
         this.destroyEngine();
         reject(new Error('Stockfish search timeout'));
       }, Math.max(options.timeLimitMs + 250, 300));
@@ -191,12 +195,12 @@ export class NodeStockfishAdapter implements StockfishAdapter {
     engine.stdout.setEncoding('utf8');
     engine.stdout.on('data', (chunk: string) => this.handleOutput(chunk));
     engine.stderr.on('data', () => undefined);
-    engine.once('exit', () => {
-      if (this.engine === engine) {
-        this.engine = undefined;
-        this.enginePromise = undefined;
-      }
-    });
+    engine.stdin.on('error', error => this.handleEngineFailure(engine, error));
+    engine.once('error', error => this.handleEngineFailure(engine, error));
+    engine.once('exit', (code, signal) => this.handleEngineFailure(
+      engine,
+      new Error(`Stockfish process exited (${code ?? signal ?? 'unknown'})`)
+    ));
     process.once('exit', () => {
       if (this.engine === engine) engine.kill();
     });
@@ -214,12 +218,15 @@ export class NodeStockfishAdapter implements StockfishAdapter {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        this.clearActiveReject(reject);
         this.destroyEngine();
         reject(new Error('Stockfish startup timeout'));
       }, 5000);
+      this.activeReject = reject;
       this.lineListener = line => {
         if (predicate(line)) {
           clearTimeout(timeout);
+          this.clearActiveReject(reject);
           resolve();
         }
       };
@@ -228,7 +235,17 @@ export class NodeStockfishAdapter implements StockfishAdapter {
   }
 
   private send(engine: ChildProcessWithoutNullStreams, command: string): void {
-    engine.stdin.write(`${command}\n`);
+    if (this.engine !== engine || engine.killed || engine.stdin.destroyed || !engine.stdin.writable) {
+      this.handleEngineFailure(engine, new Error('Stockfish input stream is unavailable'));
+      return;
+    }
+    try {
+      engine.stdin.write(`${command}\n`, error => {
+        if (error) this.handleEngineFailure(engine, error);
+      });
+    } catch (error) {
+      this.handleEngineFailure(engine, error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   private handleOutput(chunk: string): void {
@@ -241,9 +258,22 @@ export class NodeStockfishAdapter implements StockfishAdapter {
   private destroyEngine(): void {
     this.lineListener = undefined;
     this.lineBuffer = '';
-    this.engine?.kill();
+    const engine = this.engine;
     this.engine = undefined;
     this.enginePromise = undefined;
+    if (engine && !engine.killed) engine.kill();
+  }
+
+  private handleEngineFailure(engine: ChildProcessWithoutNullStreams, error: Error): void {
+    if (this.engine !== engine) return;
+    const reject = this.activeReject;
+    this.activeReject = undefined;
+    this.destroyEngine();
+    reject?.(error);
+  }
+
+  private clearActiveReject(reject: (reason?: unknown) => void): void {
+    if (this.activeReject === reject) this.activeReject = undefined;
   }
 
   private hasBothKings(fen: string): boolean {
