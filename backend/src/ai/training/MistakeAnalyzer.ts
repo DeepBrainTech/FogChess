@@ -22,11 +22,12 @@ export class MistakeAnalyzer {
     private readonly experiencePath: string = EXPERIENCE_LOG_PATH,
     private readonly outputPath: string = MISTAKE_MEMORY_PATH,
     private readonly statePath: string = MISTAKE_ANALYSIS_STATE_PATH,
-    private readonly maxRecords: number = 2000
+    private readonly maxRecords: number = 2000,
+    private readonly maxExperienceReadBytes: number = 24 * 1024 * 1024
   ) {}
 
   async analyze(): Promise<AnalyzeResult> {
-    const games = await this.readJsonLines<ExperienceLog>(this.experiencePath);
+    const games = await this.readRecentExperiences();
     const existing = await this.readJsonLines<MistakeRecord>(this.outputPath);
     const processedFeedbackGames = await this.readProcessedGameIds();
     const known = new Set(existing.map(record => `${record.gameId}:${record.moveIndex}`));
@@ -181,6 +182,31 @@ export class MistakeAnalyzer {
         .split(/\r?\n/)
         .filter(Boolean)
         .map(line => JSON.parse(line) as T);
+    } catch {
+      return [];
+    }
+  }
+
+  private async readRecentExperiences(): Promise<ExperienceLog[]> {
+    try {
+      const stats = await fs.stat(this.experiencePath);
+      const bytesToRead = Math.min(stats.size, this.maxExperienceReadBytes);
+      const handle = await fs.open(this.experiencePath, 'r');
+      const buffer = Buffer.alloc(bytesToRead);
+      try {
+        await handle.read(buffer, 0, bytesToRead, stats.size - bytesToRead);
+      } finally {
+        await handle.close();
+      }
+      let content = buffer.toString('utf8');
+      if (bytesToRead < stats.size) {
+        const firstNewline = content.indexOf('\n');
+        content = firstNewline >= 0 ? content.slice(firstNewline + 1) : '';
+      }
+      return content
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map(line => JSON.parse(line) as ExperienceLog);
     } catch {
       return [];
     }
