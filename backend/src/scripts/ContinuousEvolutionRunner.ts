@@ -5,6 +5,9 @@ import { FailureCurriculum } from '../ai/training/FailureCurriculum';
 import { runSelfPlayGames } from './SelfPlayRunner';
 import { analyzeMistakes } from './AnalyzeMistakes';
 
+const OUTPUT_DIRECTORY = path.resolve(__dirname, '../../data/ai_configs');
+const STATUS_PATH = path.join(OUTPUT_DIRECTORY, 'evolution_status.json');
+
 interface EvolutionOptions {
   cycles: number;
   candidates: number;
@@ -48,9 +51,7 @@ function localTimestamp(): string {
 
 async function main(): Promise<void> {
   const options = optionsFromArgs();
-  const outputDirectory = path.resolve(__dirname, '../../data/ai_configs');
-  const historyPath = path.join(outputDirectory, 'evolution_history.jsonl');
-  const statusPath = path.join(outputDirectory, 'evolution_status.json');
+  const historyPath = path.join(OUTPUT_DIRECTORY, 'evolution_history.jsonl');
   const trainer = new WeightTrainer();
   let stopRequested = false;
   let totalGames = 0;
@@ -59,7 +60,7 @@ async function main(): Promise<void> {
   process.once('SIGINT', () => { stopRequested = true; });
   process.once('SIGTERM', () => { stopRequested = true; });
 
-  await fs.mkdir(outputDirectory, { recursive: true });
+  await fs.mkdir(OUTPUT_DIRECTORY, { recursive: true });
   console.log(JSON.stringify({
     event: 'evolution-started',
     pid: process.pid,
@@ -68,13 +69,35 @@ async function main(): Promise<void> {
     cycles: options.cycles === 0 ? 'continuous' : options.cycles,
     options,
     historyPath,
-    statusPath
+    statusPath: STATUS_PATH
   }));
   console.log(`[训练启动] 本地时间 ${localTimestamp()} | 专项对手: 最高级普通 AI | 守门对手: 上一代冠军`);
+  await fs.writeFile(STATUS_PATH, `${JSON.stringify({
+    running: true,
+    phase: 'starting',
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+    localTime: localTimestamp(),
+    completedCycles: 0,
+    totalGames,
+    promotions,
+    options
+  }, null, 2)}\n`, 'utf8');
 
   let cycle = 0;
   while (!stopRequested && (options.cycles === 0 || cycle < options.cycles)) {
     cycle++;
+    await fs.writeFile(STATUS_PATH, `${JSON.stringify({
+      running: true,
+      phase: 'running-cycle',
+      pid: process.pid,
+      cycle,
+      cycleStartedAt: new Date().toISOString(),
+      localTime: localTimestamp(),
+      totalGames,
+      promotions,
+      options
+    }, null, 2)}\n`, 'utf8');
     await runSelfPlayGames({
       games: 1,
       maxPlies: options.maxPlies,
@@ -124,7 +147,7 @@ async function main(): Promise<void> {
       savedTo: summary.savedTo
     };
     await fs.appendFile(historyPath, `${JSON.stringify(record)}\n`, 'utf8');
-    await fs.writeFile(statusPath, `${JSON.stringify({ running: true, pid: process.pid, ...record }, null, 2)}\n`, 'utf8');
+    await fs.writeFile(STATUS_PATH, `${JSON.stringify({ running: true, phase: 'cycle-completed', pid: process.pid, ...record }, null, 2)}\n`, 'utf8');
     console.log(JSON.stringify({ event: summary.promoted ? 'champion-promoted' : 'champion-retained', ...record }));
     const target = summary.best.metrics.byOpponent['legacy-hard'];
     console.log(
@@ -137,7 +160,7 @@ async function main(): Promise<void> {
     }
   }
 
-  await fs.writeFile(statusPath, `${JSON.stringify({
+  await fs.writeFile(STATUS_PATH, `${JSON.stringify({
     running: false,
     pid: process.pid,
     stoppedAt: new Date().toISOString(),
@@ -149,7 +172,37 @@ async function main(): Promise<void> {
   console.log(`[训练停止] 本地时间 ${localTimestamp()} | 累计 ${totalGames} 局 | 新冠军晋级 ${promotions} 次`);
 }
 
-main().then(() => process.exit(0)).catch(error => {
+async function persistFatalError(error: unknown, source: string): Promise<void> {
+  const failure = error instanceof Error
+    ? { name: error.name, message: error.message, stack: error.stack }
+    : { message: String(error) };
+  await fs.mkdir(OUTPUT_DIRECTORY, { recursive: true });
+  await fs.writeFile(STATUS_PATH, `${JSON.stringify({
+    running: false,
+    failed: true,
+    pid: process.pid,
+    source,
+    failedAt: new Date().toISOString(),
+    localTime: localTimestamp(),
+    error: failure
+  }, null, 2)}\n`, 'utf8');
+}
+
+let handlingFatalError = false;
+function handleFatalError(error: unknown, source: string): void {
+  if (handlingFatalError) return;
+  handlingFatalError = true;
+  persistFatalError(error, source).finally(() => {
+    console.error(`[训练异常停止] ${source}:`, error);
+    process.exit(1);
+  });
+}
+
+process.once('uncaughtException', error => handleFatalError(error, 'uncaughtException'));
+process.once('unhandledRejection', error => handleFatalError(error, 'unhandledRejection'));
+
+main().then(() => process.exit(0)).catch(async error => {
+  await persistFatalError(error, 'main').catch(() => undefined);
   console.error(error);
   process.exit(1);
 });
