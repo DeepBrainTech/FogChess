@@ -25,7 +25,8 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  place-items: center;
+  flex-direction: column;
+  align-items: center; /* Center horizontally */
   min-width: 320px;
   min-height: 100vh;
   background-color: #fef6ec;
@@ -62,7 +63,7 @@ button:focus-visible {
 #app {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0; /* Removed 2rem padding to fix Game view layout issues */
   text-align: center;
 }
 

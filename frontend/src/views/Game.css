@@ -1,12 +1,12 @@
 /* Extracted from Game.vue */
-.game-container { 
-  height: 100vh; 
-  background: #fef6ec; 
-  display: flex; 
-  flex-direction: column; 
-  overflow: hidden;
-  /* 移除父元素的 padding 影响 */
-  margin: -2rem;
+.game-container {
+  min-height: 100vh;
+  background: #fef6ec;
+  display: flex;
+  flex-direction: column;
+  overflow: auto; /* Allow scrolling if content exceeds viewport */
+  /* Removed negative margin workaround - no longer needed */
+  margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
@@ -66,17 +66,17 @@
 .download-button:hover { background: #546e7a; }
 .download-button.secondary { background: #455a64; }
 .download-button.secondary:hover { background: #37474f; }
-.game-content { 
-  flex: 1; 
-  display: flex; 
-  gap: 10px; 
-  padding: 10px; 
-  max-width: 1600px; 
-  margin: 0 auto; 
+.game-content {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  max-width: 1600px;
+  margin: 0 auto;
   width: 100%;
-  min-height: 0; /* 确保 flex 子元素不会超出 */
-  overflow: hidden; /* 禁用滚动 */
-  order: 1; /* 确保内容区域在上方 */
+  min-height: 0; /* Allow flex child to shrink if needed */
+  overflow: visible; /* Allow content to be visible - scrolling handled by parent */
+  order: 1; /* Content area stays on top */
   box-sizing: border-box;
 }
 .chess-container { 
