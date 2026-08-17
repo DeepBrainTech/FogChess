@@ -400,10 +400,9 @@ const onSquareClick = (row: number, col: number) => {
   gap: 0;
   border: 2px solid #7a8a9a;
   box-shadow: 0 4px 8px rgba(156, 168, 184, 0.3);
-  /* 使用更小的固定尺寸或视口单位，确保在各种屏幕下都能完整显示 */
-  /* 缩小10%：从600px到540px，从70vh到63vh，从90vw到81vw */
-  width: min(63vh, 81vw, 540px);
-  height: min(63vh, 81vw, 540px);
+  /* 使用保守的vh值确保在各种屏幕下都能完整显示（包括桌面浏览器） */
+  width: min(55vh, 81vw, 540px);
+  height: min(55vh, 81vw, 540px);
   max-width: 540px;
   max-height: 540px;
   transition: transform 0.6s ease;
@@ -506,11 +505,11 @@ const onSquareClick = (row: number, col: number) => {
   .chess-board {
     padding: 10px; /* 移动端减小 padding */
   }
-  
+
   .board-container {
-    /* 移动端使用更小的尺寸（缩小10%） */
-    width: min(72vh, 85.5vw, 450px);
-    height: min(72vh, 85.5vw, 450px);
+    /* 移动端使用更保守的vh值以确保底部不被截断 */
+    width: min(55vh, 85.5vw, 450px);
+    height: min(55vh, 85.5vw, 450px);
   }
 }
 </style>
