@@ -123,6 +123,11 @@ const dict: Dict = {
   'dialog.cannotUndo.title': { zh: '无法悔棋', en: 'Cannot Undo' },
   'dialog.cannotMove.title': { zh: '无法移动', en: 'Cannot Move' },
   'dialog.notYourTurn': { zh: '不是你的回合', en: 'Not your turn' },
+  'dialog.error.title': { zh: '错误', en: 'Error' },
+  'dialog.spectatorCannotMove': { zh: '观战者无法移动棋子', en: 'Spectators cannot make moves' },
+  'dialog.invalidMove': { zh: '无效的移动', en: 'Invalid move' },
+  'dialog.playerNotFound': { zh: '未找到玩家', en: 'Player not found in room' },
+  'dialog.roomNotFound': { zh: '未找到房间', en: 'Room not found' },
   'dialog.undo.accepted': { zh: '对手同意了悔棋请求', en: 'Opponent accepted the undo request' },
   'dialog.undo.rejected': { zh: '对手拒绝了悔棋请求', en: 'Opponent rejected the undo request' },
 

@@ -397,30 +397,41 @@ export const useGameStore = defineStore('game', () => {
 
   const handleSocketError = (data: any) => {
     console.error('Socket error:', data);
-    if (data && (
-      data.message === 'Invalid move' || 
-      data.message === 'Failed to make move' ||
-      data.message === 'Not your turn'
-    )) {
+
+    const message = String(data.message ?? '');
+    const lowerMsg = message.toLowerCase();
+
+    // Game over errors - use dedicated game-over dialog
+    if (
+      lowerMsg.includes('对局已结束') ||
+      lowerMsg.includes('game has ended') ||
+      lowerMsg.includes('game finished') ||
+      lowerMsg.includes('请开始新游戏') ||
+      lowerMsg.includes('please start a new game')
+    ) {
+      window.dispatchEvent(new CustomEvent('show-game-over', {
+        detail: { message }
+      }));
       return;
     }
-    if (data.message && (
-      data.message.includes('对局已结束') || 
-      data.message.includes('game has ended') ||
-      data.message.includes('game finished') ||
-      data.message.includes('请开始新游戏') ||
-      data.message.includes('please start a new game')
-    )) {
-      window.dispatchEvent(new CustomEvent('show-game-over', {
-        detail: { message: data.message }
+
+    // Undo-specific errors - use undo-error dialog
+    if (
+      lowerMsg.includes('cannot undo') ||
+      lowerMsg.includes('undo attempt') ||
+      lowerMsg.includes('no moves to undo') ||
+      lowerMsg.includes('悔棋')
+    ) {
+      window.dispatchEvent(new CustomEvent('show-undo-error', {
+        detail: { message: translateSocketJoinError(message) }
       }));
-    } else {
-      window.dispatchEvent(
-        new CustomEvent('show-undo-error', {
-          detail: { message: translateSocketJoinError(String(data.message ?? '')) }
-        })
-      );
+      return;
     }
+
+    // All other errors - use generic error dialog with proper categorization
+    window.dispatchEvent(new CustomEvent('show-error', {
+      detail: { message: translateSocketJoinError(message) }
+    }));
   };
 
   // 监听Socket事件
