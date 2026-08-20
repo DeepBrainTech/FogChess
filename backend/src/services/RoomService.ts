@@ -475,12 +475,29 @@ export class RoomService {
 
   /**
    * 获取玩家在房间中的信息
+   * 支持通过 socketId 或 mainUserId 查找，并自动处理重连后的 socketId 更新
    */
-  getPlayerInRoom(roomId: string, socketId: string): Player | undefined {
+  getPlayerInRoom(roomId: string, socketId: string, mainUserId?: number): Player | undefined {
     const room = this.rooms.get(roomId);
     if (!room) return undefined;
-    
-    return room.players.find(p => p.socketId === socketId);
+
+    // 1. 首先尝试通过 socketId 查找（快速路径，适用于正常情况）
+    let player = room.players.find(p => p.socketId === socketId);
+
+    // 2. 如果未找到但提供了 mainUserId，尝试通过 mainUserId 查找（处理重连情况）
+    if (!player && mainUserId) {
+      player = room.players.find(p => p.mainUserId === mainUserId);
+
+      // 3. 如果通过 mainUserId 找到了玩家，说明是重连，更新 socketId
+      if (player && player.socketId !== socketId) {
+        console.log(`[Reconnection] Updating socketId for player ${player.name} (userId: ${mainUserId}) from ${player.socketId} to ${socketId}`);
+        player.socketId = socketId;
+        // 持久化更新
+        this.repository?.saveRoom(room).catch(() => {});
+      }
+    }
+
+    return player;
   }
 
   getSpectatorInRoom(roomId: string, socketId: string): Spectator | undefined {

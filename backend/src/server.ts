@@ -449,7 +449,8 @@ io.on('connection', (socket) => {
   // 执行移动
   socket.on('make-move', (data: SocketEvents['make-move']) => {
     try {
-      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id, sessionUser?.id);
       if (!player) {
         socket.emit('error', { message: 'Spectators cannot make moves' });
         return;
@@ -514,7 +515,8 @@ io.on('connection', (socket) => {
   // 请求悔棋
   socket.on('request-undo', (data: SocketEvents['request-undo']) => {
     try {
-      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id, sessionUser?.id);
       if (!player) {
         socket.emit('error', { message: 'Player not found in room' });
         return;
@@ -548,7 +550,8 @@ io.on('connection', (socket) => {
   // 响应悔棋请求
   socket.on('respond-undo', (data: SocketEvents['respond-undo']) => {
     try {
-      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id, sessionUser?.id);
       if (!player) {
         socket.emit('error', { message: 'Player not found in room' });
         return;
@@ -576,7 +579,8 @@ io.on('connection', (socket) => {
   // 认输
   socket.on('surrender', (data: SocketEvents['surrender']) => {
     try {
-      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id, sessionUser?.id);
       if (!player) {
         socket.emit('error', { message: 'Player not found in room' });
         return;
@@ -612,7 +616,8 @@ io.on('connection', (socket) => {
   // 请求和棋
   socket.on('request-draw', (data: SocketEvents['request-draw']) => {
     try {
-      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id, sessionUser?.id);
       if (!player) {
         socket.emit('error', { message: 'Player not found in room' });
         return;
@@ -633,7 +638,8 @@ io.on('connection', (socket) => {
   // 响应和棋请求
   socket.on('respond-draw', (data: SocketEvents['respond-draw']) => {
     try {
-      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id, sessionUser?.id);
       if (!player) {
         socket.emit('error', { message: 'Player not found in room' });
         return;
@@ -657,7 +663,8 @@ io.on('connection', (socket) => {
   // 发送聊天消息
   socket.on('send-chat', (data: SocketEvents['send-chat']) => {
     try {
-      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id, sessionUser?.id);
       if (!player) {
         socket.emit('error', { message: 'Player not found in room' });
         return;
@@ -689,7 +696,8 @@ io.on('connection', (socket) => {
   // 离开房间
   socket.on('leave-room', (data: SocketEvents['leave-room']) => {
     try {
-      const player = roomService.getPlayerInRoom(data.roomId, socket.id);
+      const sessionUser = (socket as any).data?.user as { id: number; username: string } | undefined;
+      const player = roomService.getPlayerInRoom(data.roomId, socket.id, sessionUser?.id);
       if (player) {
         const result = roomService.leaveRoom(data.roomId, player.id);
         socket.leave(data.roomId);

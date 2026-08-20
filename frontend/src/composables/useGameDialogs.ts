@@ -5,7 +5,7 @@ import { buildPGN } from '../utils/chessExport';
 import { t, displayPlayerName } from '../services/i18n';
 import { parseBoardPartToMatrix, matrixToBoardPart, notationToCoords, isKingCapturedFromBoardPart } from '../utils/fen';
 
-export type DialogType = 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result' | 'game-over';
+export type DialogType = 'undo-request' | 'undo-response' | 'undo-result' | 'undo-error' | 'surrender-confirm' | 'leave-confirm' | 'download-fen' | 'download-pgn' | 'draw-request' | 'draw-response' | 'draw-result' | 'game-over' | 'error';
 
 export function useGameDialogs(params: {
   room: Ref<Room | null>;
@@ -232,24 +232,9 @@ export function useGameDialogs(params: {
   const showUndoErrorDialog = async (message: string) => {
     const { t } = await import('../services/i18n');
     dialogType.value = 'undo-error';
-    if (message && message.toLowerCase().includes('not in playing state')) {
-      dialogTitle.value = t('dialog.notStarted.title');
-      dialogMessage.value = t('dialog.notStarted.message');
-      showDialog.value = true;
-      undoRequestPending.value = false;
-      return;
-    }
-    if (message.includes('game finished') || message.includes('please start new game')) {
-      dialogTitle.value = t('dialog.finished.title');
-    } else if (message.toLowerCase().includes('not your turn')) {
-      // Not your turn
-      dialogTitle.value = t('dialog.cannotMove.title');
-      dialogMessage.value = t('dialog.notYourTurn');
-      showDialog.value = true;
-      undoRequestPending.value = false;
-      return;
-    } else if (message.toLowerCase().includes('cannot undo, please make a move first')) {
-      // Cannot undo, please make a move first
+
+    // Specific undo-related error handling
+    if (message.toLowerCase().includes('cannot undo, please make a move first')) {
       dialogTitle.value = t('dialog.cannotUndo.title');
       dialogMessage.value = t('dialogs.cannotUndo.msg');
       showDialog.value = true;
@@ -258,7 +243,43 @@ export function useGameDialogs(params: {
     } else {
       dialogTitle.value = t('dialog.cannotUndo.title');
     }
+
     dialogMessage.value = message;
+    showDialog.value = true;
+    undoRequestPending.value = false;
+  };
+
+  const showErrorDialog = async (message: string) => {
+    const { t } = await import('../services/i18n');
+    dialogType.value = 'error';
+
+    const lowerMsg = message.toLowerCase();
+
+    // Categorize errors by type and set appropriate title + message
+    if (lowerMsg.includes('spectator') && lowerMsg.includes('cannot')) {
+      dialogTitle.value = t('dialog.cannotMove.title');
+      dialogMessage.value = t('dialog.spectatorCannotMove');
+    } else if (lowerMsg.includes('not your turn')) {
+      dialogTitle.value = t('dialog.cannotMove.title');
+      dialogMessage.value = t('dialog.notYourTurn');
+    } else if (lowerMsg.includes('invalid move')) {
+      dialogTitle.value = t('dialog.cannotMove.title');
+      dialogMessage.value = t('dialog.invalidMove');
+    } else if (lowerMsg.includes('player not found')) {
+      dialogTitle.value = t('dialog.error.title');
+      dialogMessage.value = t('dialog.playerNotFound');
+    } else if (lowerMsg.includes('room not found')) {
+      dialogTitle.value = t('dialog.error.title');
+      dialogMessage.value = t('dialog.roomNotFound');
+    } else if (lowerMsg.includes('not in playing state')) {
+      dialogTitle.value = t('dialog.notStarted.title');
+      dialogMessage.value = t('dialog.notStarted.message');
+    } else {
+      // Generic error
+      dialogTitle.value = t('dialog.error.title');
+      dialogMessage.value = message;
+    }
+
     showDialog.value = true;
     undoRequestPending.value = false;
   };
@@ -308,6 +329,9 @@ export function useGameDialogs(params: {
     });
     window.addEventListener('show-undo-error', (event: any) => {
       showUndoErrorDialog(event.detail.message);
+    });
+    window.addEventListener('show-error', (event: any) => {
+      showErrorDialog(event.detail.message);
     });
     window.addEventListener('show-draw-request', (event: any) => {
       showDrawRequestDialog(event.detail.fromPlayer);
